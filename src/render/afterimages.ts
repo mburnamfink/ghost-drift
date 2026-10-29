@@ -9,6 +9,7 @@ const CAPACITY = 200;
 interface Ghost {
   meshes: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>[];
   life: number;
+  opacity: number;
 }
 
 /**
@@ -20,8 +21,12 @@ export class Afterimages {
   private ghosts: Ghost[] = [];
   private readonly budget = new Map<unknown, number>();
 
-  /** Leaves afterimages of `source` for this frame. Call every frame the emitter should blur. */
-  emit(key: unknown, source: THREE.Object3D, color: number, frameTime: number): void {
+  /**
+   * Leaves afterimages of `source` for this frame. Call every frame the emitter should blur.
+   * `strength` from 0 to 1 scales how bright they start.
+   */
+  emit(key: unknown, source: THREE.Object3D, color: number, frameTime: number, strength = 1): void {
+    const opacity = START_OPACITY * strength;
     let budget = (this.budget.get(key) ?? 0) + RATE * frameTime;
     if (budget >= 1) source.updateMatrixWorld(true);
     for (; budget >= 1 && this.ghosts.length < CAPACITY; budget--) {
@@ -33,7 +38,7 @@ export class Afterimages {
           new THREE.MeshBasicMaterial({
             color,
             transparent: true,
-            opacity: START_OPACITY,
+            opacity,
             depthWrite: false,
             blending: THREE.AdditiveBlending,
           }),
@@ -43,7 +48,7 @@ export class Afterimages {
         meshes.push(ghost);
         this.group.add(ghost);
       });
-      this.ghosts.push({ meshes, life: LIFE });
+      this.ghosts.push({ meshes, life: LIFE, opacity });
     }
     this.budget.set(key, Math.min(budget, 1));
   }
@@ -59,7 +64,7 @@ export class Afterimages {
       const alive = g.life > 0;
       for (const m of g.meshes) {
         if (alive) {
-          m.material.opacity = START_OPACITY * (g.life / LIFE);
+          m.material.opacity = g.opacity * (g.life / LIFE);
         } else {
           this.group.remove(m);
           m.material.dispose();

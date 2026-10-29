@@ -37,8 +37,11 @@ const SHIP_BANK = {
   /** How quickly the roll follows the turn; higher is snappier. */
   response: 10,
 };
-/** Fraction of top speed above which the Ship leaves afterimages. */
-const SHIP_BLUR_SPEED = 0.92;
+/**
+ * The Ship leaves afterimages above `from` of top speed, faint at first and full strength at top
+ * speed. Below the ~65% a full-lock turn at full thrust holds, so hard cornering still trails.
+ */
+const SHIP_BLUR = { from: 0.5, minStrength: 0.35 };
 const SPARK = {
   /** Sparks per second at top speed. */
   rate: 140,
@@ -231,14 +234,12 @@ export class GameRenderer {
     this.ship.material.emissive.setHex(bursting ? PALETTE.shipBurst : PALETTE.ship);
     root.scale.set(bursting ? 1.6 : 1, bursting ? 0.7 : 1, bursting ? 0.7 : 1);
     if (ship.sliding && !world.over) this.emitSparks(world, frameTime);
-    const flatOut = speedOf(ship) >= SHIP_TOP_SPEED * SHIP_BLUR_SPEED;
-    if (root.visible && (bursting || flatOut)) {
-      this.afterimages.emit(
-        this.ship,
-        root,
-        bursting ? PALETTE.shipBurst : PALETTE.ship,
-        frameTime,
-      );
+    const speedFraction = speedOf(ship) / SHIP_TOP_SPEED;
+    if (root.visible && (bursting || speedFraction >= SHIP_BLUR.from)) {
+      const ramp = clamp((speedFraction - SHIP_BLUR.from) / (1 - SHIP_BLUR.from), 0, 1);
+      const strength = bursting ? 1 : SHIP_BLUR.minStrength + (1 - SHIP_BLUR.minStrength) * ramp;
+      const color = bursting ? PALETTE.shipBurst : PALETTE.ship;
+      this.afterimages.emit(this.ship, root, color, frameTime, strength);
     } else {
       this.afterimages.stop(this.ship);
     }
