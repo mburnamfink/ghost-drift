@@ -6,7 +6,7 @@ Battlezone meets Wipeout. Terms are defined in [CONTEXT.md](../CONTEXT.md); arch
 
 Arcade tone. You are the Ghost: a lone pilot in an experimental hovertank, the last defender of the city of Arcadia against an invading army. Nobody can confirm the Ghost exists, because nothing can track it. The legend grows with every kill, and a Run ends when the Ghost goes down. Inspired by the folk legend of a lone ace; the city and the army are fictional.
 
-On-screen copy carries the premise: the tagline _"They say one pilot is holding Arcadia alone."_, Wave banners (_HOLD ARCADIA_, _THEY'RE STILL COMING_, _HEAVY METAL INBOUND_), the Multiplier shown as _GHOST ×N_, demo mode badged _UNCONFIRMED FOOTAGE_, and a legend rank on game over by score: Rumour (0), Sighting (20k), The Ghost (100k), Legend (300k), Myth (1M).
+On-screen copy carries the premise, all of it in `src/ui/copy.ts`. The title screen rotates five legends (_"One pilot. One city. No backup."_ and others) over a live scene of the Ship weaving through Tank shells and a Sniper's laser down a building-walled avenue. Game over shows one of six messages (_THE GHOST GOES DOWN_, _TOO SLOW_, _SECTOR LOST_…) in the title's angular lettering. Also: Wave banners (_HOLD ARCADIA_, _THEY'RE STILL COMING_, _HEAVY METAL INBOUND_), the Multiplier shown as _GHOST ×N_, demo mode badged _UNCONFIRMED FOOTAGE_, and a legend rank on game over by score: Rumour (0), Sighting (20k), The Ghost (100k), Legend (300k), Myth (1M).
 
 ## Pillars
 
@@ -77,15 +77,16 @@ From Wave 3, three standing Blocks Sink and are replaced each Wave, so routes ke
 
 ## Controls
 
-| Action            | Xbox controller | Keyboard       |
-| ----------------- | --------------- | -------------- |
-| Steer             | Left stick      | A / D or ← / → |
-| Thrust            | RT              | W or ↑         |
-| Powerslide (hold) | LT              | Shift          |
-| Fire (hold)       | RB or X         | Space          |
-| Burst             | A or LB         | E              |
-| Switch gun        | Y               | Q              |
-| Start / pause     | Menu (Start)    | Enter / Esc    |
+| Action             | Xbox controller | Keyboard       |
+| ------------------ | --------------- | -------------- |
+| Steer              | Left stick      | A / D or ← / → |
+| Thrust             | RT              | W or ↑         |
+| Powerslide (hold)  | LT              | Shift          |
+| Fire (hold)        | RB or X         | Space          |
+| Burst              | A or LB         | E              |
+| Switch gun         | Y               | Q              |
+| Start / pause      | Menu (Start)    | Enter / Esc    |
+| Main menu (paused) | B               | Backspace      |
 
 The browser only exposes a controller after a button is pressed with the page focused.
 
