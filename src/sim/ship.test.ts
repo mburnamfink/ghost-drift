@@ -31,6 +31,14 @@ describe('Ship handling', () => {
     expect(Math.abs(travel - ship.heading)).toBeLessThan(0.05);
   });
 
+  it('keeps most of its speed through a full-lock turn', () => {
+    const ship = centre();
+    run(ship, { thrust: 1 }, 3);
+    run(ship, { thrust: 1, steer: 1 }, 3);
+    expect(speedOf(ship)).toBeGreaterThan(SHIP_TOP_SPEED * 0.85);
+    expect(speedOf(ship)).toBeLessThanOrEqual(SHIP_TOP_SPEED + 1e-6);
+  });
+
   it('keeps travelling in a straight line while Powersliding, whatever the heading does', () => {
     const ship = centre();
     run(ship, { thrust: 1 }, 2);

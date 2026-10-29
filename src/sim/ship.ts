@@ -77,7 +77,13 @@ export function stepShip(
   } else {
     let along = dot(ship.vel, forward) + controls.thrust * cfg.thrust * dt;
     let side = dot(ship.vel, right);
+    const before = Math.hypot(along, side);
     side *= Math.exp(-cfg.grip * dt);
+    if (along > 0) {
+      // Grip turns most of the sideways momentum forward instead of scrubbing it, so turns keep speed.
+      const kept = Math.hypot(along, side) + (before - Math.hypot(along, side)) * cfg.carve;
+      along = Math.sqrt(Math.max(0, kept * kept - side * side));
+    }
     const drag = Math.exp(-cfg.drag * dt);
     along *= drag;
     side *= drag;

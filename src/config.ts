@@ -50,6 +50,8 @@ export const CONFIG = {
     turnRate: 2.6,
     /** Rate at which sideways velocity is bled off; high values feel planted. */
     grip: 7,
+    /** Fraction of the speed grip would scrub in a turn that is turned forward instead, 0 to 1. */
+    carve: 0.8,
     slideTurnRate: 4.2,
     /** Speed decay rate while Powersliding. The direction of travel is locked, so this is the only cost. */
     slideDrag: 0.4,
