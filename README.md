@@ -17,12 +17,14 @@ Add `?seed=1234` to the URL to replay the same Arena and Hunter behavior every R
 
 ## Scripts
 
-| Script           | Does                           |
-| ---------------- | ------------------------------ |
-| `npm run dev`    | Dev server with hot reload     |
-| `npm run build`  | Typecheck and build to `dist/` |
-| `npm run check`  | Typecheck, lint and unit tests |
-| `npm run format` | Format with Prettier           |
+| Script           | Does                                             |
+| ---------------- | ------------------------------------------------ |
+| `npm run dev`    | Dev server with hot reload                       |
+| `npm run build`  | Typecheck and build to `dist/`                   |
+| `npm run check`  | Typecheck, lint, formatting check and unit tests |
+| `npm run format` | Format with Prettier                             |
+
+Formatting is Prettier's job, never by hand. A pre-commit hook formats and lints staged files (installed by `npm install`), CI fails on unformatted code, and `.vscode/` turns on format-on-save. Wrap hand-aligned data, such as a lookup table, in `// prettier-ignore`.
 
 ## Layout
 
