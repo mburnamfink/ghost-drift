@@ -8,7 +8,7 @@ import type { Hunter, HuntContext, HunterAction, HunterKind } from './types';
 export { createArtillery } from './artillery';
 export { createBerserker, endLunge } from './berserker';
 export { createSniper } from './sniper';
-export { createTank } from './tank';
+export { createTank, tankHasShot } from './tank';
 export type * from './types';
 
 export function stepHunter(h: Hunter, ctx: HuntContext, dt: number): HunterAction | null {

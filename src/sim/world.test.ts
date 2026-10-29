@@ -24,13 +24,21 @@ describe('Waves', () => {
     const world = createWorld(1, openArena());
     runUntil(world, (w) => w.wave === 1);
     expect(world.hunters).toHaveLength(waveTotal(waveMix(1)));
+    // Pack members spread a few cells around a pack spawn point that respects the minimum.
+    const packSpread = (CONFIG.tank.packSpawnSpread + 1) * CONFIG.arena.cellSize * Math.SQRT2;
     for (const h of world.hunters) {
       expect(
         Math.hypot(h.pos.x - world.ship.pos.x, h.pos.y - world.ship.pos.y),
-      ).toBeGreaterThanOrEqual(CONFIG.waves.minSpawnDistance);
+      ).toBeGreaterThanOrEqual(CONFIG.waves.minSpawnDistance - packSpread);
     }
-    expect((world.hunters as Tank[]).some((h) => h.role === 'cutter')).toBe(true);
-    expect((world.hunters as Tank[]).some((h) => h.role === 'chaser')).toBe(true);
+  });
+
+  it('sends both Chasing and Cutting packs once a Wave has several packs', () => {
+    const world = createWorld(1, openArena(), 6);
+    runUntil(world, (w) => w.wave === 6);
+    const tanks = world.hunters.filter((h): h is Tank => h.kind === 'tank');
+    expect(tanks.some((h) => h.role === 'cutter')).toBe(true);
+    expect(tanks.some((h) => h.role === 'chaser')).toBe(true);
   });
 
   it('restores Charges on clearing a Wave and then sends a larger one', () => {
@@ -53,8 +61,8 @@ describe('Combat', () => {
     world.lull = 0;
     const { x, y } = world.ship.pos;
     world.ship.heading = 0;
-    world.hunters.push(createTank(99, 'chaser', { x: x + 20, y }, new Rng(1)));
-    world.hunters[0]!.fireCooldown = 99;
+    world.hunters.push(createTank(99, { x: x + 20, y }, new Rng(1)));
+    world.volley.timer = 99;
     runUntil(world, (w) => w.hunters.length === 0, 1, { ...NO_CONTROLS, fire: true });
     expect(world.hunters).toHaveLength(0);
     expect(world.score).toBe(CONFIG.waves.killScore);

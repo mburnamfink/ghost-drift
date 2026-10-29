@@ -7,6 +7,7 @@ import {
   type Hunter,
   type HunterAction,
   type HunterKind,
+  type Tank,
   createArtillery,
   createBerserker,
   createSniper,
@@ -20,12 +21,22 @@ import { type Ship, canBeHit, createShip, isBursting, stepShip } from './ship';
 import { type Shot, createShot, stepShots } from './shots';
 import { type CityPlan, type TerrainChange, generateCity, planChange } from './city';
 import { Terrain } from './terrain';
-import { spawnPoints, tankSpeed, waveMix, waveTotal } from './waves';
+import { packPositions, packSizes, spawnPoints, tankSpeed, waveMix } from './waves';
+import { type Volley, advanceVolley, createVolley } from './volley';
 
 /** Things that happened during a step, for presentation layers to react to. Never read by the sim. */
 export type SimEvent =
   | { type: 'boltFired'; pos: Vec2 }
-  | { type: 'hunterDestroyed'; pos: Vec2; kind: HunterKind }
+  | {
+      type: 'hunterDestroyed';
+      pos: Vec2;
+      kind: HunterKind;
+      points: number;
+      slideMultiplier: number;
+    }
+  | { type: 'volleyFired' }
+  | { type: 'chainBlast'; pos: Vec2 }
+  | { type: 'slideComboEnded'; kills: number; points: number }
   | { type: 'sniperFired'; from: Vec2; to: Vec2 }
   | { type: 'salvoFired'; from: Vec2 }
   | { type: 'impact'; pos: Vec2 }
@@ -46,6 +57,18 @@ export interface Impact {
   flight: number;
 }
 
+/** A destroyed Tank about to blow up. */
+export interface ChainBlast {
+  pos: Vec2;
+  time: number;
+}
+
+/** Kills made during the current Powerslide, which multiply each other's score. */
+export interface SlideCombo {
+  kills: number;
+  points: number;
+}
+
 export interface World {
   readonly seed: number;
   readonly rng: Rng;
@@ -59,6 +82,9 @@ export interface World {
   bolts: Shot[];
   shells: Shot[];
   impacts: Impact[];
+  blasts: ChainBlast[];
+  volley: Volley;
+  slideCombo: SlideCombo;
   /** Current Wave number; 0 before the first. */
   wave: number;
   /** Seconds until the next Wave spawns; 0 while a Wave is live. */
@@ -102,6 +128,9 @@ export function createWorld(seed: number, terrain?: Terrain, firstWave = 1): Wor
     bolts: [],
     shells: [],
     impacts: [],
+    blasts: [],
+    volley: createVolley(rng),
+    slideCombo: { kills: 0, points: 0 },
     wave: firstWave - 1,
     lull: 1.5,
     score: 0,
@@ -124,12 +153,15 @@ export function stepWorld(world: World, controls: Controls, dt: number): void {
   if (shipStep.burstStarted)
     world.events.push({ type: 'burstStarted', pos: { ...world.ship.pos } });
   if (shipStep.fired !== null) fireBolt(world, shipStep.fired);
+  endSlideCombo(world);
 
   refreshFlowFields(world, dt);
   stepHunters(world, dt);
+  stepVolley(world, dt);
   stepShots(world.bolts, world.terrain, dt);
   stepShots(world.shells, world.terrain, dt);
   stepImpacts(world, dt);
+  stepBlasts(world, dt);
   resolveBoltHits(world);
   resolveShipContacts(world);
   advanceWaves(world, dt);
@@ -174,20 +206,26 @@ function stepHunters(world: World, dt: number): void {
   }
 }
 
+function stepVolley(world: World, dt: number): void {
+  const tanks = world.hunters.filter((h): h is Tank => h.kind === 'tank');
+  const firing = advanceVolley(world.volley, tanks, world.ship, world.terrain, dt, world.rng);
+  for (const t of firing) {
+    const angle = Math.atan2(world.ship.pos.y - t.pos.y, world.ship.pos.x - t.pos.x);
+    const muzzle = fromAngle(angle, CONFIG.tank.radius + 0.6);
+    world.shells.push(
+      createShot(
+        { x: t.pos.x + muzzle.x, y: t.pos.y + muzzle.y },
+        angle,
+        CONFIG.shell.speed,
+        CONFIG.shell.life,
+      ),
+    );
+  }
+  if (firing.length > 0) world.events.push({ type: 'volleyFired' });
+}
+
 function performAction(world: World, h: Hunter, action: HunterAction): void {
   switch (action.type) {
-    case 'shell': {
-      const muzzle = fromAngle(action.angle, CONFIG.tank.radius + 0.6);
-      world.shells.push(
-        createShot(
-          { x: h.pos.x + muzzle.x, y: h.pos.y + muzzle.y },
-          action.angle,
-          CONFIG.shell.speed,
-          CONFIG.shell.life,
-        ),
-      );
-      break;
-    }
     case 'snipe':
       resolveSnipe(world, h.pos, action.dir);
       break;
@@ -253,14 +291,61 @@ function resolveBoltHits(world: World): void {
   }
 }
 
-/** Removes a Hunter and credits the player, whatever destroyed it. */
+/**
+ * Removes a Hunter and credits the player, whatever destroyed it. Kills during a Powerslide
+ * multiply by their place in the slide's combo. A Tank leaves a Chain Blast behind.
+ */
 function destroyHunter(world: World, index: number): void {
   const [dead] = world.hunters.splice(index, 1);
   if (!dead) return;
-  world.score += Math.round(
-    CONFIG.waves.killScore * hunterScoreMultiplier(dead.kind) * Math.max(1, world.wave),
+  const combo = world.slideCombo;
+  let slideMultiplier = 1;
+  if (world.ship.sliding) {
+    combo.kills++;
+    slideMultiplier = Math.min(CONFIG.slideCombo.maxMultiplier, combo.kills);
+  }
+  const points = Math.round(
+    CONFIG.waves.killScore *
+      hunterScoreMultiplier(dead.kind) *
+      Math.max(1, world.wave) *
+      slideMultiplier,
   );
-  world.events.push({ type: 'hunterDestroyed', pos: { ...dead.pos }, kind: dead.kind });
+  world.score += points;
+  if (world.ship.sliding) combo.points += points;
+  world.events.push({
+    type: 'hunterDestroyed',
+    pos: { ...dead.pos },
+    kind: dead.kind,
+    points,
+    slideMultiplier,
+  });
+  if (dead.kind === 'tank') world.blasts.push({ pos: { ...dead.pos }, time: CONFIG.chain.delay });
+}
+
+/** Detonates Chain Blasts, which can destroy more Tanks and so set off more blasts. */
+function stepBlasts(world: World, dt: number): void {
+  const due: ChainBlast[] = [];
+  world.blasts = world.blasts.filter((b) => {
+    b.time -= dt;
+    if (b.time > 0) return true;
+    due.push(b);
+    return false;
+  });
+  for (const b of due) {
+    world.events.push({ type: 'chainBlast', pos: b.pos });
+    for (let j = world.hunters.length - 1; j >= 0; j--) {
+      const h = world.hunters[j]!;
+      if (distance(h.pos, b.pos) < CONFIG.chain.radius + hunterRadius(h.kind))
+        destroyHunter(world, j);
+    }
+  }
+}
+
+function endSlideCombo(world: World): void {
+  const combo = world.slideCombo;
+  if (world.ship.sliding || combo.kills === 0) return;
+  world.events.push({ type: 'slideComboEnded', kills: combo.kills, points: combo.points });
+  world.slideCombo = { kills: 0, points: 0 };
 }
 
 /** Shells and Hunter bodies hurt the Ship; Hunter bodies also physically block it unless bursting. */
@@ -353,22 +438,26 @@ function startWave(world: World): void {
   world.wave++;
   const mix = waveMix(world.wave);
   const { terrain, rng } = world;
-  const points = spawnPoints(terrain, world.ship.pos, waveTotal(mix), rng);
   const specials = mix.snipers + mix.artillery + mix.berserkers;
-  points.forEach((p, i) => {
+  const packs = packSizes(mix.tanks, rng);
+  const points = spawnPoints(terrain, world.ship.pos, specials + packs.length, rng);
+  points.slice(0, specials).forEach((p, i) => {
     const id = world.nextId++;
-    if (i < mix.snipers) {
-      world.hunters.push(createSniper(id, p, terrain, rng));
-    } else if (i < mix.snipers + mix.artillery) {
+    if (i < mix.snipers) world.hunters.push(createSniper(id, p, terrain, rng));
+    else if (i < mix.snipers + mix.artillery)
       world.hunters.push(createArtillery(id, p, terrain, rng));
-    } else if (i < specials) {
-      world.hunters.push(createBerserker(id, p, rng));
-    } else {
-      // Interleave roles so every Wave has both Chasers and Cutters.
-      const t = i - specials;
-      const f = CONFIG.tank.cutterFraction;
-      const role = Math.floor((t + 1) * f) > Math.floor(t * f) ? 'cutter' : 'chaser';
-      world.hunters.push(createTank(id, role, p, rng));
+    else world.hunters.push(createBerserker(id, p, rng));
+  });
+  points.slice(specials).forEach((centre, k) => {
+    // Interleave roles so every Wave has both Chasing and Cutting packs.
+    const f = CONFIG.tank.cutterFraction;
+    const pack = {
+      id: world.nextId++,
+      role: Math.floor((k + 1) * f) > Math.floor(k * f) ? ('cutter' as const) : ('chaser' as const),
+      orbitDir: rng.next() < 0.5 ? (1 as const) : (-1 as const),
+    };
+    for (const p of packPositions(terrain, centre, packs[k]!, rng)) {
+      world.hunters.push(createTank(world.nextId++, p, rng, pack));
     }
   });
   world.fieldTimer = 0;
