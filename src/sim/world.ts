@@ -1,25 +1,48 @@
 import { CONFIG } from '../config';
 import { Rng } from '../core/rng';
-import { type Vec2, clamp, fromAngle } from '../core/vec2';
+import { type Vec2, clamp, distance, fromAngle } from '../core/vec2';
 import type { Controls } from './controls';
 import { FlowField } from './flowfield';
-import { type Hunter, createHunter, stepHunter } from './hunter';
+import {
+  type Hunter,
+  type HunterAction,
+  type HunterKind,
+  createArtillery,
+  createSniper,
+  createTank,
+  hunterRadius,
+  hunterScoreMultiplier,
+  stepHunter,
+} from './hunters';
 import { type Ship, canBeHit, createShip, isBursting, stepShip } from './ship';
 import { type Shot, createShot, stepShots } from './shots';
 import { type CityPlan, type TerrainChange, generateCity, planChange } from './city';
 import { Terrain } from './terrain';
-import { hunterSpeed, spawnPoints, waveSize } from './waves';
+import { spawnPoints, tankSpeed, waveMix } from './waves';
 
 /** Things that happened during a step, for presentation layers to react to. Never read by the sim. */
 export type SimEvent =
   | { type: 'boltFired'; pos: Vec2 }
-  | { type: 'hunterDestroyed'; pos: Vec2 }
+  | { type: 'hunterDestroyed'; pos: Vec2; kind: HunterKind }
+  | { type: 'sniperFired'; from: Vec2; to: Vec2 }
+  | { type: 'salvoFired'; from: Vec2 }
+  | { type: 'impact'; pos: Vec2 }
   | { type: 'shipHit'; pos: Vec2 }
   | { type: 'shipDestroyed'; pos: Vec2 }
   | { type: 'burstStarted'; pos: Vec2 }
   | { type: 'waveStarted'; wave: number }
   | { type: 'waveCleared'; wave: number }
   | { type: 'terrainChanged'; change: TerrainChange };
+
+/** An Artillery shell in flight. Its arc is presentation only; the sim knows when and where it lands. */
+export interface Impact {
+  from: Vec2;
+  pos: Vec2;
+  /** Seconds until it lands. */
+  time: number;
+  /** Total flight time, for drawing the arc and the closing warning circle. */
+  flight: number;
+}
 
 export interface World {
   readonly seed: number;
@@ -33,6 +56,7 @@ export interface World {
   hunters: Hunter[];
   bolts: Shot[];
   shells: Shot[];
+  impacts: Impact[];
   /** Current Wave number; 0 before the first. */
   wave: number;
   /** Seconds until the next Wave spawns; 0 while a Wave is live. */
@@ -65,6 +89,7 @@ export function createWorld(seed: number, terrain?: Terrain): World {
     hunters: [],
     bolts: [],
     shells: [],
+    impacts: [],
     wave: 0,
     lull: 1.5,
     score: 0,
@@ -92,6 +117,7 @@ export function stepWorld(world: World, controls: Controls, dt: number): void {
   stepHunters(world, dt);
   stepShots(world.bolts, world.terrain, dt);
   stepShots(world.shells, world.terrain, dt);
+  stepImpacts(world, dt);
   resolveBoltHits(world);
   resolveShipContacts(world);
   advanceWaves(world, dt);
@@ -107,9 +133,9 @@ function fireBolt(world: World, angle: number): void {
 function refreshFlowFields(world: World, dt: number): void {
   world.fieldTimer -= dt;
   if (world.fieldTimer > 0 || world.hunters.length === 0) return;
-  world.fieldTimer = CONFIG.hunter.flowFieldRefresh;
+  world.fieldTimer = CONFIG.hunters.flowFieldRefresh;
   const { ship, terrain } = world;
-  const lead = CONFIG.hunter.cutterLead;
+  const lead = CONFIG.tank.cutterLead;
   const margin = terrain.cellSize;
   world.cutTarget = {
     x: clamp(ship.pos.x + ship.vel.x * lead, margin, terrain.worldSize - margin),
@@ -122,42 +148,107 @@ function refreshFlowFields(world: World, dt: number): void {
 function stepHunters(world: World, dt: number): void {
   const ctx = {
     terrain: world.terrain,
-    shipPos: world.ship.pos,
+    ship: world.ship,
     chaseField: world.chaseField,
     cutField: world.cutField,
     cutTarget: world.cutTarget,
     hunters: world.hunters,
-    speed: hunterSpeed(world.wave),
+    tankSpeed: tankSpeed(world.wave),
     rng: world.rng,
   };
   for (const h of world.hunters) {
-    const shot = stepHunter(h, ctx, dt);
-    if (shot === null) continue;
-    const muzzle = fromAngle(shot, CONFIG.hunter.radius + 0.6);
-    world.shells.push(
-      createShot(
-        { x: h.pos.x + muzzle.x, y: h.pos.y + muzzle.y },
-        shot,
-        CONFIG.shell.speed,
-        CONFIG.shell.life,
-      ),
-    );
+    const action = stepHunter(h, ctx, dt);
+    if (action) performAction(world, h, action);
+  }
+}
+
+function performAction(world: World, h: Hunter, action: HunterAction): void {
+  switch (action.type) {
+    case 'shell': {
+      const muzzle = fromAngle(action.angle, CONFIG.tank.radius + 0.6);
+      world.shells.push(
+        createShot(
+          { x: h.pos.x + muzzle.x, y: h.pos.y + muzzle.y },
+          action.angle,
+          CONFIG.shell.speed,
+          CONFIG.shell.life,
+        ),
+      );
+      break;
+    }
+    case 'snipe':
+      resolveSnipe(world, h.pos, action.dir);
+      break;
+    case 'salvo': {
+      const cfg = CONFIG.artillery;
+      action.targets.forEach((pos, i) => {
+        const flight = cfg.flightTime + i * cfg.salvoStagger;
+        world.impacts.push({ from: { ...h.pos }, pos, time: flight, flight });
+      });
+      world.events.push({ type: 'salvoFired', from: { ...h.pos } });
+      break;
+    }
+  }
+}
+
+/** A sniper shot is instant: it travels until it meets terrain and hits the Ship if it crosses it. */
+function resolveSnipe(world: World, from: Vec2, dir: Vec2): void {
+  const { ship, terrain } = world;
+  const range = terrain.castRay(from, dir, CONFIG.sniper.maxRange * 1.5);
+  const rx = ship.pos.x - from.x;
+  const ry = ship.pos.y - from.y;
+  const along = rx * dir.x + ry * dir.y;
+  const across = Math.abs(rx * dir.y - ry * dir.x);
+  const crosses =
+    along > 0 && along < range && across < CONFIG.ship.radius + CONFIG.sniper.shotWidth;
+  if (crosses && canBeHit(ship)) damageShip(world);
+  world.events.push({
+    type: 'sniperFired',
+    from: { ...from },
+    to: { x: from.x + dir.x * range, y: from.y + dir.y * range },
+  });
+}
+
+/** Lands Artillery shells. Blasts hit the Ship and every Hunter in range, including the Artillery. */
+function stepImpacts(world: World, dt: number): void {
+  const blast = CONFIG.artillery.blastRadius;
+  for (let i = world.impacts.length - 1; i >= 0; i--) {
+    const impact = world.impacts[i]!;
+    impact.time -= dt;
+    if (impact.time > 0) continue;
+    world.impacts.splice(i, 1);
+    world.events.push({ type: 'impact', pos: impact.pos });
+    const { ship } = world;
+    if (distance(ship.pos, impact.pos) < blast + CONFIG.ship.radius && canBeHit(ship)) {
+      damageShip(world);
+    }
+    for (let j = world.hunters.length - 1; j >= 0; j--) {
+      const h = world.hunters[j]!;
+      if (distance(h.pos, impact.pos) < blast + hunterRadius(h.kind)) destroyHunter(world, j);
+    }
   }
 }
 
 function resolveBoltHits(world: World): void {
-  const reach = CONFIG.hunter.radius + CONFIG.bolt.radius;
   for (let b = world.bolts.length - 1; b >= 0; b--) {
     const bolt = world.bolts[b]!;
     const i = world.hunters.findIndex(
-      (h) => Math.hypot(h.pos.x - bolt.pos.x, h.pos.y - bolt.pos.y) < reach,
+      (h) => distance(h.pos, bolt.pos) < hunterRadius(h.kind) + CONFIG.bolt.radius,
     );
     if (i < 0) continue;
-    const [dead] = world.hunters.splice(i, 1);
     world.bolts.splice(b, 1);
-    world.score += CONFIG.waves.killScore * world.wave;
-    world.events.push({ type: 'hunterDestroyed', pos: { ...dead!.pos } });
+    destroyHunter(world, i);
   }
+}
+
+/** Removes a Hunter and credits the player, whatever destroyed it. */
+function destroyHunter(world: World, index: number): void {
+  const [dead] = world.hunters.splice(index, 1);
+  if (!dead) return;
+  world.score += Math.round(
+    CONFIG.waves.killScore * hunterScoreMultiplier(dead.kind) * Math.max(1, world.wave),
+  );
+  world.events.push({ type: 'hunterDestroyed', pos: { ...dead.pos }, kind: dead.kind });
 }
 
 /** Shells and Hunter bodies hurt the Ship; Hunter bodies also physically block it unless bursting. */
@@ -173,8 +264,8 @@ function resolveShipContacts(world: World): void {
   }
 
   if (isBursting(ship)) return;
-  const bodyReach = CONFIG.ship.radius + CONFIG.hunter.radius;
   for (const h of world.hunters) {
+    const bodyReach = CONFIG.ship.radius + hunterRadius(h.kind);
     const dx = ship.pos.x - h.pos.x;
     const dy = ship.pos.y - h.pos.y;
     const d = Math.hypot(dx, dy);
@@ -247,13 +338,22 @@ function applyPendingChange(world: World): void {
 function startWave(world: World): void {
   applyPendingChange(world);
   world.wave++;
-  const count = waveSize(world.wave);
-  const points = spawnPoints(world.terrain, world.ship.pos, count, world.rng);
+  const mix = waveMix(world.wave);
+  const { terrain, rng } = world;
+  const points = spawnPoints(terrain, world.ship.pos, mix.tanks + mix.snipers + mix.artillery, rng);
   points.forEach((p, i) => {
-    // Interleave roles so every Wave has both Chasers and Cutters.
-    const f = CONFIG.hunter.cutterFraction;
-    const role = Math.floor((i + 1) * f) > Math.floor(i * f) ? 'cutter' : 'chaser';
-    world.hunters.push(createHunter(world.nextId++, role, p, world.rng));
+    const id = world.nextId++;
+    if (i < mix.snipers) {
+      world.hunters.push(createSniper(id, p, terrain, rng));
+    } else if (i < mix.snipers + mix.artillery) {
+      world.hunters.push(createArtillery(id, p, terrain, rng));
+    } else {
+      // Interleave roles so every Wave has both Chasers and Cutters.
+      const t = i - mix.snipers - mix.artillery;
+      const f = CONFIG.tank.cutterFraction;
+      const role = Math.floor((t + 1) * f) > Math.floor(t * f) ? 'cutter' : 'chaser';
+      world.hunters.push(createTank(id, role, p, rng));
+    }
   });
   world.fieldTimer = 0;
   world.events.push({ type: 'waveStarted', wave: world.wave });

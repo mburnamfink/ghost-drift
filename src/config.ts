@@ -65,15 +65,21 @@ export const CONFIG = {
     life: 0.9,
     radius: 0.35,
   },
-  hunter: {
-    radius: 1.7,
-    baseSpeed: 15,
-    speedPerWave: 0.6,
-    maxSpeed: 24,
+  /** Behaviour shared by every Hunter type. */
+  hunters: {
     accel: 30,
     turnRate: 3,
     /** Hunters closer than this push apart, which spreads them into a net. */
     separation: 6,
+    /** Hunters steer straight at a target they can see within this range, else follow a flow field. */
+    directSteerRange: 40,
+    flowFieldRefresh: 0.2,
+  },
+  tank: {
+    radius: 1.7,
+    baseSpeed: 15,
+    speedPerWave: 0.6,
+    maxSpeed: 24,
     fireRange: 70,
     fireInterval: 2.2,
     /** Seconds ahead of the Ship that Cutters aim to arrive. */
@@ -81,7 +87,47 @@ export const CONFIG = {
     /** Within this distance a Cutter stops predicting and chases. */
     cutterCommitDistance: 14,
     cutterFraction: 0.4,
-    flowFieldRefresh: 0.2,
+    scoreMultiplier: 1,
+  },
+  sniper: {
+    radius: 1.4,
+    speed: 12,
+    /** Perches are chosen near this distance from the Ship. */
+    idealRange: 85,
+    /** A Ship closer than this sends the Sniper to a new Perch. */
+    fleeDistance: 30,
+    maxRange: 140,
+    /** Seconds the laser tracks the Ship's projected path before locking. */
+    chargeTime: 1.2,
+    /** Seconds between the lock and the shot; the lead is exactly this far ahead of the Ship. Long
+     * enough to see the lock, react (~0.25 s) and still turn clear. */
+    lockTime: 0.6,
+    cooldown: 3.5,
+    /** Extra width beyond the Ship's radius that the shot still hits. */
+    shotWidth: 0.4,
+    perchCandidates: 40,
+    repickInterval: 8,
+    scoreMultiplier: 2.5,
+  },
+  artillery: {
+    radius: 2,
+    speed: 9,
+    idealRange: 105,
+    fleeDistance: 45,
+    maxRange: 170,
+    /** Seconds from launch to impact for the first shell of a Salvo. */
+    flightTime: 1.8,
+    /** Each shell lands where the Ship will be this many seconds after launch, if it holds course. */
+    salvoLeads: [0, 0.7, 1.4],
+    /** Extra flight time for each later shell, so impacts ripple along the predicted path. */
+    salvoStagger: 0.15,
+    blastRadius: 8,
+    /** Fires only at a Ship with no Block within this many cells: tall Blocks block the arc. */
+    openSkyCells: 2,
+    cooldown: 5,
+    perchCandidates: 40,
+    repickInterval: 10,
+    scoreMultiplier: 3,
   },
   shell: {
     speed: 32,
@@ -95,7 +141,12 @@ export const CONFIG = {
     /** Long enough to read which Blocks are about to Rise or Sink. */
     lull: 3,
     minSpawnDistance: 70,
+    /** Score for a Tank; other types multiply it, and every kill is multiplied by the Wave number. */
     killScore: 100,
+    sniperFromWave: 3,
+    maxSnipers: 4,
+    artilleryFromWave: 5,
+    maxArtillery: 3,
   },
 } as const;
 

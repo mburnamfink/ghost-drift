@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { CONFIG } from '../config';
 import { NO_CONTROLS } from './controls';
-import { createHunter } from './hunter';
+import { type Tank, createTank } from './hunters';
 import { Rng } from '../core/rng';
 import { terrainFromRows } from './terrain';
 import { createWorld, stepWorld, type World } from './world';
-import { waveSize } from './waves';
+import { waveMix } from './waves';
 
 const DT = 1 / CONFIG.sim.stepHz;
 const openArena = () => terrainFromRows(Array.from({ length: 64 }, () => '.'.repeat(64)));
@@ -23,14 +23,14 @@ describe('Waves', () => {
   it('spawns the first Wave after the opening lull, away from the Ship', () => {
     const world = createWorld(1, openArena());
     runUntil(world, (w) => w.wave === 1);
-    expect(world.hunters).toHaveLength(waveSize(1));
+    expect(world.hunters).toHaveLength(waveMix(1).tanks);
     for (const h of world.hunters) {
       expect(
         Math.hypot(h.pos.x - world.ship.pos.x, h.pos.y - world.ship.pos.y),
       ).toBeGreaterThanOrEqual(CONFIG.waves.minSpawnDistance);
     }
-    expect(world.hunters.some((h) => h.role === 'cutter')).toBe(true);
-    expect(world.hunters.some((h) => h.role === 'chaser')).toBe(true);
+    expect((world.hunters as Tank[]).some((h) => h.role === 'cutter')).toBe(true);
+    expect((world.hunters as Tank[]).some((h) => h.role === 'chaser')).toBe(true);
   });
 
   it('restores Charges on clearing a Wave and then sends a larger one', () => {
@@ -42,7 +42,7 @@ describe('Waves', () => {
     expect(world.events.some((e) => e.type === 'waveCleared')).toBe(true);
     expect(world.ship.charges).toBe(CONFIG.ship.burstCharges);
     runUntil(world, (w) => w.wave === 2);
-    expect(world.hunters).toHaveLength(waveSize(2));
+    expect(world.hunters).toHaveLength(waveMix(2).tanks);
   });
 });
 
@@ -53,7 +53,7 @@ describe('Combat', () => {
     world.lull = 0;
     const { x, y } = world.ship.pos;
     world.ship.heading = 0;
-    world.hunters.push(createHunter(99, 'chaser', { x: x + 20, y }, new Rng(1)));
+    world.hunters.push(createTank(99, 'chaser', { x: x + 20, y }, new Rng(1)));
     world.hunters[0]!.fireCooldown = 99;
     runUntil(world, (w) => w.hunters.length === 0, 1, { ...NO_CONTROLS, fire: true });
     expect(world.hunters).toHaveLength(0);

@@ -103,6 +103,55 @@ export class Terrain {
     return true;
   }
 
+  /** Distance along unit vector `dir` from `from` to the first solid cell, or `maxDistance` if none. */
+  castRay(from: Vec2, dir: Vec2, maxDistance: number): number {
+    const step = this.cellSize * 0.25;
+    for (let d = step; d < maxDistance; d += step) {
+      if (this.isSolidAt({ x: from.x + dir.x * d, y: from.y + dir.y * d })) return d - step;
+    }
+    return maxDistance;
+  }
+
+  /** True if no Block stands within `radiusCells` cells of `p`. The Arena wall does not count. */
+  isOpenSky(p: Vec2, radiusCells: number): boolean {
+    const cx = this.cellOf(p.x);
+    const cy = this.cellOf(p.y);
+    for (let y = cy - radiusCells; y <= cy + radiusCells; y++) {
+      for (let x = cx - radiusCells; x <= cx + radiusCells; x++)
+        if (this.isBlock(x, y)) return false;
+    }
+    return true;
+  }
+
+  /** Length in cells of the longest open run from `p` along the four axes, capped at `limit`. */
+  sightline(p: Vec2, limit: number): number {
+    const cx = this.cellOf(p.x);
+    const cy = this.cellOf(p.y);
+    let best = 0;
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as const) {
+      let n = 0;
+      while (n < limit && !this.isSolid(cx + dx * (n + 1), cy + dy * (n + 1))) n++;
+      best = Math.max(best, n);
+    }
+    return best;
+  }
+
+  /** Number of Block cells within `radiusCells` of `p`; a measure of cover. */
+  blocksNear(p: Vec2, radiusCells: number): number {
+    const cx = this.cellOf(p.x);
+    const cy = this.cellOf(p.y);
+    let n = 0;
+    for (let y = cy - radiusCells; y <= cy + radiusCells; y++) {
+      for (let x = cx - radiusCells; x <= cx + radiusCells; x++) if (this.isBlock(x, y)) n++;
+    }
+    return n;
+  }
+
   /** Centre of the open cell nearest to `p`, searching outward ring by ring. */
   nearestOpenPoint(p: Vec2): Vec2 {
     const cx = Math.min(this.cells - 1, Math.max(0, this.cellOf(p.x)));

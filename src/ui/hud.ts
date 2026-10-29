@@ -1,6 +1,6 @@
 import { CONFIG, SHIP_TOP_SPEED } from '../config';
 import { speedOf } from '../sim/ship';
-import { hunterSpeed } from '../sim/waves';
+import { tankSpeed } from '../sim/waves';
 import type { SimEvent, World } from '../sim/world';
 
 export type Screen =
@@ -63,7 +63,7 @@ export class Hud {
     this.charges.textContent = pips(ship.charges, CONFIG.ship.burstCharges, '◆', '◇');
 
     const speed = Math.min(1, speedOf(ship) / SHIP_TOP_SPEED);
-    const danger = hunterSpeed(Math.max(1, world.wave)) / SHIP_TOP_SPEED;
+    const danger = tankSpeed(Math.max(1, world.wave)) / SHIP_TOP_SPEED;
     this.speedFill.style.width = `${speed * 100}%`;
     this.speedFill.classList.toggle('danger', speed < danger);
     this.speedMarker.style.left = `${danger * 100}%`;

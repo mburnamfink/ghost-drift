@@ -3,14 +3,30 @@ import type { Rng } from '../core/rng';
 import type { Vec2 } from '../core/vec2';
 import type { Terrain } from './terrain';
 
-export const waveSize = (wave: number): number =>
-  Math.min(CONFIG.waves.maxCount, CONFIG.waves.firstCount + CONFIG.waves.countPerWave * (wave - 1));
+export interface WaveMix {
+  tanks: number;
+  snipers: number;
+  artillery: number;
+}
 
-export const hunterSpeed = (wave: number): number =>
-  Math.min(
-    CONFIG.hunter.maxSpeed,
-    CONFIG.hunter.baseSpeed + CONFIG.hunter.speedPerWave * (wave - 1),
-  );
+/** How many of each Hunter type a Wave sends. Tanks are always the bulk. */
+export function waveMix(wave: number): WaveMix {
+  const c = CONFIG.waves;
+  return {
+    tanks: Math.min(c.maxCount, c.firstCount + c.countPerWave * (wave - 1)),
+    snipers:
+      wave < c.sniperFromWave
+        ? 0
+        : Math.min(c.maxSnipers, 1 + Math.floor((wave - c.sniperFromWave) / 2)),
+    artillery:
+      wave < c.artilleryFromWave
+        ? 0
+        : Math.min(c.maxArtillery, 1 + Math.floor((wave - c.artilleryFromWave) / 3)),
+  };
+}
+
+export const tankSpeed = (wave: number): number =>
+  Math.min(CONFIG.tank.maxSpeed, CONFIG.tank.baseSpeed + CONFIG.tank.speedPerWave * (wave - 1));
 
 /**
  * Picks `count` distinct open cell centres at least `minSpawnDistance` from the Ship. If the Arena

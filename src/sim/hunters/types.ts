@@ -1,0 +1,70 @@
+import type { Rng } from '../../core/rng';
+import type { Vec2 } from '../../core/vec2';
+import type { FlowField } from '../flowfield';
+import type { Ship } from '../ship';
+import type { Terrain } from '../terrain';
+
+export type HunterKind = 'tank' | 'sniper' | 'artillery';
+export type TankRole = 'chaser' | 'cutter';
+
+interface HunterBase {
+  id: number;
+  pos: Vec2;
+  vel: Vec2;
+  /** Direction the hull faces; follows travel. */
+  heading: number;
+  /** Direction the gun faces. */
+  aim: number;
+  fireCooldown: number;
+}
+
+export interface Tank extends HunterBase {
+  kind: 'tank';
+  role: TankRole;
+}
+
+/** Sniper or Artillery: holds a Perch at range rather than closing in. */
+interface Percher extends HunterBase {
+  perch: Vec2 | null;
+  /** Route to `perch`, rebuilt whenever the Perch changes. */
+  perchField: FlowField;
+  /** Seconds until the Perch is reconsidered. */
+  repickTime: number;
+}
+
+export interface SniperCharge {
+  /** Seconds since the charge began. */
+  time: number;
+  /** Where the shot will go: the Ship's projected position, frozen once locked. */
+  target: Vec2;
+  locked: boolean;
+}
+
+export interface Sniper extends Percher {
+  kind: 'sniper';
+  charge: SniperCharge | null;
+}
+
+export interface Artillery extends Percher {
+  kind: 'artillery';
+}
+
+export type Hunter = Tank | Sniper | Artillery;
+
+/** Shared per-step view of the world that every Hunter decides by. */
+export interface HuntContext {
+  terrain: Terrain;
+  ship: Ship;
+  chaseField: FlowField;
+  cutField: FlowField;
+  cutTarget: Vec2;
+  hunters: readonly Hunter[];
+  tankSpeed: number;
+  rng: Rng;
+}
+
+/** What a Hunter wants to do this step beyond moving; the World carries it out. */
+export type HunterAction =
+  | { type: 'shell'; angle: number }
+  | { type: 'snipe'; dir: Vec2 }
+  | { type: 'salvo'; targets: Vec2[] };
