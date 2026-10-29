@@ -51,10 +51,13 @@ export class Game {
     this.lastFrame = now;
     const input = mergeInputs(this.keyboard.poll(), this.gamepad.poll());
 
+    const wasPlaying = this.phase === 'playing';
     this.updatePhase(input, frameTime);
     if (this.phase === 'playing' || this.phase === 'over') {
+      // A both confirms and Bursts, so the press that starts a Run must not also spend a Charge.
+      const runInput = wasPlaying ? input : { ...input, burst: false };
       this.loop.advance(frameTime, (dt, first) => {
-        const controls = this.phase === 'playing' ? input : NO_CONTROLS;
+        const controls = this.phase === 'playing' ? runInput : NO_CONTROLS;
         // Edge-triggered actions apply once per frame, not once per step.
         stepWorld(this.world, first ? controls : { ...controls, burst: false }, dt);
       });

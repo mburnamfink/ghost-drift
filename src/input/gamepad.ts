@@ -4,16 +4,22 @@ import { PAD, type PadState, choosePad } from './padLayout';
 const STICK_DEADZONE = 0.15;
 const TRIGGER_THRESHOLD = 0.2;
 
+type PadList = () => readonly (PadState | null)[];
+
+const browserPads: PadList = () => navigator.getGamepads?.() ?? [];
+
 export class GamepadInput implements InputSource {
   private previous = new Set<number>();
 
+  constructor(private readonly pads: PadList = browserPads) {}
+
   /** Name of the pad in use, or null. Browsers hide pads until a button is pressed on the page. */
   get description(): string | null {
-    return this.pad()?.id ?? null;
+    return choosePad(this.pads())?.id ?? null;
   }
 
   poll(): FrameInput {
-    const pad = this.pad();
+    const pad = choosePad(this.pads());
     if (!pad) {
       this.previous.clear();
       return IDLE_INPUT;
@@ -23,9 +29,10 @@ export class GamepadInput implements InputSource {
     pad.buttons.forEach((b, i) => {
       if (b.pressed) down.add(i);
     });
-    const tapped = (...ids: number[]) => ids.some((i) => down.has(i) && !this.previous.has(i));
-    const held = (...ids: number[]) => ids.some((i) => down.has(i));
+    const previous = this.previous;
     this.previous = down;
+    const tapped = (...ids: number[]) => ids.some((i) => down.has(i) && !previous.has(i));
+    const held = (...ids: number[]) => ids.some((i) => down.has(i));
 
     return {
       steer: deadzone(pad.axes[PAD.steerAxis] ?? 0),
@@ -36,10 +43,6 @@ export class GamepadInput implements InputSource {
       confirm: tapped(PAD.a, PAD.menu),
       pause: tapped(PAD.menu),
     };
-  }
-
-  private pad(): PadState | null {
-    return choosePad(navigator.getGamepads?.() ?? []);
   }
 }
 
