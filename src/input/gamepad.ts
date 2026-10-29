@@ -1,18 +1,15 @@
 import { IDLE_INPUT, type FrameInput, type InputSource } from './input';
-import { type PadState, choosePad, layoutFor, readTrigger } from './padLayout';
+import { PAD, type PadState, choosePad } from './padLayout';
 
 const STICK_DEADZONE = 0.15;
 const TRIGGER_THRESHOLD = 0.2;
 
 export class GamepadInput implements InputSource {
   private previous = new Set<number>();
-  private touchedAxes = new Set<number>();
-  private activeId: string | null = null;
 
-  /** Description of the pad in use, or null. Browsers hide pads until a button is pressed on the page. */
+  /** Name of the pad in use, or null. Browsers hide pads until a button is pressed on the page. */
   get description(): string | null {
-    const pad = this.pad();
-    return pad ? `${pad.id} · ${layoutFor(pad).name}` : null;
+    return this.pad()?.id ?? null;
   }
 
   poll(): FrameInput {
@@ -21,12 +18,7 @@ export class GamepadInput implements InputSource {
       this.previous.clear();
       return IDLE_INPUT;
     }
-    if (pad.id !== this.activeId) {
-      this.activeId = pad.id;
-      this.previous.clear();
-      this.touchedAxes.clear();
-    }
-    const layout = layoutFor(pad);
+    const value = (i: number) => pad.buttons[i]?.value ?? 0;
     const down = new Set<number>();
     pad.buttons.forEach((b, i) => {
       if (b.pressed) down.add(i);
@@ -36,13 +28,13 @@ export class GamepadInput implements InputSource {
     this.previous = down;
 
     return {
-      steer: deadzone(pad.axes[layout.steerAxis] ?? 0),
-      thrust: readTrigger(pad, layout.thrust, this.touchedAxes),
-      slide: readTrigger(pad, layout.slide, this.touchedAxes) > TRIGGER_THRESHOLD,
-      fire: held(layout.rb, layout.x),
-      burst: tapped(layout.a, layout.lb),
-      confirm: tapped(layout.a, layout.menu),
-      pause: tapped(layout.menu),
+      steer: deadzone(pad.axes[PAD.steerAxis] ?? 0),
+      thrust: value(PAD.rt),
+      slide: value(PAD.lt) > TRIGGER_THRESHOLD,
+      fire: held(PAD.rb, PAD.x),
+      burst: tapped(PAD.a, PAD.lb),
+      confirm: tapped(PAD.a, PAD.menu),
+      pause: tapped(PAD.menu),
     };
   }
 

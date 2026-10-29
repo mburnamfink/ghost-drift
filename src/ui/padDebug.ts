@@ -1,4 +1,4 @@
-import { choosePad, layoutFor } from '../input/padLayout';
+import { choosePad } from '../input/padLayout';
 
 /** Live dump of every gamepad the browser exposes. Enabled with `?debug=pad`. */
 export function startPadDebug(container: HTMLElement): void {
@@ -17,7 +17,7 @@ export function startPadDebug(container: HTMLElement): void {
       const pressed = p.buttons.flatMap((b, i) => (b.pressed ? [i] : []));
       lines.push(
         `${p === chosen ? '▶' : ' '} [${p.index}] ${p.id}`,
-        `    mapping="${p.mapping}" layout=${layoutFor(p).name}`,
+        `    mapping="${p.mapping}"`,
         `    axes ${p.axes.map((a) => a.toFixed(2)).join(' ')}`,
         `    pressed [${pressed.join(', ')}] of ${p.buttons.length}`,
       );
