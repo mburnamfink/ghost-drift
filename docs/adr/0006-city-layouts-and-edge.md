@@ -16,7 +16,8 @@ A Layout is only a recipe (`LayoutSpec`): open shapes (rectangles, discs, ellipt
 3. Turn everything outside the boundary, plus any pocket unreachable from the spawn, into the **Edge**: tall Blocks that stand all Run.
 4. Plots near the Edge Rise sooner and stand taller, so the city visibly thickens into it.
 5. Give some buildings a compound footprint (L, T, U, cross, Z or stepped) by cutting rectangles from the lot's edges. Each Layout weights the shapes differently. Any cut that would seal a pocket reverts to a rectangle.
-6. Join one pair of towers facing each other across a road with an Arch. The Arch is scenery the Ship flies under, and its towers stand all Run.
+6. Wall a Layout's lined roads (Circuit's loop, Hub's spokes) on both sides with permanent buildings, gated at intervals, so the shape reads from the first Wave.
+7. Join one pair of towers facing each other across a road with an Arch. The Arch is scenery the Ship flies under, and its towers stand all Run.
 
 The Arena is 96 cells (384 units) across.
 

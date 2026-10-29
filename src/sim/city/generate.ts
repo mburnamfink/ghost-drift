@@ -4,7 +4,7 @@ import type { LayoutSpec } from './layouts';
 import { carveFootprint, pickFootprint } from './footprints';
 import type { Arch, CityPlan, Plot, Rect } from './plan';
 import { partsOf } from '../terrain';
-import { type Shape, contains, unionDistance } from './shapes';
+import { type Shape, contains, roadPosition, unionDistance } from './shapes';
 
 /**
  * Builds a city from a layout (ADR-0006). The whole Arena is cut into Plots by Streets and Alleys;
@@ -21,6 +21,8 @@ export function buildCity(spec: LayoutSpec, rng: Rng, cells: number): CityPlan {
   const edgeDistance = new Float32Array(n * n);
   const inside = new Uint8Array(n * n);
   const open = new Uint8Array(n * n);
+  /** 1 for a cell of wall along a lined road, 2 for a gate through that wall. */
+  const lining = new Uint8Array(n * n);
   for (let y = 0; y < n; y++) {
     for (let x = 0; x < n; x++) {
       const i = at(x, y);
@@ -28,9 +30,11 @@ export function buildCity(spec: LayoutSpec, rng: Rng, cells: number): CityPlan {
       const interior = x > 0 && y > 0 && x < n - 1 && y < n - 1;
       inside[i] = interior && edgeDistance[i]! <= 0 ? 1 : 0;
       open[i] = inside[i] && spec.open.some((s) => contains(s, x + 0.5, y + 0.5)) ? 1 : 0;
+      if (inside[i] && !open[i]) lining[i] = liningAt(spec, x + 0.5, y + 0.5);
     }
   }
-  const buildable = (x: number, y: number) => inside[at(x, y)] === 1 && open[at(x, y)] === 0;
+  const buildable = (x: number, y: number) =>
+    inside[at(x, y)] === 1 && open[at(x, y)] === 0 && lining[at(x, y)] === 0;
 
   const lots = subdivide(rng, n)
     .map((r) => largestRect(r, buildable))
@@ -41,6 +45,7 @@ export function buildCity(spec: LayoutSpec, rng: Rng, cells: number): CityPlan {
 
   const covered = new Uint8Array(n * n);
   for (const r of lots) forCells(r, (x, y) => (covered[at(x, y)] = 1));
+  for (let i = 0; i < n * n; i++) if (lining[i] === 1) covered[i] = 1;
   const reached = floodFrom(spec, n, (x, y) => inside[at(x, y)] === 1 && covered[at(x, y)] === 0);
   const edge = new Uint8Array(n * n);
   for (let i = 0; i < n * n; i++) edge[i] = inside[i] === 0 || (!covered[i] && !reached[i]) ? 1 : 0;
@@ -81,6 +86,20 @@ export function buildCity(spec: LayoutSpec, rng: Rng, cells: number): CityPlan {
         rng.range(0.6, 1.4) *
         (frontage ? c.frontagePriority : 1) *
         (1 + c.edgePriority * nearEdge),
+    });
+  }
+
+  const walls = new Uint8Array(n * n);
+  for (let i = 0; i < n * n; i++) walls[i] = lining[i] === 1 && !edge[i] ? 1 : 0;
+  const [lo, hi] = c.lining.height;
+  for (const r of coverWithRects(walls, n, () => 4)) {
+    plots.push({
+      ...r,
+      id: nextId++,
+      kind: 'building',
+      permanent: true,
+      height: rng.range(lo, hi),
+      priority: 0,
     });
   }
 
@@ -201,8 +220,25 @@ function pickArch(
   for (const t of towers) {
     delete t.parts;
     t.height = Math.max(t.height, cfg.towerHeight);
+    t.permanent = true;
   }
   return { ...arch, top: Math.min(...towers.map((t) => t.height)) * 0.75 };
+}
+
+/**
+ * Whether a cell belongs to the wall along one of the Layout's lined roads: 1 for wall, 2 for a gate
+ * through it, 0 for neither. Gates come at regular intervals so the streets behind stay reachable.
+ */
+function liningAt(spec: LayoutSpec, px: number, py: number): number {
+  const { depth, gateSpacing, gate } = CONFIG.city.lining;
+  for (const s of spec.lined) {
+    const pos = roadPosition(s, px, py);
+    if (!pos || !('width' in s)) continue;
+    const beyond = pos.offset - s.width / 2;
+    if (beyond <= 0 || beyond > depth) continue;
+    return pos.along % gateSpacing < gate ? 2 : 1;
+  }
+  return 0;
 }
 
 /** Cuts the Arena into Plot-sized rectangles separated by Streets, then Alleys. */

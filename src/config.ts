@@ -42,6 +42,11 @@ export const CONFIG = {
     edgeBand: 10,
     edgePriority: 3,
     edgeExtraHeight: 5,
+    /**
+     * Lined roads (Circuit's loop, Hub's spokes) are walled on both sides by permanent buildings
+     * `depth` cells deep, broken by a `gate` cells wide every `gateSpacing` cells.
+     */
+    lining: { depth: 2, gateSpacing: 10, gate: 2, height: [10, 16] },
     /** One Arch per city spans a road this many cells wide, between towers raised to `towerHeight`. */
     arch: { minGap: 2, maxGap: 7, minOverlap: 2, maxWidth: 3, towerHeight: 18 },
     /** Edge Block heights: nearest the city at the low end, taller further out. */

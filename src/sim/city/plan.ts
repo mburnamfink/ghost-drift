@@ -17,13 +17,15 @@ export interface Rect {
  */
 export interface Plot extends Block {
   kind: 'building' | 'plaza' | 'edge';
+  /** A building that Rises in the first Wave and never Sinks: an Arch tower or a lined road's wall. */
+  permanent?: boolean;
   /** Higher Rises earlier. */
   priority: number;
 }
 
 /**
  * A bridge between two towers facing each other across a road, high enough to fly under. Scenery
- * only: nothing in the simulation collides with it. Its towers stand for the whole Run.
+ * only: nothing in the simulation collides with it. Its towers are permanent.
  */
 export interface Arch {
   /** Ids of the two building Plots it joins: `a` is west of `b` (axis x) or north of it (axis y). */
@@ -52,7 +54,7 @@ export interface TerrainChange {
   sink: Plot[];
 }
 
-/** Fraction of building Plots that should stand during `wave`. */
+/** Fraction of building Plots, other than permanent ones, that should stand during `wave`. */
 export const densityForWave = (wave: number): number =>
   Math.min(
     CONFIG.city.maxDensity,
@@ -77,12 +79,13 @@ export function planChange(
   rng: Rng,
 ): TerrainChange {
   const c = CONFIG.city;
-  const buildings = plan.plots.filter((p) => p.kind === 'building');
+  // Permanent Plots Rise at once and stay outside the density schedule.
+  const permanent = plan.plots.filter((p) => (p.kind === 'edge' || p.permanent) && !standing(p.id));
+  const buildings = plan.plots.filter((p) => p.kind === 'building' && !p.permanent);
   const up = buildings.filter((p) => standing(p.id));
-  const landmarks = new Set(plan.arch ? [plan.arch.a, plan.arch.b] : []);
   const sink: Plot[] = [];
   if (wave >= c.churnFromWave) {
-    const pool = up.filter((p) => !landmarks.has(p.id));
+    const pool = [...up];
     for (let i = 0; i < c.churnPerWave && pool.length > 0; i++) {
       sink.push(pool.splice(rng.int(pool.length), 1)[0]!);
     }
@@ -105,8 +108,5 @@ export function planChange(
     .filter((p) => !standing(p.id))
     .slice(0, Math.max(0, plazaObstaclesForWave(wave) - plazaUp));
 
-  const permanent = plan.plots.filter(
-    (p) => (p.kind === 'edge' || landmarks.has(p.id)) && !standing(p.id) && !rise.includes(p),
-  );
   return { rise: [...permanent, ...rise, ...plazaRise], sink };
 }

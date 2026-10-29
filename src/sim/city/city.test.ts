@@ -123,10 +123,31 @@ describe.each(LAYOUT_NAMES)('Arch: %s', (layout) => {
   });
 });
 
+describe('Lined roads', () => {
+  it('wall the Circuit loop and Hub spokes with buildings that never Sink', () => {
+    for (const layout of ['circuit', 'hub'] as const) {
+      const plan = generateCity(new Rng(5), layout);
+      const lining = plan.plots.filter((p) => p.permanent && p.kind === 'building');
+      expect(lining.length).toBeGreaterThan(10);
+      simulate(plan, 25, new Rng(6), (t) => {
+        for (const p of lining) expect(t.hasBlock(p.id)).toBe(true);
+      });
+    }
+  });
+
+  it('leave Grid and Districts to the normal schedule, apart from Arch towers', () => {
+    for (const layout of ['grid', 'districts'] as const) {
+      const plan = generateCity(new Rng(5), layout);
+      const permanent = plan.plots.filter((p) => p.permanent).map((p) => p.id);
+      expect(permanent.sort()).toEqual(plan.arch ? [plan.arch.a, plan.arch.b].sort() : []);
+    }
+  });
+});
+
 describe('Building footprints', () => {
   const shaped = (layout: (typeof LAYOUT_NAMES)[number]) => {
     const buildings = [1, 2, 3].flatMap((s) =>
-      generateCity(new Rng(s), layout).plots.filter((p) => p.kind === 'building'),
+      generateCity(new Rng(s), layout).plots.filter((p) => p.kind === 'building' && !p.permanent),
     );
     return buildings.filter((p) => p.parts).length / buildings.length;
   };
@@ -147,7 +168,7 @@ describe('generateCity', () => {
 describe('planChange', () => {
   it('grows density Wave by Wave and levels off at the ceiling', () => {
     const plan = generateCity(new Rng(2), 'grid');
-    const buildings = plan.plots.filter((p) => p.kind === 'building');
+    const buildings = plan.plots.filter((p) => p.kind === 'building' && !p.permanent);
     const density: number[] = [];
     simulate(plan, 25, new Rng(9), (t) =>
       density.push(buildings.filter((p) => t.hasBlock(p.id)).length / buildings.length),

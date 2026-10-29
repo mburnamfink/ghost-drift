@@ -57,7 +57,7 @@ Lots at least 4 cells on a side may get a compound footprint instead of a rectan
 | Districts | rectangle 2, L 2, T 2, U 2, cross 2, Z 1  |
 | Hub       | rectangle 3, L 2, stepped 2, T 1, cross 1 |
 
-A dead-end bay is a hazard by design: Burst through it. Each city has one Arch: a bridge between two towers across a road, high enough to fly under. Its towers stand for the whole Run.
+Circuit's loop (7 cells wide) and Hub's spokes (6 wide) are walled on both sides by permanent buildings 2 cells deep, with a 2-cell gate every 10 cells, so the Layout's shape reads from Wave 1. A dead-end bay is a hazard by design: Burst through it. Each city has one Arch: a bridge between two towers across a road, high enough to fly under. Its towers stand for the whole Run.
 
 Buildings are drawn in assorted shapes (plain, tapered, slanted roof, stepped tiers, split into slabs) picked per Block. The shapes never leave the Block's square footprint, which is what collision uses.
 

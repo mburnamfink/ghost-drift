@@ -98,7 +98,7 @@ A solid rectangular structure covering one or more whole cells of the Arena. Sto
 _Avoid_: Wall (reserved for the Arena edge), obstacle, tile
 
 **Density**:
-The fraction of building Plots with a standing Block. Rises Wave by Wave to a ceiling.
+The fraction of building Plots with a standing Block, not counting permanent ones (road walls, Arch towers). Rises Wave by Wave to a ceiling.
 
 **Layout**:
 The plan a Run's city follows: Grid, Circuit, Districts or Hub. Picked at random each Run.

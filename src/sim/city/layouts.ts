@@ -20,6 +20,8 @@ export interface LayoutSpec {
   spawnHeading: number;
   /** How often each building outline appears. */
   footprints: FootprintWeights;
+  /** Roads whose buildings stand all Run, so the Layout's shape reads from the first Wave. */
+  lined: Shape[];
 }
 
 /**
@@ -98,6 +100,7 @@ function grid(rng: Rng, cells: number): LayoutSpec {
   return {
     name: 'grid',
     footprints: FOOTPRINTS.grid,
+    lined: [],
     open,
     plazas: [plaza],
     boundary: arcBoundary(rng, cells),
@@ -114,7 +117,8 @@ function circuit(rng: Rng, cells: number): LayoutSpec {
   const rx = half * rng.range(0.5, 0.6);
   const ry = half * rng.range(0.5, 0.6);
   const core: Shape = { kind: 'disc', x: mid, y: mid, r: 5 };
-  const open: Shape[] = [{ kind: 'ring', x: mid, y: mid, rx, ry, width: avenue + 1 }, core];
+  const loop: Shape = { kind: 'ring', x: mid, y: mid, rx, ry, width: avenue + 2 };
+  const open: Shape[] = [loop, core];
   const plazas: Shape[] = [core];
   const boundary: Circle[] = [fit({ x: mid, y: mid, r: Math.max(rx, ry) + 9 }, cells)];
 
@@ -157,6 +161,7 @@ function circuit(rng: Rng, cells: number): LayoutSpec {
   return {
     name: 'circuit',
     footprints: FOOTPRINTS.circuit,
+    lined: [loop],
     open,
     plazas,
     boundary,
@@ -237,6 +242,7 @@ function districts(rng: Rng, cells: number): LayoutSpec {
   return {
     name: 'districts',
     footprints: FOOTPRINTS.districts,
+    lined: [],
     open,
     plazas,
     boundary,
@@ -250,21 +256,22 @@ function hub(rng: Rng, cells: number): LayoutSpec {
   const mid = cells / 2;
   const half = cells / 2;
   const avenue = CONFIG.city.avenue;
-  const plaza: Shape = { kind: 'disc', x: mid, y: mid, r: rng.range(9, 11) };
-  const open: Shape[] = [plaza];
-  const spokes = 6 + rng.int(3);
+  const plaza: Shape = { kind: 'disc', x: mid, y: mid, r: rng.range(10, 12) };
+  const spokes: Shape[] = [];
+  const count = 6 + rng.int(3);
   const start = rng.range(0, TAU);
-  for (let i = 0; i < spokes; i++) {
-    const a = start + (i * TAU) / spokes + rng.range(-0.15, 0.15);
-    open.push({
+  for (let i = 0; i < count; i++) {
+    const a = start + (i * TAU) / count + rng.range(-0.15, 0.15);
+    spokes.push({
       kind: 'capsule',
       ax: mid,
       ay: mid,
       bx: mid + Math.cos(a) * half,
       by: mid + Math.sin(a) * half,
-      width: avenue,
+      width: avenue + 1,
     });
   }
+  const open: Shape[] = [plaza, ...spokes];
   for (const f of [0.45, 0.75]) {
     const r = half * f;
     open.push({ kind: 'ring', x: mid, y: mid, rx: r, ry: r, width: 3 });
@@ -272,6 +279,7 @@ function hub(rng: Rng, cells: number): LayoutSpec {
   return {
     name: 'hub',
     footprints: FOOTPRINTS.hub,
+    lined: spokes,
     open,
     plazas: [plaza],
     boundary: arcBoundary(rng, cells),

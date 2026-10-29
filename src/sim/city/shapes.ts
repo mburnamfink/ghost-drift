@@ -39,3 +39,32 @@ export function contains(s: Shape, px: number, py: number): boolean {
 /** Signed distance from the edge of a union of circles: negative inside, positive outside. */
 export const unionDistance = (circles: readonly Circle[], px: number, py: number): number =>
   Math.min(...circles.map((c) => Math.hypot(px - c.x, py - c.y) - c.r));
+
+/**
+ * Where a point sits relative to a road's centre line: `along` it from the road's start, and
+ * `offset` to one side. Only rings and capsules are roads; other shapes return null.
+ */
+export function roadPosition(
+  s: Shape,
+  px: number,
+  py: number,
+): { along: number; offset: number } | null {
+  switch (s.kind) {
+    case 'ring': {
+      const mean = (s.rx + s.ry) / 2;
+      const angle = Math.atan2((py - s.y) / s.ry, (px - s.x) / s.rx);
+      const rho = Math.hypot((px - s.x) / s.rx, (py - s.y) / s.ry);
+      return { along: (angle + Math.PI) * mean, offset: Math.abs(rho - 1) * mean };
+    }
+    case 'capsule': {
+      const dx = s.bx - s.ax;
+      const dy = s.by - s.ay;
+      const length = Math.hypot(dx, dy) || 1;
+      const t = ((px - s.ax) * dx + (py - s.ay) * dy) / length;
+      if (t < 0 || t > length) return null;
+      return { along: t, offset: Math.abs((px - s.ax) * dy - (py - s.ay) * dx) / length };
+    }
+    default:
+      return null;
+  }
+}
