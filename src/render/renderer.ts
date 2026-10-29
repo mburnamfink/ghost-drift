@@ -48,7 +48,11 @@ export class GameRenderer {
   private shake = 0;
   private elapsed = 0;
 
-  constructor(container: HTMLElement) {
+  /** @param overhead Fixed top-down view of the whole Arena, for inspecting layouts. */
+  constructor(
+    container: HTMLElement,
+    private readonly overhead = false,
+  ) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(this.renderer.domElement);
@@ -98,6 +102,9 @@ export class GameRenderer {
           this.debris.burst(e.pos.x, e.pos.y, PALETTE.ship, 60, 26);
           this.shake = 1.5;
           break;
+        case 'terrainChanged':
+          this.terrain?.applyChange(e.change);
+          break;
         case 'burstStarted':
           this.shake = Math.max(this.shake, 0.3);
           break;
@@ -114,6 +121,7 @@ export class GameRenderer {
     syncShots(this.bolts, world.bolts, this.dummy, true);
     syncShots(this.shells, world.shells, this.dummy, false);
     this.debris.update(frameTime);
+    this.terrain?.update(world.pendingChange, frameTime);
     this.updateCamera(world, frameTime);
     this.renderer.render(this.scene, this.camera);
   }
@@ -189,6 +197,16 @@ export class GameRenderer {
   }
 
   private updateCamera(world: World, frameTime: number): void {
+    if (this.overhead) {
+      const half = world.terrain.worldSize / 2;
+      this.camera.position.set(half, world.terrain.worldSize * 1.05, half + 0.01);
+      this.camera.lookAt(half, 0, half);
+      this.camera.fov = 55;
+      this.camera.far = 1000;
+      this.camera.updateProjectionMatrix();
+      this.scene.fog = null;
+      return;
+    }
     const { ship } = world;
     const follow = 1 - Math.exp(-CAMERA.yawFollow * frameTime);
     this.cameraYaw += wrapAngle(ship.heading - this.cameraYaw) * follow;

@@ -14,4 +14,6 @@ export const PALETTE = {
   shell: 0xffa040,
   spark: 0xfff0b0,
   ghostEdge: 0x8fb4e6,
+  riseWarning: 0xffb347,
+  sinkWarning: 0x37e8ff,
 } as const;

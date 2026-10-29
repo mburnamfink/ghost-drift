@@ -79,3 +79,35 @@ describe('Combat', () => {
     expect(a.hunters.map((h) => h.pos)).toEqual(b.hunters.map((h) => h.pos));
   });
 });
+
+describe('City changes between Waves', () => {
+  function clearWave(world: World) {
+    runUntil(world, (w) => w.wave >= 1 && w.lull === 0);
+    world.hunters.length = 0;
+    stepWorld(world, NO_CONTROLS, DT);
+  }
+
+  it('announces Rises and Sinks when a Wave is cleared and applies them when the next starts', () => {
+    const world = createWorld(8);
+    clearWave(world);
+    const pending = world.pendingChange!;
+    expect(pending.rise.length).toBeGreaterThan(0);
+    for (const p of pending.rise) expect(world.terrain.hasBlock(p.id)).toBe(false);
+
+    world.events.length = 0;
+    runUntil(world, (w) => w.wave === 2);
+    expect(world.pendingChange).toBeNull();
+    expect(world.events.some((e) => e.type === 'terrainChanged')).toBe(true);
+    for (const p of pending.rise) expect(world.terrain.hasBlock(p.id)).toBe(true);
+  });
+
+  it('never raises a Block onto the Ship', () => {
+    const world = createWorld(8);
+    clearWave(world);
+    const target = world.pendingChange!.rise[0]!;
+    const s = world.terrain.cellSize;
+    world.ship.pos = { x: (target.x + target.w / 2) * s, y: (target.y + target.h / 2) * s };
+    runUntil(world, (w) => w.wave === 2);
+    expect(world.terrain.hasBlock(target.id)).toBe(false);
+  });
+});

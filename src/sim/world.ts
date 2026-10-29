@@ -6,7 +6,8 @@ import { FlowField } from './flowfield';
 import { type Hunter, createHunter, stepHunter } from './hunter';
 import { type Ship, canBeHit, createShip, isBursting, stepShip } from './ship';
 import { type Shot, createShot, stepShots } from './shots';
-import { type Terrain, generateTerrain } from './terrain';
+import { type CityPlan, type TerrainChange, generateCity, planChange } from './city';
+import { Terrain } from './terrain';
 import { hunterSpeed, spawnPoints, waveSize } from './waves';
 
 /** Things that happened during a step, for presentation layers to react to. Never read by the sim. */
@@ -17,12 +18,17 @@ export type SimEvent =
   | { type: 'shipDestroyed'; pos: Vec2 }
   | { type: 'burstStarted'; pos: Vec2 }
   | { type: 'waveStarted'; wave: number }
-  | { type: 'waveCleared'; wave: number };
+  | { type: 'waveCleared'; wave: number }
+  | { type: 'terrainChanged'; change: TerrainChange };
 
 export interface World {
   readonly seed: number;
   readonly rng: Rng;
   readonly terrain: Terrain;
+  /** Null when the World was built on fixed terrain, which then never changes. */
+  readonly city: CityPlan | null;
+  /** Rises and Sinks announced during the lull, applied when the next Wave starts. */
+  pendingChange: TerrainChange | null;
   ship: Ship;
   hunters: Hunter[];
   bolts: Shot[];
@@ -45,12 +51,16 @@ export interface World {
 
 export function createWorld(seed: number, terrain?: Terrain): World {
   const rng = new Rng(seed);
-  const t = terrain ?? generateTerrain(rng);
+  const city = terrain ? null : generateCity(rng);
+  const t = terrain ?? new Terrain(CONFIG.arena.cells, CONFIG.arena.cellSize);
+  if (city) for (const p of planChange(city, () => false, 1, rng).rise) t.raise(p);
   const ship = createShip(t.center, -Math.PI / 2);
   return {
     seed,
     rng,
     terrain: t,
+    city,
+    pendingChange: null,
     ship,
     hunters: [],
     bolts: [],
@@ -199,10 +209,43 @@ function advanceWaves(world: World, dt: number): void {
     world.events.push({ type: 'waveCleared', wave: world.wave });
     world.ship.charges = CONFIG.ship.burstCharges;
     world.lull = CONFIG.waves.lull;
+    if (world.city) {
+      const { terrain } = world;
+      world.pendingChange = planChange(
+        world.city,
+        (id) => terrain.hasBlock(id),
+        world.wave + 1,
+        world.rng,
+      );
+    }
   }
 }
 
+/** Applies the announced change. A Block never Rises onto the Ship; it stays down this Wave instead. */
+function applyPendingChange(world: World): void {
+  const change = world.pendingChange;
+  if (!change) return;
+  world.pendingChange = null;
+  const { terrain, ship } = world;
+  const clearance = CONFIG.ship.radius + 0.5;
+  for (const p of change.sink) terrain.lower(p.id);
+  const rise = change.rise.filter((p) => {
+    const nearestX = Math.max(
+      p.x * terrain.cellSize,
+      Math.min(ship.pos.x, (p.x + p.w) * terrain.cellSize),
+    );
+    const nearestY = Math.max(
+      p.y * terrain.cellSize,
+      Math.min(ship.pos.y, (p.y + p.h) * terrain.cellSize),
+    );
+    return Math.hypot(nearestX - ship.pos.x, nearestY - ship.pos.y) > clearance;
+  });
+  for (const p of rise) terrain.raise(p);
+  world.events.push({ type: 'terrainChanged', change: { rise, sink: change.sink } });
+}
+
 function startWave(world: World): void {
+  applyPendingChange(world);
   world.wave++;
   const count = waveSize(world.wave);
   const points = spawnPoints(world.terrain, world.ship.pos, count, world.rng);

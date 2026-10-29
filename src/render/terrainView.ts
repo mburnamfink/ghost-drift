@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import type { Terrain } from '../sim/terrain';
+import type { TerrainChange } from '../sim/city';
+import type { Block, Terrain } from '../sim/terrain';
+import { CONFIG } from '../config';
 import { PALETTE } from './palette';
 
 const WALL_HEIGHT = 14;
@@ -10,12 +12,21 @@ const GHOST_FACE_OPACITY = 0.1;
 const FADE_RATE = 10;
 /** Sideways offsets of the sight lines to the Ship, so a Block that hides only part of it still ghosts. */
 const SIGHT_OFFSETS = [0, -1.6, 1.6];
+/** Seconds a Block takes to slide fully up out of, or down into, the floor. */
+const MOVE_SECONDS = 0.7;
+/** Pulses per second of the outlines warning of a coming Rise or Sink. */
+const TELEGRAPH_PULSE = 2.5;
 
 interface Occluder {
   mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
   edges: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>;
   /** 0 = solid, 1 = fully ghosted. */
   ghost: number;
+  height: number;
+  /** 0 = fully sunk, 1 = fully risen. */
+  raised: number;
+  /** Direction of travel: 1 rising, -1 sinking, 0 still. */
+  moving: number;
 }
 
 const unitBox = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
@@ -28,14 +39,20 @@ const unitEdges = new THREE.EdgesGeometry(unitBox);
 export class TerrainView {
   readonly group = new THREE.Group();
   private readonly occluders: Occluder[] = [];
-  private readonly occluderMeshes: THREE.Mesh[] = [];
+  private readonly blocks = new Map<number, Occluder>();
+  private readonly telegraphs = new THREE.Group();
+  private telegraphFor: TerrainChange | null = null;
+  private time = 0;
   private readonly raycaster = new THREE.Raycaster();
   private readonly hit = new Set<THREE.Object3D>();
+
+  private readonly cellSize: number;
+  private readonly maxHeight: number;
 
   constructor(terrain: Terrain) {
     const size = terrain.worldSize;
     const half = size / 2;
-    const cell = terrain.cellSize;
+    this.cellSize = terrain.cellSize;
 
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(size, size).rotateX(-Math.PI / 2),
@@ -46,21 +63,8 @@ export class TerrainView {
     grid.position.set(half, 0.02, half);
     this.group.add(ground, grid);
 
-    const low = new THREE.Color(PALETTE.blockLow);
-    const high = new THREE.Color(PALETTE.blockHigh);
-    const maxHeight = Math.max(1, ...terrain.blocks.map((b) => b.height));
-    for (const b of terrain.blocks) {
-      const color = new THREE.Color().lerpColors(low, high, b.height / maxHeight);
-      // A small inset keeps neighbouring faces from z-fighting with the grid lines.
-      this.addOccluder(
-        (b.x + b.w / 2) * cell,
-        (b.y + b.h / 2) * cell,
-        b.w * cell - 0.1,
-        b.height,
-        b.h * cell - 0.1,
-        color,
-      );
-    }
+    this.maxHeight = CONFIG.city.maxBlockHeight;
+    for (const b of terrain.blocks) this.addBlock(b, 1);
 
     const wall = new THREE.Color(PALETTE.wall);
     const t = WALL_THICKNESS;
@@ -68,6 +72,93 @@ export class TerrainView {
     this.addOccluder(half, size + t / 2, size + t * 2, WALL_HEIGHT, t, wall, true);
     this.addOccluder(-t / 2, half, t, WALL_HEIGHT, size, wall, true);
     this.addOccluder(size + t / 2, half, t, WALL_HEIGHT, size, wall, true);
+    this.group.add(this.telegraphs);
+  }
+
+  /** Starts the slide for Blocks that just Rose or Sank in the simulation. */
+  applyChange(change: TerrainChange): void {
+    for (const p of change.sink) {
+      const o = this.blocks.get(p.id);
+      if (o) o.moving = -1;
+    }
+    for (const p of change.rise) {
+      const existing = this.blocks.get(p.id);
+      if (existing) existing.moving = 1;
+      else this.addBlock(p, 0).moving = 1;
+    }
+  }
+
+  /** Advances slides and the warning outlines for `pending`, the change announced for the next Wave. */
+  update(pending: TerrainChange | null, frameTime: number): void {
+    this.time += frameTime;
+    const step = frameTime / MOVE_SECONDS;
+    for (const [id, o] of this.blocks) {
+      if (o.moving === 0) continue;
+      o.raised = Math.min(1, Math.max(0, o.raised + o.moving * step));
+      o.mesh.position.y = o.edges.position.y = (o.raised - 1) * o.height;
+      if (o.raised === 1) o.moving = 0;
+      if (o.raised === 0 && o.moving < 0) this.removeBlock(id);
+    }
+
+    if (pending !== this.telegraphFor) this.buildTelegraphs(pending);
+    const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(this.time * TELEGRAPH_PULSE * Math.PI * 2));
+    this.telegraphs.traverse((obj) => {
+      if (obj instanceof THREE.LineSegments) obj.material.opacity = pulse;
+    });
+  }
+
+  private buildTelegraphs(pending: TerrainChange | null): void {
+    this.telegraphFor = pending;
+    for (const child of [...this.telegraphs.children]) {
+      this.telegraphs.remove(child);
+      if (child instanceof THREE.LineSegments) child.material.dispose();
+    }
+    if (!pending) return;
+    // Rising Plots get a floor outline; Sinking Blocks get a full outline so they read as going away.
+    for (const p of pending.rise) this.telegraphs.add(this.outline(p, 0.15, PALETTE.riseWarning));
+    for (const p of pending.sink)
+      this.telegraphs.add(this.outline(p, p.height, PALETTE.sinkWarning));
+  }
+
+  private outline(b: Block, height: number, color: number): THREE.LineSegments {
+    const cell = this.cellSize;
+    const lines = new THREE.LineSegments(
+      unitEdges,
+      new THREE.LineBasicMaterial({ color, transparent: true, depthWrite: false }),
+    );
+    lines.position.set((b.x + b.w / 2) * cell, 0.02, (b.y + b.h / 2) * cell);
+    lines.scale.set(b.w * cell, height, b.h * cell);
+    return lines;
+  }
+
+  private addBlock(b: Block, raised: number): Occluder {
+    const cell = this.cellSize;
+    const low = new THREE.Color(PALETTE.blockLow);
+    const high = new THREE.Color(PALETTE.blockHigh);
+    const color = new THREE.Color().lerpColors(low, high, Math.min(1, b.height / this.maxHeight));
+    // A small inset keeps neighbouring faces from z-fighting with the grid lines.
+    const o = this.addOccluder(
+      (b.x + b.w / 2) * cell,
+      (b.y + b.h / 2) * cell,
+      b.w * cell - 0.1,
+      b.height,
+      b.h * cell - 0.1,
+      color,
+    );
+    o.raised = raised;
+    o.mesh.position.y = o.edges.position.y = (raised - 1) * b.height;
+    this.blocks.set(b.id, o);
+    return o;
+  }
+
+  private removeBlock(id: number): void {
+    const o = this.blocks.get(id);
+    if (!o) return;
+    this.blocks.delete(id);
+    this.occluders.splice(this.occluders.indexOf(o), 1);
+    this.group.remove(o.mesh, o.edges);
+    o.mesh.material.dispose();
+    o.edges.material.dispose();
   }
 
   /** Ghosts whatever stands between `eye` and `target`; call once per frame after moving the camera. */
@@ -75,14 +166,14 @@ export class TerrainView {
     this.hit.clear();
     const toTarget = new THREE.Vector3().subVectors(target, eye);
     const side = new THREE.Vector3(-toTarget.z, 0, toTarget.x).normalize();
+    const meshes = this.occluders.map((o) => o.mesh);
     for (const offset of SIGHT_OFFSETS) {
       const aim = target.clone().addScaledVector(side, offset);
       const dir = aim.sub(eye);
       const far = dir.length();
       this.raycaster.set(eye, dir.normalize());
       this.raycaster.far = far;
-      for (const h of this.raycaster.intersectObjects(this.occluderMeshes, false))
-        this.hit.add(h.object);
+      for (const h of this.raycaster.intersectObjects(meshes, false)) this.hit.add(h.object);
     }
 
     const step = Math.min(1, FADE_RATE * frameTime);
@@ -114,7 +205,7 @@ export class TerrainView {
     d: number,
     color: THREE.Color,
     emissive = false,
-  ): void {
+  ): Occluder {
     const material = new THREE.MeshStandardMaterial({
       color,
       flatShading: true,
@@ -134,7 +225,8 @@ export class TerrainView {
       obj.scale.set(w, h, d);
     }
     this.group.add(mesh, edges);
-    this.occluders.push({ mesh, edges, ghost: 0 });
-    this.occluderMeshes.push(mesh);
+    const occluder = { mesh, edges, ghost: 0, height: h, raised: 1, moving: 0 };
+    this.occluders.push(occluder);
+    return occluder;
   }
 }

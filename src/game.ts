@@ -30,8 +30,9 @@ export class Game {
   constructor(
     container: HTMLElement,
     private readonly fixedSeed: number | null,
+    overhead = false,
   ) {
-    this.renderer = new GameRenderer(container);
+    this.renderer = new GameRenderer(container, overhead);
     this.hud = new Hud(container);
     this.world = this.newWorld();
     document.addEventListener('visibilitychange', () => {

@@ -8,20 +8,39 @@ export const CONFIG = {
   arena: {
     cells: 64,
     cellSize: 4,
-    /** Open radius around the Ship's spawn, in cells. */
+    /** Open radius around the Ship's spawn at the Plaza centre, in cells. */
     spawnClearRadius: 4,
-    /** Noise period, in cells, of the large-scale Density field. */
-    densityPeriod: 16,
-    placementAttempts: 900,
-    /** Chance a candidate Block is kept at maximum Density. */
-    placementChance: 0.9,
-    /** Block footprint range, in cells per side. */
-    minBlockCells: 2,
-    maxBlockCells: 6,
-    /** Open cells always left between Blocks, so corridors never close. */
-    blockGap: 1,
-    minBlockHeight: 3,
+  },
+  city: {
+    /** Plaza side as a fraction of the Arena side. */
+    plazaFraction: 0.35,
+    /** Road widths in cells. The ring road runs inside the Arena wall. */
+    ringRoad: 2,
+    avenue: 3,
+    street: 2,
+    alley: 1,
+    /** Plots are split until both sides are at most this many cells. */
+    maxPlotCells: 7,
+    minPlotCells: 3,
+    /** Chance a plot is left as permanent open ground. */
+    emptyPlotChance: 0.1,
+    minBlockHeight: 4,
     maxBlockHeight: 12,
+    plazaObstacleCandidates: 10,
+    plazaObstacleHeight: [3, 5],
+    /** Fraction of building plots standing in Wave 1, the growth per Wave, and the ceiling. */
+    startDensity: 0.5,
+    densityPerWave: 0.04,
+    maxDensity: 0.9,
+    /** Priority multiplier for Plots facing an Avenue, the ring road or the Plaza. */
+    frontagePriority: 3,
+    /** From this Wave on, this many standing Blocks Sink each Wave so routes keep changing. */
+    churnFromWave: 3,
+    churnPerWave: 3,
+    plazaObstaclesAtStart: 3,
+    /** One more Plaza obstacle every this many Waves. */
+    plazaObstacleEvery: 3,
+    maxPlazaObstacles: 7,
   },
   ship: {
     radius: 1.2,
@@ -73,7 +92,8 @@ export const CONFIG = {
     firstCount: 3,
     countPerWave: 2,
     maxCount: 40,
-    lull: 2.5,
+    /** Long enough to read which Blocks are about to Rise or Sink. */
+    lull: 3,
     minSpawnDistance: 70,
     killScore: 100,
   },

@@ -15,7 +15,20 @@ Battlezone meets Wipeout. Terms are defined in [CONTEXT.md](../CONTEXT.md); arch
 - Touching a Hunter or a Shell costs one Hull. A short invulnerability window follows each hit.
 - Bolts destroy Hunters. Killing Hunters scores points and thins the hunt, buying breathing room.
 - Clearing a Wave restores all Burst Charges and starts the next, larger Wave after a short lull.
+- During the lull, Plots about to Rise glow amber on the floor and Blocks about to Sink are outlined in cyan. The change happens as the next Wave starts.
 - A Run is endless and ends when Hull reaches zero.
+
+## The city
+
+Each Run builds a new seeded city (ADR-0005). A ring road runs inside the Arena wall; three-cell Avenues frame a central Plaza 35% of the Arena wide; the eight districts around it are split by two-cell Streets and one-cell Alleys into Plots. About one Plot in ten stays empty as a pocket park.
+
+| Wave            | Building Plots standing                                        | Plaza obstacles  |
+| --------------- | -------------------------------------------------------------- | ---------------- |
+| 1               | 50%, mostly those facing an Avenue, the ring road or the Plaza | 3                |
+| each later Wave | +4%, side streets filling in                                   | +1 every 3 Waves |
+| ceiling         | 90%, reached around Wave 11                                    | 7                |
+
+From Wave 3, three standing Blocks Sink and are replaced each Wave, so routes keep changing after density levels off.
 
 ## Controls
 
@@ -45,7 +58,7 @@ The browser only exposes a controller after a button is pressed with the page fo
 
 ## MVP scope
 
-- One Arena with procedurally varied Density.
+- A seeded city per Run: Plaza, Avenues, Streets and Alleys, densifying between Waves.
 - Ship with thrust, steering, Powerslide, Burst (3 Charges) and Bolts.
 - One Hunter type, split into Chaser and Cutter roles, that fires Shells with line of sight.
 - Endless Waves with growing Hunter counts, score with a Wave multiplier, Hull of 3.

@@ -56,7 +56,26 @@ A solid rectangular structure covering one or more whole cells of the Arena. Sto
 _Avoid_: Wall (reserved for the Arena edge), obstacle, tile
 
 **Density**:
-How tightly Blocks are packed in a region. Open ground is fast and safe; dense ground is a maze of chokepoints.
+The fraction of building Plots with a standing Block. Rises Wave by Wave to a ceiling.
+
+**Plaza**:
+The large open square at the Arena's centre where the Ship starts. Holds only a few low obstacles.
+_Avoid_: Arena (the whole play space), centre
+
+**Avenue**:
+A wide road framing the Plaza and dividing the rest of the Arena into districts. Never blocked.
+
+**Street**:
+A narrower road inside a district. **Alleys** are the narrowest, one cell wide.
+_Avoid_: Corridor, lane
+
+**Plot**:
+A place in the city plan where a Block may stand. The plan is fixed for a Run; Blocks come and go.
+_Avoid_: Lot, building site
+
+**Rise** / **Sink**:
+A Block appearing on or disappearing from its Plot. Happens only between Waves, after a warning shown during the lull.
+_Avoid_: Spawn, despawn, grow
 
 ### A run
 
