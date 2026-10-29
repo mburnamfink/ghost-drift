@@ -2,7 +2,7 @@
 
 _They say one pilot is holding Arcadia alone._
 
-An arcade shooter in the browser. You fly an experimental hovertank, the last defender of the city of Arcadia against an invading army. You're faster than anything they field, so speed is your armour: drift through the streets, powerslide past their guns, and fight as long as you can. Keep moving or get boxed in.
+An arcade shooter in the browser. You fly an experimental hovertank, the last defender of the city of Arcadia against an invading army. You're faster than anything they field, so speed is your armor: drift through the streets, powerslide past their guns, and fight as long as you can. Keep moving or get boxed in.
 
 ## Run it
 

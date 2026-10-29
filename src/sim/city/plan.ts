@@ -70,7 +70,7 @@ export const plazaObstaclesForWave = (wave: number): number =>
 /**
  * Decides which Blocks Rise and Sink before `wave`, given which are standing. Density climbs to a
  * ceiling; from `churnFromWave` some standing Blocks also Sink and are replaced, so the city keeps
- * shifting even once density has levelled off.
+ * shifting even once density has leveled off.
  */
 export function planChange(
   plan: CityPlan,

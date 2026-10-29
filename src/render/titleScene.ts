@@ -3,6 +3,7 @@ import { Rng } from '../core/rng';
 import type { HunterKind } from '../sim/hunters';
 import { createWorld } from '../sim/world';
 import { Terrain } from '../sim/terrain';
+import { Afterimages } from './afterimages';
 import { createHunterModel, createShipModel, sniperMuzzle } from './models';
 import { PALETTE } from './palette';
 import { TerrainView } from './terrainView';
@@ -36,6 +37,7 @@ export class TitleScene {
   readonly scene = new THREE.Scene();
   readonly camera = new THREE.PerspectiveCamera(62, 1, 0.1, 600);
   private readonly ship = createShipModel();
+  private readonly afterimages = new Afterimages();
   private readonly tanks: THREE.Group[] = [];
   private readonly turrets: THREE.Group[] = [];
   private readonly sniperPos: { x: number; y: number };
@@ -96,7 +98,7 @@ export class TitleScene {
     this.sniperTurret = place('sniper', 130, -5).turret;
     this.sniperPos = ahead(130, -5);
 
-    this.scene.add(this.ship.root, this.laser.group, this.flash);
+    this.scene.add(this.ship.root, this.afterimages.group, this.laser.group, this.flash);
     this.flash.visible = false;
   }
 
@@ -120,6 +122,9 @@ export class TitleScene {
     ship.position.set(o.x + sway, 1.4 + Math.sin(t * 3) * 0.15, o.z - SHIP_AHEAD);
     ship.rotation.set(0, t * 1.4, 0);
     ship.rotateX(THREE.MathUtils.clamp(-swayVel * 0.08, -0.5, 0.5));
+    // Spinning while it weaves leaves a trail of turned afterimages, as a Powerslide does.
+    this.afterimages.emit(this.ship, ship, PALETTE.ship, frameTime);
+    this.afterimages.update(frameTime);
 
     for (let i = 0; i < this.tanks.length; i++) {
       const tank = this.tanks[i]!;

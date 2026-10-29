@@ -200,7 +200,7 @@ export class TerrainView {
             0.8 + 0.4 * Math.min(1, b.height / CONFIG.city.edgeHeight[1]),
           )
         : new THREE.Color().lerpColors(low, high, Math.min(1, b.height / this.maxHeight));
-    // A small inset keeps neighbouring faces from z-fighting with the grid lines.
+    // A small inset keeps neighboring faces from z-fighting with the grid lines.
     const w = b.w * cell - 0.1;
     const d = b.h * cell - 0.1;
     const seed = b.id * 7919 + 13;

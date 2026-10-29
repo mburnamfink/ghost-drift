@@ -339,7 +339,7 @@ function resolvePulseHits(world: World): void {
   }
 }
 
-/** Only Juggernauts are armoured; `amount` matters to nothing else, which dies to any hit. */
+/** Only Juggernauts are armored; `amount` matters to nothing else, which dies to any hit. */
 function damageHunter(world: World, index: number, amount: number): void {
   const h = world.hunters[index];
   if (!h) return;

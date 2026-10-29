@@ -53,7 +53,7 @@ export interface HunterModel {
   glow?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
   /** Juggernaut only: glows at its three barrel tips, sharing one material, lit during the wind-up. */
   muzzles?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>[];
-  /** Juggernaut only: a bar of remaining armour, placed above it and turned to face the camera. */
+  /** Juggernaut only: a bar of remaining armor, placed above it and turned to face the camera. */
   healthBar?: { group: THREE.Group; fill: THREE.Mesh };
 }
 
@@ -71,13 +71,13 @@ const wedge = (radius: number, length: number, height: number) =>
 
 /** Yaw of each Juggernaut barrel from the turret's facing, splayed to suggest the Spray. */
 const JUGGERNAUT_BARRELS = [-0.3, 0, 0.3];
-/** Each barrel pivots this far ahead of the turret's centre and is this long. */
+/** Each barrel pivots this far ahead of the turret's center and is this long. */
 const JUGGERNAUT_BARREL = { pivot: 1, length: 2.4 };
 
 /** Artillery mortar: tilt toward +X from vertical, and the height of its pivot on the turret. */
 export const MORTAR_MOUNT = { pitch: 0.6, y: 0.3 };
 
-/** Sniper rifle mount: shoulder height, and the muzzle's offset ahead and to the right of centre. */
+/** Sniper rifle mount: shoulder height, and the muzzle's offset ahead and to the right of center. */
 const SNIPER_SHOULDER = 3.3;
 const SNIPER_MUZZLE_AHEAD = 4.6;
 const SNIPER_MUZZLE_RIGHT = 0.65;
@@ -141,7 +141,7 @@ const SHAPES: Record<
   juggernaut: {
     body: merge([
       new THREE.CylinderGeometry(2.6, 3.1, 1.5, 6),
-      // A plough of armour at the front.
+      // A plow of armor at the front.
       wedge(2.3, 2.6, 0.7).translate(2.3, -0.1, 0),
     ]),
     bodyY: 0.85,

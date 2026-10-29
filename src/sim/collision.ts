@@ -22,7 +22,7 @@ export function resolveCircle(
   let ny = 0;
   const size = terrain.cellSize;
 
-  // Two passes settle corners where pushing out of one cell lands in its neighbour.
+  // Two passes settle corners where pushing out of one cell lands in its neighbor.
   for (let pass = 0; pass < 2; pass++) {
     const minX = terrain.cellOf(x - radius);
     const maxX = terrain.cellOf(x + radius);
@@ -39,7 +39,7 @@ export function resolveCircle(
         const dist = Math.hypot(dx, dy);
         if (dist >= radius) continue;
         if (dist < 1e-6) {
-          // Centre is inside the cell: push out along the shortest axis.
+          // Center is inside the cell: push out along the shortest axis.
           const left = x - cx * size;
           const right = (cx + 1) * size - x;
           const down = y - cy * size;

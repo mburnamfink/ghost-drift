@@ -23,7 +23,7 @@ export function createJuggernaut(id: number, pos: Vec2, rng: Rng): Juggernaut {
 /**
  * Closes on the Ship and circles it at short range. Its turret traverses slowly, so a Ship that
  * circles fast outruns its aim. With a clear shot it winds up, then fires a Spray: a fan of large
- * Shells centred on wherever the turret points.
+ * Shells centered on wherever the turret points.
  */
 export function stepJuggernaut(h: Juggernaut, ctx: HuntContext, dt: number): HunterAction | null {
   const cfg = CONFIG.juggernaut;

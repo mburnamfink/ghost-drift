@@ -16,7 +16,7 @@ import { ThreatsView } from './threatsView';
 
 const SHOT_CAPACITY = 512;
 
-/** A threat outside the view, as a screen-space angle from the centre (0 = right, π/2 = up). */
+/** A threat outside the view, as a screen-space angle from the center (0 = right, π/2 = up). */
 export interface ScreenThreat {
   angle: number;
   kind: 'sniper' | 'artillery';
@@ -216,7 +216,7 @@ export class GameRenderer {
   }
 
   /**
-   * Directions, in screen space from the screen centre, of active threats the camera cannot see:
+   * Directions, in screen space from the screen center, of active threats the camera cannot see:
    * charging Snipers and incoming Artillery impacts. Call after `render` so the camera is current.
    */
   offscreenThreats(world: World): ScreenThreat[] {
@@ -227,7 +227,7 @@ export class GameRenderer {
       const view = world3.applyMatrix4(this.camera.matrixWorldInverse);
       const inFront = view.z < 0;
       if (inFront && Math.abs(ndc.x) <= 0.95 && Math.abs(ndc.y) <= 0.95) return;
-      // Camera-space x/y point the right way from the screen centre whether in front or behind.
+      // Camera-space x/y point the right way from the screen center whether in front or behind.
       out.push({ angle: Math.atan2(view.y, view.x), kind });
     };
     for (const h of world.hunters)
@@ -280,7 +280,7 @@ export class GameRenderer {
     glow.material.opacity = 0.15 + 0.85 * readiness * readiness;
   }
 
-  /** Barrel tips glow through the Spray wind-up; a hit flashes the hull; a bar shows armour left. */
+  /** Barrel tips glow through the Spray wind-up; a hit flashes the hull; a bar shows armor left. */
   private styleJuggernaut(h: Juggernaut, model: HunterModel, frameTime: number): void {
     const cfg = CONFIG.juggernaut;
     const charge = h.windup > 0 ? 1 - h.windup / cfg.windup : 0;

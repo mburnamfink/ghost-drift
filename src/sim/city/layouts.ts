@@ -25,7 +25,7 @@ export interface LayoutSpec {
 }
 
 /**
- * Grid keeps clean walls along its speed lanes; Circuit and Hub favour chamfers that read as curves;
+ * Grid keeps clean walls along its speed lanes; Circuit and Hub favor chamfers that read as curves;
  * Districts is a cramped old town of bays and crosses.
  */
 const FOOTPRINTS: Record<LayoutName, FootprintWeights> = {
@@ -176,16 +176,16 @@ function districts(rng: Rng, cells: number): LayoutSpec {
   const half = cells / 2;
   const avenue = CONFIG.city.avenue;
   const count = 3 + rng.int(3);
-  const centres: (Vec2 & { r: number })[] = [];
-  for (let attempt = 0; attempt < 500 && centres.length < count; attempt++) {
+  const centers: (Vec2 & { r: number })[] = [];
+  for (let attempt = 0; attempt < 500 && centers.length < count; attempt++) {
     const a = rng.range(0, TAU);
     const d = half * 0.55 * Math.sqrt(rng.next());
     const p = { x: mid + Math.cos(a) * d, y: mid + Math.sin(a) * d };
-    if (centres.some((c) => Math.hypot(c.x - p.x, c.y - p.y) < 22)) continue;
-    centres.push({ ...p, r: centres.length === 0 ? rng.range(9, 12) : rng.range(5, 8) });
+    if (centers.some((c) => Math.hypot(c.x - p.x, c.y - p.y) < 22)) continue;
+    centers.push({ ...p, r: centers.length === 0 ? rng.range(9, 12) : rng.range(5, 8) });
   }
 
-  const plazas: Shape[] = centres.map((c) =>
+  const plazas: Shape[] = centers.map((c) =>
     rng.next() < 0.5
       ? { kind: 'disc', x: c.x, y: c.y, r: c.r }
       : {
@@ -197,7 +197,7 @@ function districts(rng: Rng, cells: number): LayoutSpec {
         },
   );
   const open: Shape[] = [...plazas];
-  const boundary: Circle[] = centres.map((c) =>
+  const boundary: Circle[] = centers.map((c) =>
     fit({ x: c.x, y: c.y, r: c.r + rng.range(13, 18) }, cells),
   );
 
@@ -213,30 +213,30 @@ function districts(rng: Rng, cells: number): LayoutSpec {
   // Prim's minimum spanning tree joins every Plaza; one extra link adds a loop to circle around.
   const joined = [0];
   const used = new Set<string>();
-  while (joined.length < centres.length) {
+  while (joined.length < centers.length) {
     let best: [number, number] | null = null;
     let bestD = Infinity;
     for (const i of joined) {
-      centres.forEach((c, j) => {
+      centers.forEach((c, j) => {
         if (joined.includes(j)) return;
-        const d = Math.hypot(c.x - centres[i]!.x, c.y - centres[i]!.y);
+        const d = Math.hypot(c.x - centers[i]!.x, c.y - centers[i]!.y);
         if (d < bestD) [bestD, best] = [d, [i, j]];
       });
     }
     const [i, j] = best!;
-    link(centres[i]!, centres[j]!);
+    link(centers[i]!, centers[j]!);
     used.add(`${Math.min(i, j)},${Math.max(i, j)}`);
     joined.push(j);
   }
-  if (centres.length >= 3) {
+  if (centers.length >= 3) {
     let extra: [number, number] | null = null;
     let extraD = Infinity;
-    for (let i = 0; i < centres.length; i++)
-      for (let j = i + 1; j < centres.length; j++) {
-        const d = Math.hypot(centres[i]!.x - centres[j]!.x, centres[i]!.y - centres[j]!.y);
+    for (let i = 0; i < centers.length; i++)
+      for (let j = i + 1; j < centers.length; j++) {
+        const d = Math.hypot(centers[i]!.x - centers[j]!.x, centers[i]!.y - centers[j]!.y);
         if (!used.has(`${i},${j}`) && d < extraD) [extraD, extra] = [d, [i, j]];
       }
-    if (extra) link(centres[extra[0]]!, centres[extra[1]]!);
+    if (extra) link(centers[extra[0]]!, centers[extra[1]]!);
   }
 
   return {
@@ -246,7 +246,7 @@ function districts(rng: Rng, cells: number): LayoutSpec {
     open,
     plazas,
     boundary,
-    spawn: { x: centres[0]!.x, y: centres[0]!.y },
+    spawn: { x: centers[0]!.x, y: centers[0]!.y },
     spawnHeading: -Math.PI / 2,
   };
 }

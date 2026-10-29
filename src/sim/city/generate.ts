@@ -169,7 +169,7 @@ function keepRoadsConnected(
 
 /**
  * Picks the best pair of buildings facing each other across a clear road for the city's one Arch,
- * favouring wide spans and spans over Avenues and Plazas. Both become full-height rectangular towers.
+ * favoring wide spans and spans over Avenues and Plazas. Both become full-height rectangular towers.
  */
 function pickArch(
   rng: Rng,

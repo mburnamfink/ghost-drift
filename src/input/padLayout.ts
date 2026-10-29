@@ -32,7 +32,7 @@ export const isXboxLike = (pad: PadState): boolean => XBOX_ID.test(pad.id);
 
 /**
  * Chooses which connected pad drives the game. Keyboards and mice can register as joysticks on
- * Linux, so recognised controllers beat unknown devices; ties go to the most recently used.
+ * Linux, so recognized controllers beat unknown devices; ties go to the most recently used.
  */
 export function choosePad(pads: readonly (PadState | null)[]): PadState | null {
   const rank = (p: PadState) => (p.mapping === 'standard' ? 2 : 0) + (isXboxLike(p) ? 1 : 0);

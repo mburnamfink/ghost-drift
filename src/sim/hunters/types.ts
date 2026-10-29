@@ -21,7 +21,7 @@ interface HunterBase {
 export interface Tank extends HunterBase {
   kind: 'tank';
   role: TankRole;
-  /** 1 to circle the Ship anticlockwise, -1 clockwise. */
+  /** 1 to circle the Ship counterclockwise, -1 clockwise. */
   orbitDir: 1 | -1;
 }
 
@@ -62,7 +62,7 @@ export interface Artillery extends Percher {
   kind: 'artillery';
 }
 
-/** The armoured mini-boss: takes many hits, and fires Sprays after a wind-up. */
+/** The armored mini-boss: takes many hits, and fires Sprays after a wind-up. */
 export interface Juggernaut extends HunterBase {
   kind: 'juggernaut';
   /** Damage it can still take. */

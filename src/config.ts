@@ -8,7 +8,7 @@ export const CONFIG = {
   arena: {
     cells: 96,
     cellSize: 4,
-    /** Open radius around the Ship's spawn at the Plaza centre, in cells. */
+    /** Open radius around the Ship's spawn at the Plaza center, in cells. */
     spawnClearRadius: 4,
   },
   city: {
@@ -97,7 +97,7 @@ export const CONFIG = {
     duration: 0.22,
     halfAngle: 0.6,
   },
-  /** Behaviour shared by every Hunter type. */
+  /** Behavior shared by every Hunter type. */
   hunters: {
     accel: 30,
     turnRate: 3,
@@ -180,7 +180,7 @@ export const CONFIG = {
     repickInterval: 10,
     scoreMultiplier: 3,
   },
-  /** Armoured mini-boss. Bolts do 1 damage; Pulses and Artillery blasts do more. */
+  /** Armored mini-boss. Bolts do 1 damage; Pulses and Artillery blasts do more. */
   juggernaut: {
     radius: 3,
     speed: 11,

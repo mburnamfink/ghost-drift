@@ -12,18 +12,18 @@ function run(ship: Ship, controls: Partial<Controls>, seconds: number, terrain =
   for (let t = 0; t < seconds; t += DT) stepShip(ship, c, terrain, DT);
 }
 
-const centre = () => createShip({ x: 128, y: 128 });
+const center = () => createShip({ x: 128, y: 128 });
 
 describe('Ship handling', () => {
   it('approaches top speed under full thrust', () => {
-    const ship = centre();
+    const ship = center();
     run(ship, { thrust: 1 }, 3);
     expect(speedOf(ship)).toBeGreaterThan(SHIP_TOP_SPEED * 0.95);
     expect(speedOf(ship)).toBeLessThanOrEqual(SHIP_TOP_SPEED + 1e-6);
   });
 
   it('realigns velocity with heading after a turn when gripping', () => {
-    const ship = centre();
+    const ship = center();
     run(ship, { thrust: 1 }, 2);
     run(ship, { thrust: 1, steer: 1 }, 0.5);
     run(ship, { thrust: 1 }, 0.5);
@@ -32,15 +32,15 @@ describe('Ship handling', () => {
   });
 
   it('keeps most of its speed through a full-lock turn', () => {
-    const ship = centre();
+    const ship = center();
     run(ship, { thrust: 1 }, 3);
     run(ship, { thrust: 1, steer: 1 }, 3);
     expect(speedOf(ship)).toBeGreaterThan(SHIP_TOP_SPEED * 0.85);
     expect(speedOf(ship)).toBeLessThanOrEqual(SHIP_TOP_SPEED + 1e-6);
   });
 
-  it('keeps travelling in a straight line while Powersliding, whatever the heading does', () => {
-    const ship = centre();
+  it('keeps traveling in a straight line while Powersliding, whatever the heading does', () => {
+    const ship = center();
     run(ship, { thrust: 1 }, 2);
     const before = Math.atan2(ship.vel.y, ship.vel.x);
     run(ship, { thrust: 1, steer: 1, slide: true }, 0.6);
@@ -49,7 +49,7 @@ describe('Ship handling', () => {
   });
 
   it('bleeds speed slowly while Powersliding, even under thrust', () => {
-    const ship = centre();
+    const ship = center();
     run(ship, { thrust: 1 }, 2);
     const before = speedOf(ship);
     run(ship, { thrust: 1, slide: true }, 0.5);
@@ -60,14 +60,14 @@ describe('Ship handling', () => {
 
 describe('Burst', () => {
   it('spends a Charge and grants invulnerability', () => {
-    const ship = centre();
+    const ship = center();
     stepShip(ship, { ...NO_CONTROLS, burst: true }, open, DT);
     expect(ship.charges).toBe(CONFIG.ship.burstCharges - 1);
     expect(canBeHit(ship)).toBe(false);
   });
 
   it('does nothing without Charges', () => {
-    const ship = centre();
+    const ship = center();
     ship.charges = 0;
     const r = stepShip(ship, { ...NO_CONTROLS, burst: true }, open, DT);
     expect(r.burstStarted).toBe(false);
@@ -108,7 +108,7 @@ describe('Burst', () => {
   });
 
   it('exits at top speed', () => {
-    const ship = centre();
+    const ship = center();
     run(ship, { burst: true }, DT);
     run(ship, {}, CONFIG.ship.burstDuration);
     expect(speedOf(ship)).toBeGreaterThan(SHIP_TOP_SPEED * 0.9);
@@ -117,7 +117,7 @@ describe('Burst', () => {
 
 describe('Firing', () => {
   it('fires along the heading at the configured cadence', () => {
-    const ship = centre();
+    const ship = center();
     let shots = 0;
     for (let t = 0; t < 1; t += DT)
       if (stepShip(ship, { ...NO_CONTROLS, fire: true }, open, DT).fired !== null) shots++;

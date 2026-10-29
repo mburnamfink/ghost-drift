@@ -4,7 +4,7 @@ import { speedOf } from '../sim/ship';
 import { tankSpeed } from '../sim/waves';
 import type { SimEvent, World } from '../sim/world';
 import { LEGENDS, LEGEND_SECONDS, legendRank } from './copy';
-import { gameOverSvg, splashSvg } from './splash';
+import { headingSvg, splashSvg } from './splash';
 
 /** Shown when only a few Hunters are left in a live Wave. */
 export interface LastEnemies {
@@ -272,13 +272,13 @@ function renderScreen(screen: Screen): string {
         <div class="title-controls">${controlsTable(gamepad)}<p class="device">${device}</p></div>`;
     case 'paused':
       return `
-        <h1>PAUSED</h1>
+        ${headingSvg('Paused', 'cool')}
         <p class="prompt">Press ${gamepad ? 'MENU' : 'ESC'} to resume</p>
         <p class="menu-option">${gamepad ? 'B' : 'BACKSPACE'} · Main menu</p>
         ${controlsTable(gamepad)}`;
     case 'over':
       return `
-        ${gameOverSvg(screen.message)}
+        ${headingSvg(screen.message, 'warm')}
         <p class="legend">YOUR LEGEND: ${legendRank(screen.score)}</p>
         <p class="stat">Score ${screen.score} · Wave ${screen.wave}</p>
         <p class="stat">Best ${screen.best}</p>
@@ -313,8 +313,8 @@ function controlsTable(gamepad: boolean): string {
 }
 
 /**
- * Where a direction from the screen centre (0 = right, π/2 = up) meets an inset screen edge, as
- * percentages. `halfWidth` and `halfHeight` are the inset edge's distance from the centre.
+ * Where a direction from the screen center (0 = right, π/2 = up) meets an inset screen edge, as
+ * percentages. `halfWidth` and `halfHeight` are the inset edge's distance from the center.
  */
 function edgePoint(angle: number, halfWidth: number, halfHeight: number): { x: number; y: number } {
   const cos = Math.cos(angle);

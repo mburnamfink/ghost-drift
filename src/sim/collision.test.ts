@@ -17,7 +17,7 @@ describe('resolveCircle', () => {
     expect(r.normal).toEqual({ x: -1, y: 0 });
   });
 
-  it('pushes a centre embedded in a Block to the nearest face', () => {
+  it('pushes a center embedded in a Block to the nearest face', () => {
     const r = resolveCircle(t, { x: 4.5, y: 6 }, 1);
     expect(r.pos.x).toBeCloseTo(3);
   });

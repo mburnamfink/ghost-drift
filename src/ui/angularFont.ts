@@ -1,6 +1,6 @@
 /**
  * The angular lettering of the title and game-over screens. Each glyph is a width and a set of
- * polylines on a grid 6 units tall, chamfered at 45°, drawn as mitred strokes so one definition
+ * polylines on a grid 6 units tall, chamfered at 45°, drawn as mitered strokes so one definition
  * can be rendered solid (a thick stroke) or wireframe (that stroke hollowed out).
  */
 type Glyph = { w: number; paths: [number, number][][] };
@@ -55,7 +55,7 @@ export function textPath(text: string, x: number, y: number, u: number): string 
   const parts: string[] = [];
   for (const ch of text.toUpperCase()) {
     for (const path of glyph(ch).paths) {
-      // Closing with Z mitres the last corner; returning to the start point would leave a stub.
+      // Closing with Z miters the last corner; returning to the start point would leave a stub.
       const [first, last] = [path[0]!, path[path.length - 1]!];
       const closed = path.length > 2 && first[0] === last[0] && first[1] === last[1];
       const points = closed ? path.slice(0, -1) : path;

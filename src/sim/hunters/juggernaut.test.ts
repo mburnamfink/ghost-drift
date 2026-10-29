@@ -32,8 +32,8 @@ function run(world: World, seconds: number, controls = NO_CONTROLS) {
   for (let t = 0; t < seconds; t += DT) stepWorld(world, controls, DT);
 }
 
-describe('Juggernaut armour', () => {
-  it('takes one damage per Bolt and dies only when its armour is gone', () => {
+describe('Juggernaut armor', () => {
+  it('takes one damage per Bolt and dies only when its armor is gone', () => {
     const world = liveWorld();
     const j = placeJuggernaut(world, 25);
     const parked = { ...j.pos };
@@ -71,7 +71,7 @@ describe('Juggernaut armour', () => {
 });
 
 describe('Juggernaut Spray', () => {
-  it('winds up, then fires a fan of large Shells centred on the Ship', () => {
+  it('winds up, then fires a fan of large Shells centered on the Ship', () => {
     const world = liveWorld();
     const j = placeJuggernaut(world, 30);
     j.fireCooldown = 0;

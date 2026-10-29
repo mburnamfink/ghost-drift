@@ -49,7 +49,7 @@ export class FlowField {
   }
 
   /**
-   * Unit vector from `p` toward the centre of the best neighbouring cell, or null if `p` is in the
+   * Unit vector from `p` toward the center of the best neighboring cell, or null if `p` is in the
    * target cell or cannot reach it. Diagonal moves are allowed only when both adjacent sides are
    * open, so units never cut a Block's corner.
    */

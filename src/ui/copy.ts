@@ -3,7 +3,7 @@ export const LEGENDS: readonly string[] = [
   'Outnumbered. Outgunned. Never outmaneuvered.',
   'One ace. Endless enemies. Defend your city.',
   'One pilot. One city. No backup.',
-  'The Ghost of Arcadia is just a rumour. Tell that to the wrecks.',
+  'The Ghost of Arcadia is just a rumor. Tell that to the wrecks.',
   'Haunt the battlefield.',
 ];
 
@@ -26,7 +26,7 @@ export const LEGEND_RANKS: readonly [number, string][] = [
   [300_000, 'LEGEND'],
   [100_000, 'THE GHOST'],
   [20_000, 'SIGHTING'],
-  [0, 'RUMOUR'],
+  [0, 'RUMOR'],
 ];
 
 export const legendRank = (score: number): string =>

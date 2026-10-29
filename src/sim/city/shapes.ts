@@ -1,8 +1,8 @@
-/** Areas a layout keeps open or encloses, in cell units. A cell belongs to a shape if its centre does. */
+/** Areas a layout keeps open or encloses, in cell units. A cell belongs to a shape if its center does. */
 export type Shape =
   | { kind: 'rect'; x: number; y: number; w: number; h: number }
   | { kind: 'disc'; x: number; y: number; r: number }
-  /** An elliptical band `width` wide whose centre line has radii `rx` and `ry`. */
+  /** An elliptical band `width` wide whose center line has radii `rx` and `ry`. */
   | { kind: 'ring'; x: number; y: number; rx: number; ry: number; width: number }
   /** A straight road from (ax, ay) to (bx, by) with round ends, `width` wide. */
   | { kind: 'capsule'; ax: number; ay: number; bx: number; by: number; width: number };
@@ -41,7 +41,7 @@ export const unionDistance = (circles: readonly Circle[], px: number, py: number
   Math.min(...circles.map((c) => Math.hypot(px - c.x, py - c.y) - c.r));
 
 /**
- * Where a point sits relative to a road's centre line: `along` it from the road's start, and
+ * Where a point sits relative to a road's center line: `along` it from the road's start, and
  * `offset` to one side. Only rings and capsules are roads; other shapes return null.
  */
 export function roadPosition(

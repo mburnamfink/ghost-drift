@@ -54,7 +54,7 @@ describe('Shotgun', () => {
 
   it('is stopped by Blocks', () => {
     const rows = Array.from({ length: 64 }, () => '.'.repeat(64));
-    // The Ship spawns at the centre (128, 128); column 34 is 8 units ahead.
+    // The Ship spawns at the center (128, 128); column 34 is 8 units ahead.
     rows[32] = '.'.repeat(34) + '#' + '.'.repeat(29);
     const world = liveWorld(rows);
     world.ship.weapon = 'shotgun';

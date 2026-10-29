@@ -42,7 +42,7 @@ export const tankSpeed = (wave: number): number =>
   Math.min(CONFIG.tank.maxSpeed, CONFIG.tank.baseSpeed + CONFIG.tank.speedPerWave * (wave - 1));
 
 /**
- * Picks `count` distinct open cell centres at least `minSpawnDistance` from the Ship. If the Arena
+ * Picks `count` distinct open cell centers at least `minSpawnDistance` from the Ship. If the Arena
  * cannot supply enough, the farthest open cells are used instead.
  */
 export function spawnPoints(terrain: Terrain, shipPos: Vec2, count: number, rng: Rng): Vec2[] {

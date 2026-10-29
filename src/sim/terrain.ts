@@ -179,7 +179,7 @@ export class Terrain {
     return n;
   }
 
-  /** Centre of the open cell nearest to `p`, searching outward ring by ring. */
+  /** Center of the open cell nearest to `p`, searching outward ring by ring. */
   nearestOpenPoint(p: Vec2): Vec2 {
     const cx = Math.min(this.cells - 1, Math.max(0, this.cellOf(p.x)));
     const cy = Math.min(this.cells - 1, Math.max(0, this.cellOf(p.y)));

@@ -19,7 +19,7 @@ The Ship's remaining hit points. At zero the run ends.
 _Avoid_: Health, HP, shields
 
 **Powerslide**:
-A held maneuver in which the Ship keeps travelling in a straight line, slowly losing speed, while its Heading turns freely. Thrust does nothing until it ends.
+A held maneuver in which the Ship keeps traveling in a straight line, slowly losing speed, while its Heading turns freely. Thrust does nothing until it ends.
 _Avoid_: Drift, strafe mode
 
 **Multiplier**:
@@ -31,7 +31,7 @@ The player, as the fiction knows them: the lone pilot defending Arcadia whom not
 _Avoid_: Hero, player character
 
 **Legend rank**:
-The title a Run earns from its score, shown on game over: Rumour, Sighting, The Ghost, Legend, Myth.
+The title a Run earns from its score, shown on game over: Rumor, Sighting, The Ghost, Legend, Myth.
 
 **Burst**:
 A short forward surge during which the Ship cannot be hurt and passes through buildings, bouncing off the Edge like a billiard ball. Limited Charges.
@@ -72,10 +72,10 @@ A Hunter that holds a Perch with long sightlines and fires an instant shot at wh
 A Hunter that holds a covered Perch far away and fires Salvos at a Ship under open sky.
 
 **Juggernaut**:
-The armoured mini-boss. Takes many hits, circles close, and fires Sprays from a slow-turning turret. Arrives in its own Waves.
+The armored mini-boss. Takes many hits, circles close, and fires Sprays from a slow-turning turret. Arrives in its own Waves.
 _Avoid_: Boss, heavy tank
 
-**Armour**:
+**Armor**:
 The damage a Juggernaut can still take. Every other Hunter dies to any hit.
 _Avoid_: HP, health
 
@@ -86,7 +86,7 @@ A Juggernaut's attack: a fan of large Shells fired together after its barrels gl
 The firing position a Sniper or Artillery holds instead of chasing. Abandoned when the Ship comes close.
 
 **Salvo**:
-Three Artillery shells landing in sequence along the Ship's projected path, each marked by a closing circle on the ground. A blast destroys Hunters, or damages a Juggernaut's Armour, as well as hurting the Ship.
+Three Artillery shells landing in sequence along the Ship's projected path, each marked by a closing circle on the ground. A blast destroys Hunters, or damages a Juggernaut's Armor, as well as hurting the Ship.
 
 **Open sky**:
 No Block within a couple of cells. Artillery fires only at a Ship under open sky, since tall Blocks block the arc.

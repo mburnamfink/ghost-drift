@@ -132,6 +132,12 @@ body {
   display: none;
 }
 
+/* Banners would show through the pause and game-over headings. */
+.hud[data-screen='paused'] .hud-banner,
+.hud[data-screen='over'] .hud-banner {
+  display: none;
+}
+
 /* The title shows the live scene behind it, shaded only enough to keep the text legible. */
 .hud-screen[data-kind='title'] {
   background: linear-gradient(
@@ -178,7 +184,7 @@ body {
   }
 }
 
-.hud-screen .game-over {
+.hud-screen .heading {
   width: min(92vw, 1100px);
   height: auto;
   margin-bottom: 8px;

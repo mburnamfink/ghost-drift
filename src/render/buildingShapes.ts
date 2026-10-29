@@ -27,7 +27,7 @@ interface Footprint {
 }
 
 /**
- * Geometry for a Block `w` by `d` wide and `h` tall, centred on x/z with its base at y = 0. The style
+ * Geometry for a Block `w` by `d` wide and `h` tall, centered on x/z with its base at y = 0. The style
  * comes from `seed`, so a Block looks the same every time it Rises.
  */
 export function buildingGeometry(
@@ -164,8 +164,8 @@ function prism(
 
 /**
  * Geometry for a compound building: each part is a wing of its own height and simple style, merged
- * into one piece centred on the bounding rectangle. Sizes are in world units; `inset` shrinks each
- * wing so neighbouring faces never z-fight.
+ * into one piece centered on the bounding rectangle. Sizes are in world units; `inset` shrinks each
+ * wing so neighboring faces never z-fight.
  */
 export function compoundGeometry(
   parts: readonly { x: number; z: number; w: number; d: number }[],

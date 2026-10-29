@@ -10,7 +10,7 @@ const AMBER = '#ffe36b';
 const DEEP_BLUE = '#1f6bff';
 const HUNTER = css(PALETTE.hunter);
 
-/** The GHOST DRIFT logo, centred on `cx`, with its top at `top`. */
+/** The GHOST DRIFT logo, centered on `cx`, with its top at `top`. */
 function logo(cx: number, top: number): string {
   const u = 26;
   const weight = u * 0.95;
@@ -18,11 +18,14 @@ function logo(cx: number, top: number): string {
   const ghost = textPath('GHOST', cx - (textUnits('GHOST') * u) / 2, top, u);
   const drift = textPath('DRIFT', cx - (driftUnits * u) / 2 + u * 2.2, top + u * 8.4, u);
 
-  const echoes = [3, 2, 1]
+  // Afterimages as in a Powerslide: each left further back along the line of travel and turned a
+  // little further, as the nose swings while the Ship slides on.
+  const pivot = `${cx} ${top + u * 3}`;
+  const echoes = [4, 3, 2, 1]
     .map((k) => {
-      const dx = -k * u * 0.75;
-      const echo = hollowStroke(ghost, weight, 2, CYAN, 0.18 + 0.12 * (3 - k));
-      return `<g transform="translate(${dx} 0)">${echo}</g>`;
+      const echo = hollowStroke(ghost, weight, 2, CYAN, 0.12 + 0.1 * (4 - k));
+      const slide = `translate(${-k * u * 1.15} ${k * u * 0.2}) rotate(${k * 1.3} ${pivot})`;
+      return `<g transform="${slide}">${echo}</g>`;
     })
     .join('');
   const speedLines = [0.6, 2.2, 3.8, 5.4]
@@ -63,31 +66,39 @@ export function splashSvg(): string {
   </svg>`;
 }
 
+const TONES = {
+  /** Game over: the Hunters' warm colors. */
+  warm: { stops: [AMBER, HUNTER], echo: HUNTER },
+  /** Pause: the Ship's cyan deepening to blue, like DRIFT. */
+  cool: { stops: [PALE, CYAN, DEEP_BLUE], echo: CYAN },
+} as const;
+
+let headingCount = 0;
+
 /**
- * A game-over message in the title's lettering: solid, in the Hunters' warm colours, with one
- * wireframe echo behind. Long messages wrap onto a second line.
+ * A heading in the title's lettering: solid in `tone`, with one wireframe echo behind. Long text
+ * wraps onto further lines.
  */
-export function gameOverSvg(message: string): string {
+export function headingSvg(text: string, tone: keyof typeof TONES): string {
   const w = 1600;
   const u = 18;
   const weight = u * 0.95;
-  const lines = wrapText(message, 78);
+  const lines = wrapText(text, 78);
   const lineHeight = u * 8.5;
   const h = lines.length * lineHeight + u * 2;
-  const paths = lines.map((line, i) =>
-    textPath(line, w / 2 - (textUnits(line) * u) / 2, u + i * lineHeight, u),
-  );
-  const d = paths.join(' ');
-  return `<svg class="game-over" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="overFill" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="${AMBER}"/>
-        <stop offset="1" stop-color="${HUNTER}"/>
-      </linearGradient>
-    </defs>
+  const d = lines
+    .map((line, i) => textPath(line, w / 2 - (textUnits(line) * u) / 2, u + i * lineHeight, u))
+    .join(' ');
+  const { stops, echo } = TONES[tone];
+  const fill = `heading-fill-${headingCount++}`;
+  const gradient = stops
+    .map((c, i) => `<stop offset="${i / (stops.length - 1)}" stop-color="${c}"/>`)
+    .join('');
+  return `<svg class="heading" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="${fill}" x1="0" y1="0" x2="0" y2="1">${gradient}</linearGradient></defs>
     <g transform="skewX(-14)" transform-origin="${w / 2} ${h / 2}">
-      <g transform="translate(${-u * 0.9} 0)">${hollowStroke(d, weight, 2, HUNTER, 0.5)}</g>
-      ${solidStroke(d, weight, 'url(#overFill)')}
+      <g transform="translate(${-u * 0.9} 0)">${hollowStroke(d, weight, 2, echo, 0.5)}</g>
+      ${solidStroke(d, weight, `url(#${fill})`)}
     </g>
   </svg>`;
 }
