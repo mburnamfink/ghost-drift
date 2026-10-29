@@ -3,6 +3,7 @@ import { type Vec2, dot, fromAngle, length } from '../core/vec2';
 import { resolveCircle, slideAlong } from './collision';
 import type { Controls } from './controls';
 import type { Terrain } from './terrain';
+import { type Weapon, fireInterval, nextWeapon } from './weapons';
 
 export interface Ship {
   pos: Vec2;
@@ -15,6 +16,7 @@ export interface Ship {
   /** Seconds of post-hit invulnerability remaining. */
   invulnerableTime: number;
   fireCooldown: number;
+  weapon: Weapon;
   sliding: boolean;
 }
 
@@ -28,6 +30,7 @@ export function createShip(pos: Vec2, heading = 0): Ship {
     burstTime: 0,
     invulnerableTime: 0,
     fireCooldown: 0,
+    weapon: 'cannon',
     sliding: false,
   };
 }
@@ -38,7 +41,7 @@ export const speedOf = (ship: Ship): number => length(ship.vel);
 
 export interface ShipStepResult {
   burstStarted: boolean;
-  /** Direction of a Bolt fired this step, if any. */
+  /** Heading the current weapon fired along this step, if it fired. */
   fired: number | null;
 }
 
@@ -54,6 +57,7 @@ export function stepShip(
 
   ship.invulnerableTime = Math.max(0, ship.invulnerableTime - dt);
   ship.fireCooldown = Math.max(0, ship.fireCooldown - dt);
+  if (controls.swap) ship.weapon = nextWeapon(ship.weapon);
 
   if (controls.burst && !isBursting(ship) && ship.charges > 0) {
     ship.charges--;
@@ -104,7 +108,7 @@ export function stepShip(
   }
 
   if (controls.fire && !bursting && ship.fireCooldown === 0) {
-    ship.fireCooldown = cfg.fireInterval;
+    ship.fireCooldown = fireInterval(ship.weapon);
     result.fired = ship.heading;
   }
 

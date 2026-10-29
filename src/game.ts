@@ -67,7 +67,7 @@ export class Game {
       this.loop.advance(frameTime, (dt, first) => {
         const controls = this.phase === 'playing' ? runInput : NO_CONTROLS;
         // Edge-triggered actions apply once per frame, not once per step.
-        stepWorld(this.world, first ? controls : { ...controls, burst: false }, dt);
+        stepWorld(this.world, first ? controls : { ...controls, burst: false, swap: false }, dt);
       });
     }
     if (this.world.over && this.phase === 'playing') this.enterOver();

@@ -8,6 +8,8 @@ export interface Controls {
   fire: boolean;
   /** True only on the step the button went down. */
   burst: boolean;
+  /** Switch to the next weapon. True only on the step the button went down. */
+  swap: boolean;
 }
 
 export const NO_CONTROLS: Controls = {
@@ -16,4 +18,5 @@ export const NO_CONTROLS: Controls = {
   slide: false,
   fire: false,
   burst: false,
+  swap: false,
 };

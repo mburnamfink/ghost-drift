@@ -28,6 +28,7 @@ export class Hud {
   private readonly wave: HTMLElement;
   private readonly hull: HTMLElement;
   private readonly charges: HTMLElement;
+  private readonly weapon: HTMLElement;
   private readonly speedFill: HTMLElement;
   private readonly speedMarker: HTMLElement;
   private readonly banner: HTMLElement;
@@ -49,6 +50,7 @@ export class Hud {
       <div class="hud-top-right">
         <div class="hud-row"><span class="hud-label">HULL</span><span class="hud-hull"></span></div>
         <div class="hud-row"><span class="hud-label">BURST</span><span class="hud-charges"></span></div>
+        <div class="hud-row"><span class="hud-label">GUN</span><span class="hud-weapon"></span></div>
       </div>
       <div class="hud-speed"><div class="hud-speed-fill"></div><div class="hud-speed-marker"></div><span class="hud-label">SPEED</span></div>
       <div class="hud-banner"></div>
@@ -67,6 +69,7 @@ export class Hud {
     this.wave = q('.hud-wave');
     this.hull = q('.hud-hull');
     this.charges = q('.hud-charges');
+    this.weapon = q('.hud-weapon');
     this.speedFill = q('.hud-speed-fill');
     this.speedMarker = q('.hud-speed-marker');
     this.banner = q('.hud-banner');
@@ -105,6 +108,7 @@ export class Hud {
     this.wave.textContent = world.wave > 0 ? `WAVE ${world.wave}` : '';
     this.hull.textContent = pips(ship.hull, CONFIG.ship.hull, '■', '□');
     this.charges.textContent = pips(ship.charges, CONFIG.ship.burstCharges, '◆', '◇');
+    this.weapon.textContent = ship.weapon.toUpperCase();
 
     const speed = Math.min(1, speedOf(ship) / SHIP_TOP_SPEED);
     const danger = tankSpeed(Math.max(1, world.wave)) / SHIP_TOP_SPEED;
@@ -229,6 +233,7 @@ function controlsTable(gamepad: boolean): string {
         ['Powerslide', 'LT'],
         ['Fire', 'RB / X'],
         ['Burst', 'A / LB'],
+        ['Switch gun', 'Y'],
         ['Pause', 'Menu'],
       ]
     : [
@@ -237,6 +242,7 @@ function controlsTable(gamepad: boolean): string {
         ['Powerslide', 'Shift'],
         ['Fire', 'Space'],
         ['Burst', 'E'],
+        ['Switch gun', 'Q'],
         ['Pause', 'Esc'],
       ];
   return `<table class="controls">${rows.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>`;

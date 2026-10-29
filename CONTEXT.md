@@ -117,8 +117,18 @@ _Avoid_: Level, round
 One play-through from the first Wave to the Ship's destruction. Endless; ends only in defeat.
 _Avoid_: Game, session
 
+**Cannon**:
+The Ship's rapid-fire gun. Fires Bolts.
+
+**Shotgun**:
+The Ship's short-range gun. Fires Pulses.
+
 **Bolt**:
-A shot fired by the Ship.
+A Cannon shot. Bends slightly toward a Hunter near its line of flight.
+
+**Pulse**:
+A Shotgun shot: an arc that sweeps outward from the Ship and destroys every Hunter it reaches.
+_Avoid_: Blast (Artillery's word), wave (a Wave is a round of Hunters)
 
 **Shell**:
 A shot fired by a Hunter.

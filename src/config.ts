@@ -60,12 +60,25 @@ export const CONFIG = {
     burstCharges: 3,
     burstDuration: 0.45,
     burstSpeed: 85,
-    fireInterval: 0.11,
   },
-  bolt: {
+  /** Rapid Bolts that bend slightly toward a Hunter near their line of flight. */
+  cannon: {
+    interval: 0.11,
     speed: 130,
     life: 0.9,
     radius: 0.35,
+    /** Half-angle either side of a Bolt's flight within which it notices a Hunter. */
+    homingCone: 0.2,
+    /** Fastest a Bolt turns toward its Hunter, radians per second. */
+    homingRate: 2.5,
+  },
+  /** Slow Pulses that sweep a short, wide arc and destroy every exposed Hunter in it. */
+  shotgun: {
+    interval: 0.5,
+    range: 18,
+    /** Seconds for a Pulse to reach full range. */
+    duration: 0.22,
+    halfAngle: 0.6,
   },
   /** Behaviour shared by every Hunter type. */
   hunters: {

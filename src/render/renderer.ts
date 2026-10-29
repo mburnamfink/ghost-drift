@@ -9,6 +9,7 @@ import { Afterimages } from './afterimages';
 import { Debris } from './debris';
 import { type HunterModel, createHunterModel, createShipModel } from './models';
 import { PALETTE } from './palette';
+import { PulsesView } from './pulsesView';
 import { TerrainView } from './terrainView';
 import { ThreatsView } from './threatsView';
 
@@ -61,6 +62,7 @@ export class GameRenderer {
   private readonly bolts: THREE.InstancedMesh;
   /** Tank shells drawn as a solid core, a soft halo and a trail streaming behind. */
   private readonly shellLayers: THREE.InstancedMesh[];
+  private readonly pulses = new PulsesView();
   private readonly debris = new Debris();
   private readonly afterimages = new Afterimages();
   private readonly dummy = new THREE.Object3D();
@@ -98,6 +100,7 @@ export class GameRenderer {
       this.ship.root,
       this.bolts,
       ...this.shellLayers,
+      this.pulses.group,
       this.debris.mesh,
       this.threats.group,
       this.afterimages.group,
@@ -144,6 +147,9 @@ export class GameRenderer {
           this.debris.burst(e.pos.x, e.pos.y, PALETTE.impactZone, 40, 22);
           this.shake = Math.max(this.shake, this.shakeAtDistance(e.pos, 1.2));
           break;
+        case 'pulseFired':
+          this.shake = Math.max(this.shake, 0.2);
+          break;
         case 'sniperFired':
           this.shake = Math.max(this.shake, 0.5);
           break;
@@ -167,6 +173,7 @@ export class GameRenderer {
     this.syncShip(world, frameTime);
     this.syncHunters(world, frameTime);
     syncShots(this.bolts, world.bolts, this.dummy, true);
+    this.pulses.update(world.pulses);
     for (const layer of this.shellLayers) syncShots(layer, world.shells, this.dummy, true);
     this.debris.update(frameTime);
     this.afterimages.update(frameTime);

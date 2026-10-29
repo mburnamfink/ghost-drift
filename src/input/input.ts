@@ -17,6 +17,7 @@ export const IDLE_INPUT: FrameInput = {
   slide: false,
   fire: false,
   burst: false,
+  swap: false,
   confirm: false,
   pause: false,
 };
@@ -29,6 +30,7 @@ export function mergeInputs(a: FrameInput, b: FrameInput): FrameInput {
     slide: a.slide || b.slide,
     fire: a.fire || b.fire,
     burst: a.burst || b.burst,
+    swap: a.swap || b.swap,
     confirm: a.confirm || b.confirm,
     pause: a.pause || b.pause,
   };

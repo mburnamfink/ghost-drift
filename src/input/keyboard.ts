@@ -7,6 +7,7 @@ const BINDINGS = {
   slide: ['ShiftLeft', 'ShiftRight'],
   fire: ['Space'],
   burst: ['KeyE'],
+  swap: ['KeyQ'],
   confirm: ['Enter'],
   pause: ['Escape'],
 } as const;
@@ -38,6 +39,7 @@ export class KeyboardInput implements InputSource {
       slide: held(BINDINGS.slide),
       fire: held(BINDINGS.fire),
       burst: tapped(BINDINGS.burst),
+      swap: tapped(BINDINGS.swap),
       confirm: tapped(BINDINGS.confirm),
       pause: tapped(BINDINGS.pause),
     };

@@ -40,6 +40,7 @@ export class GamepadInput implements InputSource {
       slide: value(PAD.lt) > TRIGGER_THRESHOLD,
       fire: held(PAD.rb, PAD.x),
       burst: tapped(PAD.a, PAD.lb),
+      swap: tapped(PAD.y),
       confirm: tapped(PAD.a, PAD.menu),
       pause: tapped(PAD.menu),
     };

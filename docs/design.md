@@ -12,11 +12,11 @@ Battlezone meets Wipeout. Terms are defined in [CONTEXT.md](../CONTEXT.md); arch
 
 - Hunters are slower than the Ship's top speed and faster than a Ship that is crawling.
 - Hunter Shells are aimed at where the Ship is when fired, not where it will be. A moving Ship dodges them; a stationary one does not.
-- Each Tank fires its own orange Shell about every 2.2 s, aimed at where the Ship is now: moving is the dodge.
 - Kills during one Powerslide form a Slide combo: ×1, ×2, ×3… up to ×8, with the total shown when the slide ends.
 - Once a Wave is down to three or fewer Hunters (and at least one has been destroyed), the HUD counts them and pins an arrow to the screen edge on the side of the nearest.
 - Touching a Hunter or a Shell costs one Hull. A short invulnerability window follows each hit.
-- Bolts destroy Hunters. Killing Hunters scores points and thins the hunt, buying breathing room.
+- The Ship carries two guns and switches between them at will. The Cannon fires rapid Bolts that bend up to 2.5 rad/s toward a Hunter within 0.2 rad of their flight. The Shotgun fires a Pulse every 0.5 s: a 70° arc that sweeps out to 18 units in 0.22 s and destroys every Hunter it reaches that no Block shields. The Pulse carries the Ship's momentum.
+- Bolts and Pulses destroy Hunters. Killing Hunters scores points and thins the hunt, buying breathing room.
 - Clearing a Wave restores all Burst Charges and starts the next, larger Wave after a short lull.
 - During the lull, Plots about to Rise glow amber on the floor and Blocks about to Sink are outlined in cyan. The change happens as the next Wave starts.
 - A Run is endless and ends when Hull reaches zero.
@@ -55,6 +55,7 @@ From Wave 3, three standing Blocks Sink and are replaced each Wave, so routes ke
 | Powerslide (hold) | LT              | Shift          |
 | Fire (hold)       | RB or X         | Space          |
 | Burst             | A or LB         | E              |
+| Switch gun        | Y               | Q              |
 | Start / pause     | Menu (Start)    | Enter / Esc    |
 
 The browser only exposes a controller after a button is pressed with the page focused.

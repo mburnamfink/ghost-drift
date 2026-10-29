@@ -99,7 +99,7 @@ describe('Firing', () => {
     let shots = 0;
     for (let t = 0; t < 1; t += DT)
       if (stepShip(ship, { ...NO_CONTROLS, fire: true }, open, DT).fired !== null) shots++;
-    expect(shots).toBeGreaterThanOrEqual(Math.floor(1 / CONFIG.ship.fireInterval));
-    expect(shots).toBeLessThanOrEqual(Math.ceil(1 / CONFIG.ship.fireInterval) + 1);
+    expect(shots).toBeGreaterThanOrEqual(Math.floor(1 / CONFIG.cannon.interval));
+    expect(shots).toBeLessThanOrEqual(Math.ceil(1 / CONFIG.cannon.interval) + 1);
   });
 });
