@@ -3,7 +3,8 @@ import type { ScreenThreat } from '../render/renderer';
 import { speedOf } from '../sim/ship';
 import { tankSpeed } from '../sim/waves';
 import type { SimEvent, World } from '../sim/world';
-import { splashSvg } from './splash';
+import { LEGENDS, LEGEND_SECONDS, legendRank } from './copy';
+import { gameOverSvg, splashSvg } from './splash';
 
 /** Shown when only a few Hunters are left in a live Wave. */
 export interface LastEnemies {
@@ -16,7 +17,14 @@ export type Screen =
   | { kind: 'none' }
   | { kind: 'title'; pad: string | null }
   | { kind: 'paused'; pad: string | null }
-  | { kind: 'over'; pad: string | null; score: number; wave: number; best: number };
+  | {
+      kind: 'over';
+      pad: string | null;
+      score: number;
+      wave: number;
+      best: number;
+      message: string;
+    };
 
 const BANNER_SECONDS = 2;
 /** A Sniper whose aim point is this close to the Ship counts as targeting it. */
@@ -45,6 +53,9 @@ export class Hud {
   private readonly locked: HTMLElement;
   private bannerTime = 0;
   private lastScreen = '';
+  private titleTime = 0;
+  /** Which legend the title opens on, so repeat visits don't always start the same. */
+  private readonly legendStart = Math.floor(Math.random() * LEGENDS.length);
 
   constructor(container: HTMLElement) {
     this.root = el('div', 'hud');
@@ -142,7 +153,27 @@ export class Hud {
       this.lastScreen = key;
       this.screen.innerHTML = renderScreen(screen);
       this.screen.style.display = screen.kind === 'none' ? 'none' : 'flex';
+      this.screen.dataset.kind = screen.kind;
+      this.root.dataset.screen = screen.kind;
     }
+    this.updateLegend(screen, frameTime);
+  }
+
+  /** Cycles the title screen's legend line, fading each one in. */
+  private updateLegend(screen: Screen, frameTime: number): void {
+    if (screen.kind !== 'title') {
+      this.titleTime = 0;
+      return;
+    }
+    this.titleTime += frameTime;
+    const index = (this.legendStart + Math.floor(this.titleTime / LEGEND_SECONDS)) % LEGENDS.length;
+    const line = this.screen.querySelector<HTMLElement>('.tagline');
+    const text = LEGENDS[index]!;
+    if (!line || line.textContent === text) return;
+    line.textContent = text;
+    line.classList.remove('fade-in');
+    void line.offsetWidth;
+    line.classList.add('fade-in');
   }
 
   /** The Multiplier above the speed bar, with a clock draining toward its reset; pops on each rise. */
@@ -235,33 +266,25 @@ function renderScreen(screen: Screen): string {
       return `
         ${splash()}
         <div class="title-text">
-          <p class="tagline">They say one pilot is holding Arcadia alone.</p>
+          <p class="tagline"></p>
           <p class="prompt">Press ${confirm} to start</p>
         </div>
         <div class="title-controls">${controlsTable(gamepad)}<p class="device">${device}</p></div>`;
     case 'paused':
-      return `<h1>PAUSED</h1><p class="prompt">Press ${gamepad ? 'MENU' : 'ESC'} to resume</p>${controlsTable(gamepad)}`;
+      return `
+        <h1>PAUSED</h1>
+        <p class="prompt">Press ${gamepad ? 'MENU' : 'ESC'} to resume</p>
+        <p class="menu-option">${gamepad ? 'B' : 'BACKSPACE'} · Main menu</p>
+        ${controlsTable(gamepad)}`;
     case 'over':
       return `
-        <h1>THE GHOST GOES DOWN</h1>
+        ${gameOverSvg(screen.message)}
         <p class="legend">YOUR LEGEND: ${legendRank(screen.score)}</p>
         <p class="stat">Score ${screen.score} · Wave ${screen.wave}</p>
         <p class="stat">Best ${screen.best}</p>
         <p class="prompt">Press ${confirm} to retry</p>`;
   }
 }
-
-/** What the city calls you, by score. Each threshold is the score needed to earn the title. */
-const LEGEND_RANKS: [number, string][] = [
-  [1_000_000, 'MYTH'],
-  [300_000, 'LEGEND'],
-  [100_000, 'THE GHOST'],
-  [20_000, 'SIGHTING'],
-  [0, 'RUMOUR'],
-];
-
-const legendRank = (score: number): string =>
-  LEGEND_RANKS.find(([threshold]) => score >= threshold)![1];
 
 let splashMarkup: string | null = null;
 const splash = (): string => (splashMarkup ??= splashSvg());

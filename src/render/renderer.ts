@@ -11,6 +11,7 @@ import { type HunterModel, MORTAR_MOUNT, createHunterModel, createShipModel } fr
 import { PALETTE } from './palette';
 import { PulsesView } from './pulsesView';
 import { TerrainView } from './terrainView';
+import { TitleScene } from './titleScene';
 import { ThreatsView } from './threatsView';
 
 const SHOT_CAPACITY = 512;
@@ -78,6 +79,7 @@ export class GameRenderer {
   private readonly dummy = new THREE.Object3D();
   private readonly threats = new ThreatsView();
   private terrain: TerrainView | null = null;
+  private title: TitleScene | null = null;
   private sparkBudget = 0;
   private cameraYaw = 0;
   private lastHeading = 0;
@@ -136,8 +138,7 @@ export class GameRenderer {
     }
     this.terrain = new TerrainView(world.terrain, this.variedBlocks, world.city?.arch ?? null);
     this.scene.add(this.terrain.group);
-    for (const model of this.hunters.values()) this.scene.remove(model.root);
-    this.hunters.clear();
+    for (const [id, model] of this.hunters) this.removeHunter(id, model);
     this.debris.clear();
     this.afterimages.clear();
     this.threats.clear();
@@ -400,18 +401,21 @@ export class GameRenderer {
       if (h.kind === 'artillery') this.styleArtillery(h, model, frameTime);
       if (h.kind === 'juggernaut') this.styleJuggernaut(h, model, frameTime);
     }
-    for (const [id, model] of this.hunters) {
-      if (alive.has(id)) continue;
-      this.afterimages.stop(id);
-      this.scene.remove(model.root);
-      model.glow?.material.dispose();
-      model.muzzles?.[0]?.material.dispose();
-      if (model.healthBar) this.scene.remove(model.healthBar.group);
-      if (model.kind === 'berserker' || model.kind === 'juggernaut') model.body.material.dispose();
-      this.hitFlash.delete(id);
-      this.hunters.delete(id);
-      this.mortars.delete(id);
-    }
+    for (const [id, model] of this.hunters) if (!alive.has(id)) this.removeHunter(id, model);
+  }
+
+  /** Removes everything drawn for one Hunter, including parts that live outside its model. */
+  private removeHunter(id: number, model: HunterModel): void {
+    this.afterimages.stop(id);
+    this.scene.remove(model.root);
+    // The health bar sits in the scene, not the model, so it can face the camera.
+    if (model.healthBar) this.scene.remove(model.healthBar.group);
+    model.glow?.material.dispose();
+    model.muzzles?.[0]?.material.dispose();
+    if (model.kind === 'berserker' || model.kind === 'juggernaut') model.body.material.dispose();
+    this.hitFlash.delete(id);
+    this.mortars.delete(id);
+    this.hunters.delete(id);
   }
 
   private updateCamera(world: World, frameTime: number): void {
@@ -456,12 +460,23 @@ export class GameRenderer {
     this.camera.updateProjectionMatrix();
   }
 
+  /** Draws the title screen's live backdrop instead of the World. Built on first use. */
+  renderTitle(frameTime: number): void {
+    if (!this.title) {
+      this.title = new TitleScene();
+      this.title.setAspect(this.camera.aspect);
+    }
+    this.title.update(frameTime);
+    this.renderer.render(this.title.scene, this.title.camera);
+  }
+
   private resize(): void {
     const w = window.innerWidth;
     const h = window.innerHeight;
     this.renderer.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    this.title?.setAspect(w / h);
   }
 }
 

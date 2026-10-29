@@ -5,6 +5,8 @@ export interface FrameInput extends Controls {
   /** Confirm on menus: start a Run, retry. */
   confirm: boolean;
   pause: boolean;
+  /** Leave the current screen for the one before it, e.g. pause to main menu. */
+  back: boolean;
 }
 
 export interface InputSource {
@@ -20,6 +22,7 @@ export const IDLE_INPUT: FrameInput = {
   swap: false,
   confirm: false,
   pause: false,
+  back: false,
 };
 
 /** Combines devices so either can be used at any time; the stronger analog value wins. */
@@ -33,5 +36,6 @@ export function mergeInputs(a: FrameInput, b: FrameInput): FrameInput {
     swap: a.swap || b.swap,
     confirm: a.confirm || b.confirm,
     pause: a.pause || b.pause,
+    back: a.back || b.back,
   };
 }

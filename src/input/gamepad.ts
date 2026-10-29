@@ -43,6 +43,7 @@ export class GamepadInput implements InputSource {
       swap: tapped(PAD.y),
       confirm: tapped(PAD.a, PAD.menu),
       pause: tapped(PAD.menu),
+      back: tapped(PAD.b),
     };
   }
 }

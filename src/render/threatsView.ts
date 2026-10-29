@@ -196,7 +196,7 @@ function laserEnds(h: Sniper, world: World): [THREE.Vector3, THREE.Vector3] {
   ];
 }
 
-interface Beam {
+export interface Beam {
   group: THREE.Group;
   core: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>;
   glow: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>;
@@ -220,7 +220,7 @@ const additive = (color: number) =>
   });
 
 /** A bright core inside a wider, fainter glow; both unit boxes stretched between two points. */
-function createBeam(color: number): Beam {
+export function createBeam(color: number): Beam {
   const core = new THREE.Mesh(unitBeam, additive(color));
   const glow = new THREE.Mesh(unitBeam, additive(color));
   const group = new THREE.Group();
@@ -228,7 +228,12 @@ function createBeam(color: number): Beam {
   return { group, core, glow };
 }
 
-function placeBeam(beam: Beam, from: THREE.Vector3, to: THREE.Vector3, thickness: number): void {
+export function placeBeam(
+  beam: Beam,
+  from: THREE.Vector3,
+  to: THREE.Vector3,
+  thickness: number,
+): void {
   const dir = new THREE.Vector3().subVectors(to, from);
   const length = dir.length();
   beam.group.position.copy(from).addScaledVector(dir, 0.5);
@@ -242,7 +247,7 @@ function disposeBeam(beam: Beam): void {
   beam.glow.material.dispose();
 }
 
-function setBeamStyle(beam: Beam, color: number, opacity: number): void {
+export function setBeamStyle(beam: Beam, color: number, opacity: number): void {
   beam.core.material.color.setHex(color);
   beam.glow.material.color.setHex(color);
   beam.core.material.opacity = opacity;
@@ -282,7 +287,7 @@ function glintMap(): THREE.CanvasTexture {
   return glintTexture;
 }
 
-function createGlint(color: number): THREE.Sprite {
+export function createGlint(color: number): THREE.Sprite {
   return new THREE.Sprite(
     new THREE.SpriteMaterial({
       map: glintMap(),

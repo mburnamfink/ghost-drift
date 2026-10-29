@@ -10,6 +10,7 @@ const BINDINGS = {
   swap: ['KeyQ'],
   confirm: ['Enter'],
   pause: ['Escape'],
+  back: ['Backspace'],
 } as const;
 
 const BOUND = new Set<string>(Object.values(BINDINGS).flat());
@@ -42,6 +43,7 @@ export class KeyboardInput implements InputSource {
       swap: tapped(BINDINGS.swap),
       confirm: tapped(BINDINGS.confirm),
       pause: tapped(BINDINGS.pause),
+      back: tapped(BINDINGS.back),
     };
     this.pressed.clear();
     return input;

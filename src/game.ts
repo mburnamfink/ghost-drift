@@ -10,6 +10,7 @@ import type { LayoutName } from './sim/city';
 import { Hud, type LastEnemies, type Screen } from './ui/hud';
 import { Minimap } from './ui/minimap';
 import { Autopilot } from './ai/autopilot';
+import { GAME_OVER_MESSAGES } from './ui/copy';
 import { distance } from './core/vec2';
 
 type Phase = 'title' | 'playing' | 'paused' | 'over';
@@ -53,6 +54,7 @@ export class Game {
   private world: World;
   private phase: Phase = 'title';
   private overTime = 0;
+  private overMessage = GAME_OVER_MESSAGES[0]!;
   private best = loadBest();
   private lastFrame = 0;
 
@@ -110,7 +112,8 @@ export class Game {
     this.renderer.handleEvents(this.world.events);
     this.hud.handleEvents(this.world.events);
     this.world.events.length = 0;
-    this.renderer.render(this.world, this.phase === 'paused' ? 0 : frameTime);
+    if (this.phase === 'title') this.renderer.renderTitle(frameTime);
+    else this.renderer.render(this.world, this.phase === 'paused' ? 0 : frameTime);
     this.hud.update(
       this.world,
       this.screen(),
@@ -135,6 +138,8 @@ export class Game {
         if (input.pause) {
           this.phase = 'playing';
           this.loop.reset();
+        } else if (input.back) {
+          this.quitToTitle();
         }
         break;
       case 'over': {
@@ -168,13 +173,26 @@ export class Game {
     };
   }
 
-  private enterOver(): void {
-    this.phase = 'over';
-    this.overTime = 0;
+  /** Abandons the Run for the main menu; its score still counts toward the best. */
+  private quitToTitle(): void {
+    this.recordBest();
+    this.world = this.newWorld();
+    this.loop.reset();
+    this.phase = 'title';
+  }
+
+  private recordBest(): void {
     if (!this.autopilot && this.world.score > this.best) {
       this.best = this.world.score;
       saveBest(this.best);
     }
+  }
+
+  private enterOver(): void {
+    this.phase = 'over';
+    this.overTime = 0;
+    this.overMessage = GAME_OVER_MESSAGES[Math.floor(Math.random() * GAME_OVER_MESSAGES.length)]!;
+    this.recordBest();
   }
 
   private newWorld(): World {
@@ -204,6 +222,7 @@ export class Game {
           score: this.world.score,
           wave: this.world.wave,
           best: this.best,
+          message: this.overMessage,
         };
       case 'playing':
         return { kind: 'none' };

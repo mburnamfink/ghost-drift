@@ -127,23 +127,61 @@ body {
   color: #37e8ff;
 }
 
-.hud-screen .splash {
+/* The title is not a Run: hide every gameplay readout behind it. */
+.hud[data-screen='title'] > :not(.hud-screen) {
+  display: none;
+}
+
+/* The title shows the live scene behind it, shaded only enough to keep the text legible. */
+.hud-screen[data-kind='title'] {
+  background: linear-gradient(
+    to bottom,
+    rgba(5, 7, 13, 0.55),
+    rgba(5, 7, 13, 0) 40%,
+    rgba(5, 7, 13, 0) 75%,
+    rgba(5, 7, 13, 0.75)
+  );
+}
+
+.hud-screen .logo {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  top: 3%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(94vw, 1150px);
+  height: auto;
 }
 
 .hud-screen .title-text {
   position: absolute;
-  top: 64%;
+  bottom: 56px;
   width: 100%;
+}
+
+.hud-screen .title-text .prompt {
+  margin: 10px 0 0;
 }
 
 .hud-screen .title-text .tagline {
   font-size: clamp(14px, 2vw, 20px);
   letter-spacing: 0.15em;
   opacity: 0.9;
+}
+
+.hud-screen .tagline.fade-in {
+  animation: fade-in 0.8s ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.hud-screen .game-over {
+  width: min(92vw, 1100px);
+  height: auto;
+  margin-bottom: 8px;
 }
 
 .hud-screen .title-controls {
@@ -180,6 +218,12 @@ body {
 .hud-screen .title-controls .device {
   margin: 6px 0 0;
   font-size: 11px;
+}
+
+.hud-screen .menu-option {
+  margin: 0 0 20px;
+  letter-spacing: 0.15em;
+  opacity: 0.85;
 }
 
 .hud-screen .legend {
