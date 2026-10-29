@@ -3,6 +3,8 @@ import { PAD, type PadState, choosePad } from './padLayout';
 
 const STICK_DEADZONE = 0.15;
 const TRIGGER_THRESHOLD = 0.2;
+/** A stick pushed past this counts as a menu direction, once per push. */
+const NAV_THRESHOLD = 0.6;
 
 type PadList = () => readonly (PadState | null)[];
 
@@ -10,6 +12,8 @@ const browserPads: PadList = () => navigator.getGamepads?.() ?? [];
 
 export class GamepadInput implements InputSource {
   private previous = new Set<number>();
+  /** Menu direction the left stick held last poll, so each push registers once. */
+  private stickNav: 'up' | 'down' | 'left' | 'right' | null = null;
 
   constructor(private readonly pads: PadList = browserPads) {}
 
@@ -33,6 +37,20 @@ export class GamepadInput implements InputSource {
     this.previous = down;
     const tapped = (...ids: number[]) => ids.some((i) => down.has(i) && !previous.has(i));
     const held = (...ids: number[]) => ids.some((i) => down.has(i));
+    const sx = pad.axes[PAD.steerAxis] ?? 0;
+    const sy = pad.axes[PAD.stickYAxis] ?? 0;
+    const stick =
+      Math.max(Math.abs(sx), Math.abs(sy)) < NAV_THRESHOLD
+        ? null
+        : Math.abs(sy) > Math.abs(sx)
+          ? sy < 0
+            ? 'up'
+            : 'down'
+          : sx < 0
+            ? 'left'
+            : 'right';
+    const flicked = stick !== this.stickNav ? stick : null;
+    this.stickNav = stick;
 
     return {
       steer: deadzone(pad.axes[PAD.steerAxis] ?? 0),
@@ -44,6 +62,13 @@ export class GamepadInput implements InputSource {
       confirm: tapped(PAD.a, PAD.menu),
       pause: tapped(PAD.menu),
       back: tapped(PAD.b),
+      nav: {
+        up: tapped(PAD.up) || flicked === 'up',
+        down: tapped(PAD.down) || flicked === 'down',
+        left: tapped(PAD.left) || flicked === 'left',
+        right: tapped(PAD.right) || flicked === 'right',
+      },
+      typed: '',
     };
   }
 }

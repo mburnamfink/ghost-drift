@@ -102,3 +102,22 @@ export function headingSvg(text: string, tone: keyof typeof TONES): string {
     </g>
   </svg>`;
 }
+
+/** Three initials in the title's lettering, each over an underline; the slot being edited blinks. */
+export function initialsSvg(letters: readonly string[], cursor: number): string {
+  const u = 14;
+  const weight = u * 0.95;
+  const slot = u * 7;
+  const w = slot * letters.length;
+  const h = u * 9;
+  const slots = letters
+    .map((letter, i) => {
+      const x = i * slot + (slot - 4 * u) / 2;
+      const underline = `<rect class="${i === cursor ? 'slot cursor' : 'slot'}" x="${x - u * 0.5}" y="${u * 7.6}" width="${u * 5}" height="${u * 0.5}" fill="${i === cursor ? AMBER : PALE}"/>`;
+      return `${solidStroke(textPath(letter, x, u, u), weight, i === cursor ? AMBER : CYAN)}${underline}`;
+    })
+    .join('');
+  return `<svg class="initials" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+    <g transform="skewX(-14)" transform-origin="${w / 2} ${h / 2}">${slots}</g>
+  </svg>`;
+}

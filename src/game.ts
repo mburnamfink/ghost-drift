@@ -11,6 +11,8 @@ import { Hud, type LastEnemies, type Screen } from './ui/hud';
 import { Minimap } from './ui/minimap';
 import { Autopilot } from './ai/autopilot';
 import { GAME_OVER_MESSAGES } from './ui/copy';
+import { insertScore, loadScores, rankFor, saveScores } from './scores/highScores';
+import { InitialsEntry } from './scores/initials';
 import { distance } from './core/vec2';
 
 type Phase = 'title' | 'playing' | 'paused' | 'over';
@@ -30,8 +32,6 @@ export interface GameOptions {
   demo?: boolean;
 }
 
-/** Keeps the pre-rename key so existing best scores carry over. */
-const BEST_SCORE_KEY = 'quantum-breach.best';
 /** Ignore confirm briefly after death so a held fire/burst button doesn't skip the score screen. */
 const OVER_INPUT_DELAY = 1;
 /**
@@ -55,7 +55,11 @@ export class Game {
   private phase: Phase = 'title';
   private overTime = 0;
   private overMessage = GAME_OVER_MESSAGES[0]!;
-  private best = loadBest();
+  private scores = loadScores();
+  /** Initials being entered for a Run that made the table, or null. */
+  private entry: InitialsEntry | null = null;
+  /** Where the last finished Run landed in the table, to highlight it. */
+  private entryRank: number | null = null;
   private lastFrame = 0;
 
   constructor(
@@ -144,6 +148,11 @@ export class Game {
         break;
       case 'over': {
         this.overTime += frameTime;
+        if (this.entry) {
+          // The press that finishes the initials must not also restart.
+          if (this.overTime > OVER_INPUT_DELAY) this.updateEntry(input);
+          break;
+        }
         const restart = this.autopilot
           ? this.overTime > DEMO_RESTART
           : input.confirm && this.overTime > OVER_INPUT_DELAY;
@@ -151,6 +160,8 @@ export class Game {
           this.world = this.newWorld();
           this.loop.reset();
           this.phase = 'playing';
+        } else if (input.back && this.overTime > OVER_INPUT_DELAY) {
+          this.quitToTitle();
         }
         break;
       }
@@ -173,26 +184,35 @@ export class Game {
     };
   }
 
-  /** Abandons the Run for the main menu; its score still counts toward the best. */
+  /** Abandons the Run for the main menu. Only finished Runs enter the high-score table. */
   private quitToTitle(): void {
-    this.recordBest();
     this.world = this.newWorld();
     this.loop.reset();
     this.phase = 'title';
-  }
-
-  private recordBest(): void {
-    if (!this.autopilot && this.world.score > this.best) {
-      this.best = this.world.score;
-      saveBest(this.best);
-    }
   }
 
   private enterOver(): void {
     this.phase = 'over';
     this.overTime = 0;
     this.overMessage = GAME_OVER_MESSAGES[Math.floor(Math.random() * GAME_OVER_MESSAGES.length)]!;
-    this.recordBest();
+    this.entryRank = null;
+    const qualifies = !this.autopilot && rankFor(this.scores, this.world.score) !== null;
+    this.entry = qualifies ? new InitialsEntry() : null;
+  }
+
+  private updateEntry(input: FrameInput): void {
+    const entry = this.entry!;
+    entry.apply(input);
+    if (!entry.done) return;
+    const { score, wave } = this.world;
+    const result = insertScore(this.scores, { initials: entry.initials, score, wave });
+    if (result) {
+      this.scores = result.table;
+      this.entryRank = result.rank;
+      saveScores(this.scores);
+    }
+    this.entry = null;
+    this.overTime = 0;
   }
 
   private newWorld(): World {
@@ -212,7 +232,7 @@ export class Game {
     const pad = this.gamepad.description;
     switch (this.phase) {
       case 'title':
-        return { kind: 'title', pad };
+        return { kind: 'title', pad, scores: this.scores };
       case 'paused':
         return { kind: 'paused', pad };
       case 'over':
@@ -221,27 +241,17 @@ export class Game {
           pad,
           score: this.world.score,
           wave: this.world.wave,
-          best: this.best,
           message: this.overMessage,
+          scores: this.scores,
+          highlight: this.entryRank,
+          entry: this.entry && {
+            letters: [...this.entry.letters],
+            cursor: this.entry.cursor,
+            rank: rankFor(this.scores, this.world.score) ?? 0,
+          },
         };
       case 'playing':
         return { kind: 'none' };
     }
-  }
-}
-
-function loadBest(): number {
-  try {
-    return Number(localStorage.getItem(BEST_SCORE_KEY)) || 0;
-  } catch {
-    return 0;
-  }
-}
-
-function saveBest(score: number): void {
-  try {
-    localStorage.setItem(BEST_SCORE_KEY, String(score));
-  } catch {
-    // Storage can be unavailable (private mode, blocked site data); the best score is a convenience.
   }
 }

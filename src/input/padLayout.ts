@@ -24,6 +24,12 @@ export const PAD = {
   rt: 7,
   view: 8,
   menu: 9,
+  up: 12,
+  down: 13,
+  left: 14,
+  right: 15,
+  /** The left stick's vertical axis: negative is up. */
+  stickYAxis: 1,
 } as const;
 
 const XBOX_ID = /xbox|x-box|xinput|045e/i;

@@ -11,6 +11,10 @@ const BINDINGS = {
   confirm: ['Enter'],
   pause: ['Escape'],
   back: ['Backspace'],
+  up: ['ArrowUp'],
+  down: ['ArrowDown'],
+  navLeft: ['ArrowLeft'],
+  navRight: ['ArrowRight'],
 } as const;
 
 const BOUND = new Set<string>(Object.values(BINDINGS).flat());
@@ -20,8 +24,12 @@ export class KeyboardInput implements InputSource {
   /** Keys pressed since the last poll, so taps shorter than a frame still register. */
   private readonly pressed = new Set<string>();
 
+  /** Letters typed since the last poll, for entering initials. */
+  private typed = '';
+
   constructor(target: Window = window) {
     target.addEventListener('keydown', (e) => {
+      if (!e.repeat && /^Key[A-Z]$/.test(e.code)) this.typed += e.code.slice(3);
       if (!BOUND.has(e.code)) return;
       e.preventDefault();
       if (!e.repeat) this.pressed.add(e.code);
@@ -44,8 +52,16 @@ export class KeyboardInput implements InputSource {
       confirm: tapped(BINDINGS.confirm),
       pause: tapped(BINDINGS.pause),
       back: tapped(BINDINGS.back),
+      nav: {
+        up: tapped(BINDINGS.up),
+        down: tapped(BINDINGS.down),
+        left: tapped(BINDINGS.navLeft),
+        right: tapped(BINDINGS.navRight),
+      },
+      typed: this.typed,
     };
     this.pressed.clear();
+    this.typed = '';
     return input;
   }
 }

@@ -8,6 +8,10 @@ Arcade tone. You are the Ghost: a lone pilot in an experimental hovertank, the l
 
 On-screen copy carries the premise, all of it in `src/ui/copy.ts`. The title screen rotates five legends (_"One pilot. One city. No backup."_ and others) over a live scene of the Ship weaving through Tank shells and a Sniper's laser down a building-walled avenue. Game over shows one of six messages (_THE GHOST GOES DOWN_, _TOO SLOW_, _SECTOR LOST_…) in the title's angular lettering. Also: Wave banners (_HOLD ARCADIA_, _THEY'RE STILL COMING_, _HEAVY METAL INBOUND_), the Multiplier shown as _GHOST ×N_, demo mode badged _UNCONFIRMED FOOTAGE_, and a legend rank on game over by score: Rumor (0), Sighting (20k), The Ghost (100k), Legend (300k), Myth (1M).
 
+## High scores
+
+A top-10 table of initials, score and Wave, kept in the browser (`src/scores/`). A finished Run that makes the table asks for three initials on the game-over screen: type them, or on a pad use up/down for the letter, left/right to move and A when done. The table then shows with the new row flashing. The title screen alternates with the table, like an arcade attract loop: 12 s of title, then 7 s of scores. Runs abandoned from pause, and demo Runs, never enter the table.
+
 ## Pillars
 
 1. **Speed is armor.** A moving Ship is hard to hit; a slow one gets Boxed in. Every system should push the player to keep speed up.

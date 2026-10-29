@@ -4,7 +4,8 @@ import { speedOf } from '../sim/ship';
 import { tankSpeed } from '../sim/waves';
 import type { SimEvent, World } from '../sim/world';
 import { LEGENDS, LEGEND_SECONDS, legendRank } from './copy';
-import { headingSvg, splashSvg } from './splash';
+import { headingSvg, initialsSvg, splashSvg } from './splash';
+import type { ScoreEntry } from '../scores/highScores';
 
 /** Shown when only a few Hunters are left in a live Wave. */
 export interface LastEnemies {
@@ -15,18 +16,25 @@ export interface LastEnemies {
 
 export type Screen =
   | { kind: 'none' }
-  | { kind: 'title'; pad: string | null }
+  | { kind: 'title'; pad: string | null; scores: readonly ScoreEntry[] }
   | { kind: 'paused'; pad: string | null }
   | {
       kind: 'over';
       pad: string | null;
       score: number;
       wave: number;
-      best: number;
       message: string;
+      scores: readonly ScoreEntry[];
+      /** Row of the table to highlight: where this Run just landed. */
+      highlight: number | null;
+      /** Initials being entered, while the Run waits to join the table. */
+      entry: { letters: string[]; cursor: number; rank: number } | null;
     };
 
 const BANNER_SECONDS = 2;
+/** The title screen alternates between itself and the high-score table, like an arcade cabinet. */
+const ATTRACT_TITLE_SECONDS = 12;
+const ATTRACT_SCORES_SECONDS = 7;
 /** A Sniper whose aim point is this close to the Ship counts as targeting it. */
 const TARGETED_DISTANCE = 10;
 
@@ -163,9 +171,16 @@ export class Hud {
   private updateLegend(screen: Screen, frameTime: number): void {
     if (screen.kind !== 'title') {
       this.titleTime = 0;
+      this.screen.classList.remove('show-scores');
       return;
     }
     this.titleTime += frameTime;
+    // Attract loop: the title, then the high-score table if there is one.
+    const cycle = this.titleTime % (ATTRACT_TITLE_SECONDS + ATTRACT_SCORES_SECONDS);
+    this.screen.classList.toggle(
+      'show-scores',
+      screen.scores.length > 0 && cycle >= ATTRACT_TITLE_SECONDS,
+    );
     const index = (this.legendStart + Math.floor(this.titleTime / LEGEND_SECONDS)) % LEGENDS.length;
     const line = this.screen.querySelector<HTMLElement>('.tagline');
     const text = LEGENDS[index]!;
@@ -269,6 +284,10 @@ function renderScreen(screen: Screen): string {
           <p class="tagline"></p>
           <p class="prompt">Press ${confirm} to start</p>
         </div>
+        <div class="title-scores">
+          ${headingSvg('High scores', 'cool')}
+          ${scoresTable(screen.scores, null)}
+        </div>
         <div class="title-controls">${controlsTable(gamepad)}<p class="device">${device}</p></div>`;
     case 'paused':
       return `
@@ -276,14 +295,40 @@ function renderScreen(screen: Screen): string {
         <p class="prompt">Press ${gamepad ? 'MENU' : 'ESC'} to resume</p>
         <p class="menu-option">${gamepad ? 'B' : 'BACKSPACE'} · Main menu</p>
         ${controlsTable(gamepad)}`;
-    case 'over':
+    case 'over': {
+      const heading = headingSvg(screen.message, 'warm');
+      const stats = `<p class="stat">Score ${screen.score.toLocaleString()} · Wave ${screen.wave}</p>`;
+      if (screen.entry) {
+        const how = gamepad
+          ? '↑ ↓ letter · ← → move · A done'
+          : 'Type your initials · ← → move · ENTER done';
+        return `
+          ${heading}
+          <p class="legend">NEW HIGH SCORE · #${screen.entry.rank + 1}</p>
+          ${stats}
+          ${initialsSvg(screen.entry.letters, screen.entry.cursor)}
+          <p class="entry-help">${how}</p>`;
+      }
       return `
-        ${headingSvg(screen.message, 'warm')}
+        ${heading}
         <p class="legend">YOUR LEGEND: ${legendRank(screen.score)}</p>
-        <p class="stat">Score ${screen.score} · Wave ${screen.wave}</p>
-        <p class="stat">Best ${screen.best}</p>
-        <p class="prompt">Press ${confirm} to retry</p>`;
+        ${stats}
+        ${scoresTable(screen.scores, screen.highlight)}
+        <p class="prompt">Press ${confirm} to retry</p>
+        <p class="menu-option">${gamepad ? 'B' : 'BACKSPACE'} · Main menu</p>`;
+    }
   }
+}
+
+function scoresTable(scores: readonly ScoreEntry[], highlight: number | null): string {
+  if (scores.length === 0) return '';
+  const rows = scores
+    .map(
+      (e, i) =>
+        `<tr${i === highlight ? ' class="mine"' : ''}><td>${i + 1}</td><td class="initials">${escapeHtml(e.initials)}</td><td>${e.score.toLocaleString()}</td><td>${e.wave > 0 ? `W${e.wave}` : ''}</td></tr>`,
+    )
+    .join('');
+  return `<table class="scores">${rows}</table>`;
 }
 
 let splashMarkup: string | null = null;
