@@ -214,10 +214,11 @@ body {
   animation: threat-blink 0.12s steps(2) infinite;
 }
 
-.hud-combo {
+.hud-multiplier {
   position: absolute;
-  bottom: 74px;
-  width: 100%;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
   text-align: center;
   font-size: 34px;
   font-weight: bold;
@@ -225,8 +226,20 @@ body {
   text-shadow: 0 0 12px #ff9a1c;
 }
 
-.hud-combo.pop {
+.hud-multiplier.pop .hud-multiplier-value {
   animation: combo-pop 0.25s ease-out;
+}
+
+.hud-multiplier-clock {
+  width: 90px;
+  height: 4px;
+  margin: 4px auto 0;
+  background: rgba(255, 227, 107, 0.2);
+}
+
+.hud-multiplier-fill {
+  height: 100%;
+  background: #ffe36b;
 }
 
 @keyframes combo-pop {

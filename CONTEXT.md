@@ -22,8 +22,9 @@ _Avoid_: Health, HP, shields
 A held maneuver in which the Ship keeps travelling in a straight line, slowly losing speed, while its Heading turns freely. Thrust does nothing until it ends.
 _Avoid_: Drift, strafe mode
 
-**Slide combo**:
-The kills made during one Powerslide. Each scores its place in the combo times normal (×1, ×2, ×3…), capped.
+**Multiplier**:
+What every kill's score is multiplied by. Each kill made while Powersliding raises it by one, up to a cap. It falls back to ×1 after a few seconds without a kill; the clock stops between Waves.
+_Avoid_: Combo, slide combo
 
 **Burst**:
 A short forward surge during which the Ship cannot be hurt and passes through Blocks. Limited Charges.

@@ -12,7 +12,7 @@ Battlezone meets Wipeout. Terms are defined in [CONTEXT.md](../CONTEXT.md); arch
 
 - Hunters are slower than the Ship's top speed and faster than a Ship that is crawling.
 - Hunter Shells are aimed at where the Ship is when fired, not where it will be. A moving Ship dodges them; a stationary one does not.
-- Kills during one Powerslide form a Slide combo: ×1, ×2, ×3… up to ×8, with the total shown when the slide ends.
+- Every kill scores times the Multiplier, shown above the speed bar with its clock. Each kill made while Powersliding raises it by one, up to ×10. Any kill restarts its 6 s clock; when the clock runs out it falls back to ×1. The clock stops between Waves.
 - Once a Wave is down to three or fewer Hunters (and at least one has been destroyed), the HUD counts them and pins an arrow to the screen edge on the side of the nearest.
 - Touching a Hunter or a Shell costs one Hull. A short invulnerability window follows each hit.
 - The Ship carries two guns and switches between them at will. The Cannon fires rapid Bolts that bend up to 2.5 rad/s toward a Hunter within 0.2 rad of their flight. The Shotgun fires a Pulse every 0.5 s: a 70° arc that sweeps out to 18 units in 0.22 s and destroys every Hunter it reaches that no Block shields. The Pulse carries the Ship's momentum.

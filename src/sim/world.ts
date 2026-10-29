@@ -39,9 +39,10 @@ export type SimEvent =
       pos: Vec2;
       kind: HunterKind;
       points: number;
-      slideMultiplier: number;
+      /** The Multiplier this kill scored at. */
+      multiplier: number;
     }
-  | { type: 'slideComboEnded'; kills: number; points: number }
+  | { type: 'multiplierLost'; value: number }
   | { type: 'sniperFired'; from: Vec2; to: Vec2 }
   | { type: 'salvoFired'; from: Vec2 }
   | { type: 'impact'; pos: Vec2 }
@@ -63,10 +64,11 @@ export interface Impact {
   flight: number;
 }
 
-/** Kills made during the current Powerslide, which multiply each other's score. */
-export interface SlideCombo {
-  kills: number;
-  points: number;
+/** Score multiplier: raised by Powerslide kills, kept alive by any kill. */
+export interface Multiplier {
+  value: number;
+  /** Seconds until it falls back to 1 without another kill. */
+  timer: number;
 }
 
 export interface World {
@@ -85,7 +87,7 @@ export interface World {
   impacts: Impact[];
   /** Hunters the current Wave started with. */
   waveStrength: number;
-  slideCombo: SlideCombo;
+  multiplier: Multiplier;
   /** Current Wave number; 0 before the first. */
   wave: number;
   /** Seconds until the next Wave spawns; 0 while a Wave is live. */
@@ -139,7 +141,7 @@ export function createWorld(
     shells: [],
     impacts: [],
     waveStrength: 0,
-    slideCombo: { kills: 0, points: 0 },
+    multiplier: { value: 1, timer: 0 },
     wave: firstWave - 1,
     lull: 1.5,
     score: 0,
@@ -162,7 +164,7 @@ export function stepWorld(world: World, controls: Controls, dt: number): void {
   if (shipStep.burstStarted)
     world.events.push({ type: 'burstStarted', pos: { ...world.ship.pos } });
   if (shipStep.fired !== null) fireWeapon(world, shipStep.fired);
-  endSlideCombo(world);
+  if (world.lull === 0) decayMultiplier(world, dt);
 
   refreshFlowFields(world, dt);
   stepHunters(world, dt);
@@ -350,40 +352,40 @@ function damageHunter(world: World, index: number, amount: number): void {
 }
 
 /**
- * Removes a Hunter and credits the player, whatever destroyed it. Kills during a Powerslide
- * multiply by their place in the slide's combo.
+ * Removes a Hunter and credits the player, whatever destroyed it, at the current Multiplier. Any
+ * kill restarts the Multiplier's clock; a kill while Powersliding then raises it.
  */
 function destroyHunter(world: World, index: number): void {
   const [dead] = world.hunters.splice(index, 1);
   if (!dead) return;
-  const combo = world.slideCombo;
-  let slideMultiplier = 1;
-  if (world.ship.sliding) {
-    combo.kills++;
-    slideMultiplier = Math.min(CONFIG.slideCombo.maxMultiplier, combo.kills);
-  }
+  const multiplier = world.multiplier;
   const points = Math.round(
     CONFIG.waves.killScore *
       hunterScoreMultiplier(dead.kind) *
       Math.max(1, world.wave) *
-      slideMultiplier,
+      multiplier.value,
   );
   world.score += points;
-  if (world.ship.sliding) combo.points += points;
   world.events.push({
     type: 'hunterDestroyed',
     pos: { ...dead.pos },
     kind: dead.kind,
     points,
-    slideMultiplier,
+    multiplier: multiplier.value,
   });
+  multiplier.timer = CONFIG.multiplier.timeout;
+  if (world.ship.sliding) {
+    multiplier.value = Math.min(CONFIG.multiplier.max, multiplier.value + 1);
+  }
 }
 
-function endSlideCombo(world: World): void {
-  const combo = world.slideCombo;
-  if (world.ship.sliding || combo.kills === 0) return;
-  world.events.push({ type: 'slideComboEnded', kills: combo.kills, points: combo.points });
-  world.slideCombo = { kills: 0, points: 0 };
+function decayMultiplier(world: World, dt: number): void {
+  const multiplier = world.multiplier;
+  if (multiplier.value === 1) return;
+  multiplier.timer -= dt;
+  if (multiplier.timer > 0) return;
+  world.events.push({ type: 'multiplierLost', value: multiplier.value });
+  world.multiplier = { value: 1, timer: 0 };
 }
 
 /** Shells and Hunter bodies hurt the Ship; Hunter bodies also physically block it unless bursting. */

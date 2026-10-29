@@ -35,10 +35,12 @@ export class Hud {
   private readonly screen: HTMLElement;
   private readonly threats: HTMLElement;
   private readonly vignette: HTMLElement;
-  private readonly combo: HTMLElement;
+  private readonly multiplier: HTMLElement;
+  private readonly multiplierValue: HTMLElement;
+  private readonly multiplierClock: HTMLElement;
   private readonly remaining: HTMLElement;
   private readonly remainingArrow: HTMLElement;
-  private shownCombo = 0;
+  private shownMultiplier = 1;
   private readonly locked: HTMLElement;
   private bannerTime = 0;
   private lastScreen = '';
@@ -55,7 +57,7 @@ export class Hud {
       <div class="hud-speed"><div class="hud-speed-fill"></div><div class="hud-speed-marker"></div><span class="hud-label">SPEED</span></div>
       <div class="hud-banner"></div>
       <div class="hud-vignette"></div>
-      <div class="hud-combo"></div>
+      <div class="hud-multiplier"><div class="hud-multiplier-value"></div><div class="hud-multiplier-clock"><div class="hud-multiplier-fill"></div></div></div>
       <div class="hud-remaining"></div>
       <div class="hud-remaining-arrow">
         <svg viewBox="0 0 40 56"><polygon points="20,0 40,24 27,24 27,56 13,56 13,24 0,24" fill="#ff4a1c"/></svg>
@@ -76,7 +78,9 @@ export class Hud {
     this.screen = q('.hud-screen');
     this.threats = q('.hud-threats');
     this.vignette = q('.hud-vignette');
-    this.combo = q('.hud-combo');
+    this.multiplier = q('.hud-multiplier');
+    this.multiplierValue = q('.hud-multiplier-value');
+    this.multiplierClock = q('.hud-multiplier-fill');
     this.remaining = q('.hud-remaining');
     this.remainingArrow = q('.hud-remaining-arrow');
     this.locked = q('.hud-locked');
@@ -88,9 +92,7 @@ export class Hud {
         this.showBanner(e.juggernauts > 0 ? `WAVE ${e.wave} · JUGGERNAUT` : `WAVE ${e.wave}`);
       }
       if (e.type === 'waveCleared') this.showBanner('WAVE CLEARED · BURST RECHARGED');
-      if (e.type === 'slideComboEnded' && e.kills >= 2) {
-        this.showBanner(`SLIDE ×${e.kills} · +${e.points.toLocaleString()}`);
-      }
+      if (e.type === 'multiplierLost') this.showBanner(`×${e.value} MULTIPLIER LOST`);
     }
   }
 
@@ -101,7 +103,7 @@ export class Hud {
     threats: readonly ScreenThreat[],
     lastEnemies: LastEnemies | null,
   ): void {
-    this.updateCombo(world, screen.kind === 'none');
+    this.updateMultiplier(world, screen.kind === 'none');
     this.updateRemaining(screen.kind === 'none' ? lastEnemies : null);
     this.updateThreats(screen.kind === 'none' ? threats : []);
     this.updateTargeting(world, screen.kind === 'none');
@@ -131,17 +133,24 @@ export class Hud {
     }
   }
 
-  /** The running multiplier while a Powerslide is scoring more than one kill. */
-  private updateCombo(world: World, playing: boolean): void {
-    const kills = playing ? world.slideCombo.kills : 0;
-    if (kills === this.shownCombo) return;
-    this.shownCombo = kills;
-    const multiplier = Math.min(CONFIG.slideCombo.maxMultiplier, kills);
-    this.combo.textContent = kills >= 2 ? `×${multiplier} SLIDE` : '';
-    // Restart the pop animation on every new kill.
-    this.combo.classList.remove('pop');
-    void this.combo.offsetWidth;
-    if (kills >= 2) this.combo.classList.add('pop');
+  /** The Multiplier above the speed bar, with a clock draining toward its reset; pops on each rise. */
+  private updateMultiplier(world: World, playing: boolean): void {
+    const { value, timer } = world.multiplier;
+    const shown = playing && value > 1;
+    this.multiplier.style.display = shown ? '' : 'none';
+    if (!shown) {
+      this.shownMultiplier = 1;
+      return;
+    }
+    this.multiplierClock.style.width = `${(timer / CONFIG.multiplier.timeout) * 100}%`;
+    if (value === this.shownMultiplier) return;
+    const rose = value > this.shownMultiplier;
+    this.shownMultiplier = value;
+    this.multiplierValue.textContent = `×${value}`;
+    // Restart the pop animation on every rise.
+    this.multiplier.classList.remove('pop');
+    void this.multiplier.offsetWidth;
+    if (rose) this.multiplier.classList.add('pop');
   }
 
   /**

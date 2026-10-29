@@ -196,9 +196,13 @@ export const CONFIG = {
     life: 3,
     radius: 0.5,
   },
-  slideCombo: {
-    /** Each kill during one Powerslide scores this many times more than the last, up to the cap. */
-    maxMultiplier: 8,
+  /**
+   * Every kill scores times the Multiplier. Kills while Powersliding raise it by one, up to `max`;
+   * it falls back to 1 after `timeout` seconds without a kill. The clock stops between Waves.
+   */
+  multiplier: {
+    max: 10,
+    timeout: 6,
   },
   waves: {
     firstCount: 3,
