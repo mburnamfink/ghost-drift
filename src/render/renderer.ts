@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CONFIG, SHIP_TOP_SPEED } from '../config';
+import { SHIP_TOP_SPEED } from '../config';
 import { clamp, wrapAngle } from '../core/vec2';
 import type { Berserker } from '../sim/hunters';
 import { isBursting, speedOf } from '../sim/ship';
@@ -91,7 +91,7 @@ export class GameRenderer {
     this.bolts = shotMesh(new THREE.BoxGeometry(1.6, 0.25, 0.25), PALETTE.bolt);
     this.shellLayers = [
       shotMesh(new THREE.IcosahedronGeometry(0.75, 0), PALETTE.tankShell),
-      shotMesh(new THREE.IcosahedronGeometry(1.7, 1), PALETTE.tankShell, 0.3),
+      shotMesh(new THREE.IcosahedronGeometry(1.3, 1), PALETTE.tankShell, 0.3),
       shotMesh(new THREE.BoxGeometry(4, 0.35, 0.35).translate(-2.2, 0, 0), PALETTE.tankShell, 0.45),
     ];
     this.scene.add(
@@ -146,9 +146,6 @@ export class GameRenderer {
           break;
         case 'sniperFired':
           this.shake = Math.max(this.shake, 0.5);
-          break;
-        case 'volleyFired':
-          this.shake = Math.max(this.shake, 0.15);
           break;
         case 'salvoFired':
           this.debris.burst(e.from.x, e.from.y, PALETTE.shell, 8, 6);
@@ -306,11 +303,6 @@ export class GameRenderer {
       model.root.rotation.y = -h.heading;
       model.turret.rotation.y = -(h.aim - h.heading);
       if (h.kind === 'berserker') this.styleBerserker(h, model, frameTime);
-      if (h.kind === 'tank' && model.muzzle) {
-        model.muzzle.visible = h.loading;
-        const progress = 1 - world.volley.windup / CONFIG.volley.windup;
-        model.muzzle.scale.setScalar(0.4 + 1.4 * progress + 0.2 * Math.sin(this.elapsed * 40));
-      }
     }
     for (const [id, model] of this.hunters) {
       if (alive.has(id)) continue;

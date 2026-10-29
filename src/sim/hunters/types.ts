@@ -23,8 +23,6 @@ export interface Tank extends HunterBase {
   role: TankRole;
   /** 1 to circle the Ship anticlockwise, -1 clockwise. */
   orbitDir: 1 | -1;
-  /** True from the start of a volley wind-up until this Tank fires its Shell. */
-  loading: boolean;
 }
 
 export type BerserkerPhase = 'hunt' | 'windup' | 'lunge';
@@ -79,4 +77,7 @@ export interface HuntContext {
 }
 
 /** What a Hunter wants to do this step beyond moving; the World carries it out. */
-export type HunterAction = { type: 'snipe'; dir: Vec2 } | { type: 'salvo'; targets: Vec2[] };
+export type HunterAction =
+  | { type: 'shell'; angle: number }
+  | { type: 'snipe'; dir: Vec2 }
+  | { type: 'salvo'; targets: Vec2[] };

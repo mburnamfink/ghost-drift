@@ -7,7 +7,6 @@ import {
   type Hunter,
   type HunterAction,
   type HunterKind,
-  type Tank,
   createArtillery,
   createBerserker,
   createSniper,
@@ -22,7 +21,6 @@ import { type Shot, createShot, stepShots } from './shots';
 import { type CityPlan, type TerrainChange, generateCity, planChange } from './city';
 import { Terrain } from './terrain';
 import { spawnPoints, tankSpeed, waveMix, waveTotal } from './waves';
-import { type Volley, advanceVolley, createVolley } from './volley';
 
 /** Things that happened during a step, for presentation layers to react to. Never read by the sim. */
 export type SimEvent =
@@ -34,7 +32,6 @@ export type SimEvent =
       points: number;
       slideMultiplier: number;
     }
-  | { type: 'volleyFired' }
   | { type: 'slideComboEnded'; kills: number; points: number }
   | { type: 'sniperFired'; from: Vec2; to: Vec2 }
   | { type: 'salvoFired'; from: Vec2 }
@@ -77,7 +74,6 @@ export interface World {
   impacts: Impact[];
   /** Hunters the current Wave started with. */
   waveStrength: number;
-  volley: Volley;
   slideCombo: SlideCombo;
   /** Current Wave number; 0 before the first. */
   wave: number;
@@ -123,7 +119,6 @@ export function createWorld(seed: number, terrain?: Terrain, firstWave = 1): Wor
     shells: [],
     impacts: [],
     waveStrength: 0,
-    volley: createVolley(rng),
     slideCombo: { kills: 0, points: 0 },
     wave: firstWave - 1,
     lull: 1.5,
@@ -151,7 +146,6 @@ export function stepWorld(world: World, controls: Controls, dt: number): void {
 
   refreshFlowFields(world, dt);
   stepHunters(world, dt);
-  stepVolley(world, dt);
   stepShots(world.bolts, world.terrain, dt);
   stepShots(world.shells, world.terrain, dt);
   stepImpacts(world, dt);
@@ -199,33 +193,20 @@ function stepHunters(world: World, dt: number): void {
   }
 }
 
-function stepVolley(world: World, dt: number): void {
-  const tanks = world.hunters.filter((h): h is Tank => h.kind === 'tank');
-  const firing = advanceVolley(world.volley, tanks, world.ship, world.terrain, dt, world.rng);
-  const spread = CONFIG.volley.aimSpread;
-  for (const t of firing) {
-    // Roughly where the Ship is: a random point in a disc around it, so standing still is not safe
-    // and the volley lands as a loose cluster rather than one point.
-    const a = world.rng.range(0, Math.PI * 2);
-    const r = spread * Math.sqrt(world.rng.next());
-    const aimX = world.ship.pos.x + Math.cos(a) * r;
-    const aimY = world.ship.pos.y + Math.sin(a) * r;
-    const angle = Math.atan2(aimY - t.pos.y, aimX - t.pos.x);
-    const muzzle = fromAngle(angle, CONFIG.tank.radius + 0.6);
-    world.shells.push(
-      createShot(
-        { x: t.pos.x + muzzle.x, y: t.pos.y + muzzle.y },
-        angle,
-        CONFIG.shell.speed,
-        CONFIG.shell.life,
-      ),
-    );
-  }
-  if (firing.length > 0) world.events.push({ type: 'volleyFired' });
-}
-
 function performAction(world: World, h: Hunter, action: HunterAction): void {
   switch (action.type) {
+    case 'shell': {
+      const muzzle = fromAngle(action.angle, CONFIG.tank.radius + 0.6);
+      world.shells.push(
+        createShot(
+          { x: h.pos.x + muzzle.x, y: h.pos.y + muzzle.y },
+          action.angle,
+          CONFIG.shell.speed,
+          CONFIG.shell.life,
+        ),
+      );
+      break;
+    }
     case 'snipe':
       resolveSnipe(world, h.pos, action.dir);
       break;
@@ -433,7 +414,7 @@ function startWave(world: World): void {
       const t = i - specials;
       const f = CONFIG.tank.cutterFraction;
       const role = Math.floor((t + 1) * f) > Math.floor(t * f) ? 'cutter' : 'chaser';
-      world.hunters.push(createTank(id, p, rng, role));
+      world.hunters.push(createTank(id, role, p, rng));
     }
   });
   world.waveStrength = world.hunters.length;

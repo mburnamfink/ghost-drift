@@ -12,7 +12,7 @@ Battlezone meets Wipeout. Terms are defined in [CONTEXT.md](../CONTEXT.md); arch
 
 - Hunters are slower than the Ship's top speed and faster than a Ship that is crawling.
 - Hunter Shells are aimed at where the Ship is when fired, not where it will be. A moving Ship dodges them; a stationary one does not.
-- Tank Shells are slow magenta orbs fired in Volleys every 2.25 ± 0.2 s, each aimed at a random point within 5 units of the Ship.
+- Each Tank fires its own orange Shell about every 2.2 s, aimed at where the Ship is now: moving is the dodge.
 - Kills during one Powerslide form a Slide combo: ×1, ×2, ×3… up to ×8, with the total shown when the slide ends.
 - Once a Wave is down to three or fewer Hunters (and at least one has been destroyed), the HUD counts them and pins an arrow to the screen edge on the side of the nearest.
 - Touching a Hunter or a Shell costs one Hull. A short invulnerability window follows each hit.
@@ -23,12 +23,12 @@ Battlezone meets Wipeout. Terms are defined in [CONTEXT.md](../CONTEXT.md); arch
 
 ## Hunters
 
-| Type      | From Wave | Behaviour                                                                                                                                                                                                                                                                          | Punishes                                   | Counter                                           | Score |
-| --------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------- | ----- |
-| Tank      | 1         | Out of sight: Chasers close in, Cutters head the Ship off. In sight within 50: circles at a stand-off of about 28. Fires only in Volleys: every 2.25 ± 0.2 s, barrels glow and a magenta ring closes on the Ship for 0.55 s, then every Tank with a shot fires roughly at the Ship | Slowing down                               | Weave the volley, then slide and shoot in the gap | 1×    |
-| Berserker | 2 (max 6) | No gun. Runs the Ship down faster than any Tank; within 24 it stops and glows for 0.35 s, then lunges straight at where the Ship was                                                                                                                                               | Hesitation at close range                  | Sidestep during the wind-up                       | 1.5×  |
-| Sniper    | 3 (max 5) | Holds a long-sightline Perch 60–110 away; a thickening red beam and a scope glint track where the Ship will be 0.6 s ahead; on lock both flash white, then an instant shot                                                                                                         | Straight lines, including long Powerslides | Turn after the lock, break line of sight, Burst   | 2.5×  |
-| Artillery | 5 (max 4) | Holds a covered Perch ~105 away; three-shell Salvo along the projected path, each landing as its ground circle fills                                                                                                                                                               | Open ground: the Plaza and Avenues         | Speed, or get under the buildings                 | 3×    |
+| Type      | From Wave | Behaviour                                                                                                                                                                                          | Punishes                                   | Counter                                         | Score |
+| --------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ----------------------------------------------- | ----- |
+| Tank      | 1         | Out of sight: Chasers close in, Cutters head the Ship off. In sight within 50: circles at a stand-off of about 28. Fires a Shell at the Ship about every 2.2 s while it has a clear shot within 70 | Slowing down                               | Keep moving; slide and shoot                    | 1×    |
+| Berserker | 2 (max 6) | No gun. Runs the Ship down faster than any Tank; within 24 it stops and glows for 0.35 s, then lunges straight at where the Ship was                                                               | Hesitation at close range                  | Sidestep during the wind-up                     | 1.5×  |
+| Sniper    | 3 (max 5) | Holds a long-sightline Perch 60–110 away; a thickening red beam and a scope glint track where the Ship will be 0.6 s ahead; on lock both flash white, then an instant shot                         | Straight lines, including long Powerslides | Turn after the lock, break line of sight, Burst | 2.5×  |
+| Artillery | 5 (max 4) | Holds a covered Perch ~105 away; three-shell Salvo along the projected path, each landing as its ground circle fills                                                                               | Open ground: the Plaza and Avenues         | Speed, or get under the buildings               | 3×    |
 
 From Wave 4, Tank numbers are cut by a quarter and special Hunters fill the gap. While a Sniper is aimed at the Ship, a red vignette deepens at the screen edges, and LOCKED flashes once it locks.
 
@@ -61,19 +61,19 @@ The browser only exposes a controller after a button is pressed with the page fo
 
 ## Palette
 
-| Element                      | Color                               |
-| ---------------------------- | ----------------------------------- |
-| Ground                       | near-black blue                     |
-| Blocks                       | muted slate, lighter with height    |
-| Arena wall                   | dark violet                         |
-| Ship, Bolts                  | cyan                                |
-| Hunters                      | hot orange-red                      |
-| Ship during Burst            | white                               |
-| Tank Shells, volley warnings | hot magenta                         |
-| Powerslide sparks            | pale yellow-white                   |
-| Ghosted Block edges          | pale blue; faces fade to near-clear |
-| Sniper laser                 | red, flashing white when locked     |
-| Artillery target circles     | orange                              |
+| Element                  | Color                               |
+| ------------------------ | ----------------------------------- |
+| Ground                   | near-black blue                     |
+| Blocks                   | muted slate, lighter with height    |
+| Arena wall               | dark violet                         |
+| Ship, Bolts              | cyan                                |
+| Hunters                  | hot orange-red                      |
+| Ship during Burst        | white                               |
+| Tank Shells              | deep orange                         |
+| Powerslide sparks        | pale yellow-white                   |
+| Ghosted Block edges      | pale blue; faces fade to near-clear |
+| Sniper laser             | red, flashing white when locked     |
+| Artillery target circles | orange                              |
 
 ## MVP scope
 

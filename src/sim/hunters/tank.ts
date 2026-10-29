@@ -4,7 +4,7 @@ import { type Vec2, clamp, distance } from '../../core/vec2';
 import { moveHunter, steerHunter } from './movement';
 import type { HuntContext, HunterAction, Tank, TankRole } from './types';
 
-export function createTank(id: number, pos: Vec2, rng: Rng, role: TankRole = 'chaser'): Tank {
+export function createTank(id: number, role: TankRole, pos: Vec2, rng: Rng): Tank {
   return {
     kind: 'tank',
     id,
@@ -14,20 +14,14 @@ export function createTank(id: number, pos: Vec2, rng: Rng, role: TankRole = 'ch
     vel: { x: 0, y: 0 },
     heading: rng.range(-Math.PI, Math.PI),
     aim: 0,
-    fireCooldown: 0,
-    loading: false,
+    fireCooldown: rng.range(0.5, CONFIG.tank.fireInterval),
   };
 }
 
-/** True if this Tank has a clear shot at the Ship; only such Tanks load into a volley. */
-export const tankHasShot = (h: Tank, ctx: Pick<HuntContext, 'ship' | 'terrain'>): boolean =>
-  distance(h.pos, ctx.ship.pos) < CONFIG.tank.fireRange &&
-  ctx.terrain.hasLineOfSight(h.pos, ctx.ship.pos);
-
 /**
- * Moves a Tank; firing happens in volleys run by the World. Out of sight, Chasers close on the Ship
- * and Cutters head for where it will be. Once a Tank can see the Ship within engagement range it
- * stops closing and circles at stand-off range.
+ * Out of sight, Chasers close on the Ship and Cutters head for where it will be. Once a Tank can see
+ * the Ship within engagement range it stops closing and circles at stand-off range, firing Shells:
+ * Tanks box the Ship in with fire, not bodies.
  */
 export function stepTank(h: Tank, ctx: HuntContext, dt: number): HunterAction | null {
   const cfg = CONFIG.tank;
@@ -57,5 +51,12 @@ export function stepTank(h: Tank, ctx: HuntContext, dt: number): HunterAction | 
     );
   }
   h.aim = Math.atan2(shipPos.y - h.pos.y, shipPos.x - h.pos.x);
+
+  h.fireCooldown -= dt;
+  if (h.fireCooldown <= 0 && toShip < cfg.fireRange && ctx.terrain.hasLineOfSight(h.pos, shipPos)) {
+    h.fireCooldown = cfg.fireInterval * ctx.rng.range(0.8, 1.25);
+    // Aimed at where the Ship is now, not where it will be: moving is how the Ship dodges.
+    return { type: 'shell', angle: h.aim };
+  }
   return null;
 }

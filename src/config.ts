@@ -81,6 +81,7 @@ export const CONFIG = {
     speedPerWave: 0.6,
     maxSpeed: 24,
     fireRange: 70,
+    fireInterval: 2.2,
     /** Seconds ahead of the Ship that Cutters aim to arrive. */
     cutterLead: 1.3,
     /** Within this distance a Cutter stops predicting and chases. */
@@ -146,19 +147,10 @@ export const CONFIG = {
     repickInterval: 10,
     scoreMultiplier: 3,
   },
-  /** Tanks fire together: a shared wind-up, then every loaded Tank fires at once. */
-  volley: {
-    /** Seconds between volleys, plus or minus `jitter`. */
-    interval: 2.25,
-    jitter: 0.2,
-    windup: 0.55,
-    /** Each Shell is aimed at a random point within this distance of the Ship. */
-    aimSpread: 5,
-  },
   shell: {
-    speed: 26,
-    life: 3.5,
-    radius: 0.6,
+    speed: 32,
+    life: 3,
+    radius: 0.5,
   },
   slideCombo: {
     /** Each kill during one Powerslide scores this many times more than the last, up to the cap. */

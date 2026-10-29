@@ -59,8 +59,7 @@ describe('Combat', () => {
     world.lull = 0;
     const { x, y } = world.ship.pos;
     world.ship.heading = 0;
-    world.hunters.push(createTank(99, { x: x + 20, y }, new Rng(1)));
-    world.volley.timer = 99;
+    world.hunters.push(createTank(99, 'chaser', { x: x + 20, y }, new Rng(1)));
     runUntil(world, (w) => w.hunters.length === 0, 1, { ...NO_CONTROLS, fire: true });
     expect(world.hunters).toHaveLength(0);
     expect(world.score).toBe(CONFIG.waves.killScore);

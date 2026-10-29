@@ -6,12 +6,10 @@ import type { Hunter, HuntContext } from './types';
 
 /** Closer than this to a destination, a Hunter stops instead of circling it. */
 const ARRIVE_DISTANCE = 1.5;
-const NO_BIAS: Vec2 = { x: 0, y: 0 };
 
 /**
  * Accelerates a Hunter toward `target` at up to `speed`. It steers straight at a visible, nearby
- * target and otherwise descends `field`, which must lead to the same target. `bias` is added to the
- * steering direction, e.g. to hold a pack together.
+ * target and otherwise descends `field`, which must lead to the same target.
  */
 export function moveHunter(
   h: Hunter,
@@ -21,7 +19,6 @@ export function moveHunter(
   radius: number,
   ctx: HuntContext,
   dt: number,
-  bias: Vec2 = NO_BIAS,
 ): void {
   const cfg = CONFIG.hunters;
   const toTarget = distance(h.pos, target);
@@ -33,7 +30,7 @@ export function moveHunter(
   } else {
     dir = field.directionFrom(h.pos) ?? normalize({ x: target.x - h.pos.x, y: target.y - h.pos.y });
   }
-  steerHunter(h, dir, speed, radius, ctx, dt, bias);
+  steerHunter(h, dir, speed, radius, ctx, dt);
 }
 
 /**
@@ -47,11 +44,10 @@ export function steerHunter(
   radius: number,
   ctx: HuntContext,
   dt: number,
-  bias: Vec2 = NO_BIAS,
 ): void {
   const cfg = CONFIG.hunters;
   const sep = separation(h, ctx.hunters);
-  const steer = { x: dir.x + sep.x + bias.x, y: dir.y + sep.y + bias.y };
+  const steer = { x: dir.x + sep.x, y: dir.y + sep.y };
   const len = Math.hypot(steer.x, steer.y);
   // Without a destination, separation alone may move the Hunter, but never faster than it wanders.
   const desired = len > 1 ? { x: steer.x / len, y: steer.y / len } : steer;

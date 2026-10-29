@@ -8,8 +8,6 @@ import { PALETTE } from './palette';
 const TRACER_SECONDS = 0.3;
 /** Locked lasers flash this many times per second. */
 const LOCK_FLASH_HZ = 12;
-const VOLLEY_RING_START = 12;
-const VOLLEY_RING_END = CONFIG.ship.radius + 1;
 /** Peak height of an Artillery shell's arc. */
 const ARC_HEIGHT = 35;
 
@@ -31,21 +29,6 @@ export class ThreatsView {
   private readonly shellGeometry = new THREE.IcosahedronGeometry(0.8, 0);
   private readonly shellMaterial = new THREE.MeshBasicMaterial({ color: PALETTE.shell });
   private time = 0;
-  private readonly volleyRing = new THREE.Mesh(
-    new THREE.RingGeometry(0.9, 1, 48).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({
-      color: PALETTE.tankShell,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      side: THREE.DoubleSide,
-    }),
-  );
-
-  constructor() {
-    this.volleyRing.visible = false;
-    this.group.add(this.volleyRing);
-  }
 
   handleEvents(events: readonly SimEvent[]): void {
     for (const e of events) {
@@ -67,24 +50,9 @@ export class ThreatsView {
 
   update(world: World, frameTime: number): void {
     this.time += frameTime;
-    this.updateVolleyRing(world);
     this.updateLasers(world);
     this.updateTracers(frameTime);
     this.updateImpacts(world);
-  }
-
-  /** A ring closing in on the Ship while Tanks wind up a volley: when it closes, they fire. */
-  private updateVolleyRing(world: World): void {
-    const winding =
-      world.volley.windup > 0 && world.hunters.some((h) => h.kind === 'tank' && h.loading);
-    this.volleyRing.visible = winding && !world.over;
-    if (!this.volleyRing.visible) return;
-    const progress = 1 - world.volley.windup / CONFIG.volley.windup;
-    this.volleyRing.position.set(world.ship.pos.x, 0.15, world.ship.pos.y);
-    this.volleyRing.scale.setScalar(
-      THREE.MathUtils.lerp(VOLLEY_RING_START, VOLLEY_RING_END, progress),
-    );
-    this.volleyRing.material.opacity = 0.4 + 0.6 * progress;
   }
 
   clear(): void {

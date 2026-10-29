@@ -123,8 +123,8 @@ describe('Artillery', () => {
   it('blasts the Ship and every Hunter in range, and credits the kills', () => {
     const world = liveWorld();
     const at = { x: world.ship.pos.x + 3, y: world.ship.pos.y };
-    world.hunters.push(createTank(70, { x: at.x + 2, y: at.y }, new Rng(1)));
-    world.hunters.push(createTank(71, { x: at.x + 60, y: at.y }, new Rng(1)));
+    world.hunters.push(createTank(70, 'chaser', { x: at.x + 2, y: at.y }, new Rng(1)));
+    world.hunters.push(createTank(71, 'chaser', { x: at.x + 60, y: at.y }, new Rng(1)));
     world.impacts.push({ from: { x: 0, y: 0 }, pos: at, time: DT / 2, flight: 2 });
     stepWorld(world, NO_CONTROLS, DT);
     expect(world.ship.hull).toBe(CONFIG.ship.hull - 1);
@@ -159,8 +159,8 @@ describe('Tank stand-off', () => {
   it('circles a Ship it can see at stand-off range instead of closing to point blank', () => {
     const world = liveWorld();
     const { pos } = world.ship;
-    const tank = createTank(90, { x: pos.x + 45, y: pos.y }, new Rng(1));
-    world.volley.timer = 99;
+    const tank = createTank(90, 'chaser', { x: pos.x + 45, y: pos.y }, new Rng(1));
+    tank.fireCooldown = 99;
     world.hunters.push(tank);
     const startAngle = Math.atan2(tank.pos.y - pos.y, tank.pos.x - pos.x);
     let closest = Infinity;

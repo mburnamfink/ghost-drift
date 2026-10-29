@@ -47,18 +47,7 @@ export interface HunterModel {
   /** Yaws to the Hunter's aim, relative to its hull. */
   turret: THREE.Group;
   body: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
-  /** Tanks only: glow at the barrel tip, shown while loading for a volley. */
-  muzzle?: THREE.Mesh;
 }
-
-const muzzleGlow = new THREE.MeshBasicMaterial({
-  color: PALETTE.tankShell,
-  transparent: true,
-  opacity: 0.9,
-  depthWrite: false,
-  blending: THREE.AdditiveBlending,
-});
-const muzzleGeometry = new THREE.IcosahedronGeometry(0.6, 1);
 
 const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
 
@@ -132,12 +121,7 @@ export function createHunterModel(kind: HunterKind): HunterModel {
   if (parts.length > 0) turret.add(...parts);
   const root = new THREE.Group();
   root.add(body, turret);
-  if (kind !== 'tank') return { root, turret, body };
-  const muzzle = new THREE.Mesh(muzzleGeometry, muzzleGlow);
-  muzzle.position.x = 2.5;
-  muzzle.visible = false;
-  turret.add(muzzle);
-  return { root, turret, body, muzzle };
+  return { root, turret, body };
 }
 
 /** Where Sniper lasers and tracers start. */

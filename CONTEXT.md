@@ -39,10 +39,8 @@ Any enemy unit. Slower than the Ship at speed; deadly to a slow one.
 _Avoid_: Enemy (in code), mob, tank
 
 **Tank**:
-The common Hunter. Out of sight it closes in as a Chaser or a Cutter; once it can see the Ship it circles at Stand-off range and fires in Volleys.
+The common Hunter. Out of sight it closes in as a Chaser or a Cutter; once it can see the Ship it circles at Stand-off range and fires Shells at it.
 
-**Volley**:
-Every Tank with a clear shot firing a Shell at once, roughly at the Ship, after a shared wind-up signalled by glowing barrels and a ring closing on the Ship.
 _Avoid_: Barrage, salvo (reserved for Artillery)
 
 **Stand-off**:
