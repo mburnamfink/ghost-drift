@@ -65,37 +65,44 @@ export function buildCity(spec: LayoutSpec, rng: Rng, cells: number): CityPlan {
 
   const plots: Plot[] = [];
   let nextId = 1;
-  for (const r of reachable) {
-    const zone = spec.zone?.(r.x + r.w / 2, r.y + r.h / 2) ?? {};
-    if (rng.next() < (zone.emptyChance ?? c.emptyPlotChance)) continue;
-    // Faces open ground across at most a Street.
-    let frontage = false;
-    const reach = c.street + 1;
-    forCells({ x: r.x - reach, y: r.y - reach, w: r.w + 2 * reach, h: r.h + 2 * reach }, (x, y) => {
-      if (x >= 0 && y >= 0 && x < n && y < n) frontage ||= open[at(x, y)] === 1;
-    });
-    const d = edgeDistance[at(r.x + (r.w >> 1), r.y + (r.h >> 1))]!;
-    const nearEdge = Math.min(1, Math.max(0, 1 + d / c.edgeBand));
-    const size = Math.min(1, (r.w * r.h) / (c.maxPlotCells * c.maxPlotCells));
-    const parts = carveFootprint(rng, r, pickFootprint(rng, spec.footprints, r));
-    plots.push({
-      ...r,
-      ...(parts ? { parts } : {}),
-      ...(zone.permanent ? { permanent: true } : {}),
-      id: nextId++,
-      kind: 'building',
-      height:
-        (c.minBlockHeight +
-          (c.maxBlockHeight - c.minBlockHeight) * (0.5 * size + 0.5 * rng.next()) +
-          c.edgeExtraHeight * nearEdge) *
-        (zone.heightScale ?? 1),
-      priority:
-        r.w *
-        r.h *
-        rng.range(0.6, 1.4) *
-        (frontage ? c.frontagePriority : 1) *
-        (1 + c.edgePriority * nearEdge),
-    });
+  for (const lot of reachable) {
+    const zone = spec.zone?.(lot.x + lot.w / 2, lot.y + lot.h / 2) ?? {};
+    const pieces = zone.maxPlotCells ? splitLot(lot, zone.maxPlotCells, rng) : [lot];
+    for (const r of pieces) {
+      if (rng.next() < (zone.emptyChance ?? c.emptyPlotChance)) continue;
+      // Faces open ground across at most a Street.
+      let frontage = false;
+      const reach = c.street + 1;
+      forCells(
+        { x: r.x - reach, y: r.y - reach, w: r.w + 2 * reach, h: r.h + 2 * reach },
+        (x, y) => {
+          if (x >= 0 && y >= 0 && x < n && y < n) frontage ||= open[at(x, y)] === 1;
+        },
+      );
+      const d = edgeDistance[at(r.x + (r.w >> 1), r.y + (r.h >> 1))]!;
+      const nearEdge = Math.min(1, Math.max(0, 1 + d / c.edgeBand));
+      const size = Math.min(1, (r.w * r.h) / (c.maxPlotCells * c.maxPlotCells));
+      const parts = carveFootprint(rng, r, pickFootprint(rng, spec.footprints, r));
+      plots.push({
+        ...r,
+        ...(parts ? { parts } : {}),
+        ...(zone.permanent ? { permanent: true } : {}),
+        id: nextId++,
+        kind: 'building',
+        height: zone.heightRange
+          ? rng.range(...zone.heightRange)
+          : (c.minBlockHeight +
+              (c.maxBlockHeight - c.minBlockHeight) * (0.5 * size + 0.5 * rng.next()) +
+              c.edgeExtraHeight * nearEdge) *
+            (zone.heightScale ?? 1),
+        priority:
+          r.w *
+          r.h *
+          rng.range(0.6, 1.4) *
+          (frontage ? c.frontagePriority : 1) *
+          (1 + c.edgePriority * nearEdge),
+      });
+    }
   }
 
   const walls = new Uint8Array(n * n);
@@ -248,6 +255,27 @@ function liningAt(spec: LayoutSpec, px: number, py: number): number {
     return pos.along % gateSpacing < gate ? 2 : 1;
   }
   return 0;
+}
+
+/** Splits a lot into pieces at most `max` cells on a side, separated by one-cell Alleys. */
+function splitLot(r: Rect, max: number, rng: Rng): Rect[] {
+  const min = 2;
+  const canX = r.w > max && r.w >= 2 * min + 1;
+  const canY = r.h > max && r.h >= 2 * min + 1;
+  if (!canX && !canY) return [r];
+  const alongX = canX && (r.w >= r.h || !canY);
+  const length = alongX ? r.w : r.h;
+  const at = min + rng.int(length - 1 - 2 * min + 1);
+  const [a, b]: Rect[] = alongX
+    ? [
+        { ...r, w: at },
+        { ...r, x: r.x + at + 1, w: r.w - at - 1 },
+      ]
+    : [
+        { ...r, h: at },
+        { ...r, y: r.y + at + 1, h: r.h - at - 1 },
+      ];
+  return [...splitLot(a!, max, rng), ...splitLot(b!, max, rng)];
 }
 
 /** Cuts the Arena into Plot-sized rectangles separated by Streets, then Alleys. */

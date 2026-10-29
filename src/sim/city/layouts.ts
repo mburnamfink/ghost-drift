@@ -2,7 +2,7 @@ import { CONFIG } from '../../config';
 import type { Rng } from '../../core/rng';
 import type { Vec2 } from '../../core/vec2';
 import type { FootprintWeights } from './footprints';
-import type { Circle, Shape } from './shapes';
+import { type Circle, type Shape, unionDistance } from './shapes';
 
 export const LAYOUT_NAMES = [
   'grid',
@@ -44,6 +44,10 @@ export interface Zone {
   emptyChance?: number;
   /** Buildings here Rise in the first Wave and never Sink. */
   permanent?: boolean;
+  /** Heights drawn from this range instead of the usual ones, ignoring `heightScale`. */
+  heightRange?: readonly [number, number];
+  /** Lots here are split by Alleys into buildings no wider than this many cells: towers. */
+  maxPlotCells?: number;
 }
 
 /**
@@ -379,64 +383,77 @@ function raceway(rng: Rng, cells: number): LayoutSpec {
 }
 
 /**
- * The inverse of an open center: a dense downtown of tall buildings that stand all Run, inside a
- * ring road, with boulevards out through low, sparse suburbs dotted with parks.
+ * A dense downtown of skyscrapers centered on the city's outline, so half of it merges into the
+ * Edge and the open suburbs wrap around the rest in a U. A ring road skirts it, boulevards run out
+ * through low, half-empty suburbs, and parks dot the open ground.
  */
 function downtown(rng: Rng, cells: number): LayoutSpec {
   const mid = cells / 2;
   const half = cells / 2;
   const avenue = CONFIG.city.avenue;
-  const core = half * rng.range(0.34, 0.4);
-  const open: Shape[] = [
-    { kind: 'ring', x: mid, y: mid, rx: core + 3, ry: core + 3, width: avenue },
-  ];
-  const start = rng.range(0, TAU);
-  for (let i = 0; i < 4; i++) {
-    const a = start + (i * TAU) / 4 + rng.range(-0.2, 0.2);
+  const outline = arcBoundary(rng, cells);
+
+  // Walk out from the center to where the outline is, on a random bearing: downtown centers there.
+  const bearing = rng.range(0, TAU);
+  const dx = Math.cos(bearing);
+  const dy = Math.sin(bearing);
+  let reach = 0;
+  while (reach < half && unionDistance(outline, mid + dx * reach, mid + dy * reach) < 0) reach++;
+  const cx = mid + dx * reach;
+  const cy = mid + dy * reach;
+  const core = half * rng.range(0.42, 0.5);
+
+  const open: Shape[] = [{ kind: 'ring', x: cx, y: cy, rx: core + 3, ry: core + 3, width: avenue }];
+  for (const turn of [-0.7, 0, 0.7]) {
+    const a = bearing + Math.PI + turn;
     open.push({
       kind: 'capsule',
-      ax: mid + Math.cos(a) * (core + 3),
-      ay: mid + Math.sin(a) * (core + 3),
-      bx: mid + Math.cos(a) * half,
-      by: mid + Math.sin(a) * half,
+      ax: cx + Math.cos(a) * (core + 3),
+      ay: cy + Math.sin(a) * (core + 3),
+      bx: cx + Math.cos(a) * (core + half * 1.4),
+      by: cy + Math.sin(a) * (core + half * 1.4),
       width: avenue,
     });
   }
+
   const parks: Shape[] = [];
-  for (let attempt = 0; attempt < 200 && parks.length < 4; attempt++) {
-    const a = rng.range(0, TAU);
-    const d = rng.range(core + 12, half * 0.78);
-    const park: Shape = {
-      kind: 'disc',
-      x: mid + Math.cos(a) * d,
-      y: mid + Math.sin(a) * d,
-      r: rng.range(5, 8),
-    };
-    if (parks.some((p) => p.kind === 'disc' && Math.hypot(p.x - park.x, p.y - park.y) < 22)) {
-      continue;
-    }
-    parks.push(park);
+  for (let attempt = 0; attempt < 600 && parks.length < 4; attempt++) {
+    const r = rng.range(6, 9);
+    const x = rng.range(0, cells);
+    const y = rng.range(0, cells);
+    if (Math.hypot(x - cx, y - cy) < core + 12) continue;
+    if (unionDistance(outline, x, y) > -(r + 4)) continue;
+    if (parks.some((p) => p.kind === 'disc' && Math.hypot(p.x - x, p.y - y) < 19)) continue;
+    parks.push({ kind: 'disc', x, y, r });
   }
-  const first = parks[0]!;
-  const spawn = first.kind === 'disc' ? { x: first.x, y: first.y } : { x: mid, y: mid + core + 3 };
+  // The park farthest from downtown, looking back at the skyline.
+  const spawnPark = parks.reduce<Shape | undefined>(
+    (best, p) =>
+      p.kind === 'disc' &&
+      (!best ||
+        (best.kind === 'disc' &&
+          Math.hypot(p.x - cx, p.y - cy) > Math.hypot(best.x - cx, best.y - cy)))
+        ? p
+        : best,
+    undefined,
+  );
+  const spawn =
+    spawnPark?.kind === 'disc'
+      ? { x: spawnPark.x, y: spawnPark.y }
+      : { x: mid - dx * 20, y: mid - dy * 20 };
+
   return {
     name: 'downtown',
     footprints: FOOTPRINTS.downtown,
     open: [...open, ...parks],
     lined: [],
     plazas: parks,
-    // The parks lie out in the suburbs, so the city must reach around each of them.
-    boundary: [
-      ...arcBoundary(rng, cells),
-      ...parks.flatMap((p) =>
-        p.kind === 'disc' ? [fit({ x: p.x, y: p.y, r: p.r + 8 }, cells)] : [],
-      ),
-    ],
+    boundary: outline,
     spawn,
-    spawnHeading: Math.atan2(mid - spawn.y, mid - spawn.x),
+    spawnHeading: Math.atan2(cy - spawn.y, cx - spawn.x),
     zone: (x, y) =>
-      Math.hypot(x - mid, y - mid) < core
-        ? { permanent: true, heightScale: 1.9, emptyChance: 0 }
+      Math.hypot(x - cx, y - cy) < core
+        ? { permanent: true, emptyChance: 0, heightRange: [22, 42], maxPlotCells: 4 }
         : { heightScale: 0.55, emptyChance: 0.5 },
   };
 }
@@ -478,6 +495,6 @@ function towers(rng: Rng, cells: number): LayoutSpec {
     spawn: { x: mid, y: mid },
     spawnHeading: -Math.PI / 2,
     buildOnly: clumps,
-    zone: () => ({ heightScale: 2.2, emptyChance: 0.05 }),
+    zone: () => ({ emptyChance: 0.08, heightRange: [30, 56], maxPlotCells: 3 }),
   };
 }

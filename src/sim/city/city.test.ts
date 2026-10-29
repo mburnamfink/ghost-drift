@@ -153,7 +153,10 @@ describe('Building footprints', () => {
   };
 
   it('shapes some buildings in every Layout, and Districts more than Grid', () => {
-    for (const layout of LAYOUT_NAMES) expect(shaped(layout)).toBeGreaterThan(0.15);
+    // Towers stand on footprints too narrow to shape.
+    for (const layout of LAYOUT_NAMES.filter((l) => l !== 'towers')) {
+      expect(shaped(layout)).toBeGreaterThan(0.15);
+    }
     expect(shaped('districts')).toBeGreaterThan(shaped('grid'));
   });
 });
