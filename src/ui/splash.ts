@@ -6,6 +6,8 @@ const css = (hex: number) => `#${hex.toString(16).padStart(6, '0')}`;
 const CYAN = css(PALETTE.ship);
 const PALE = css(PALETTE.bolt);
 const AMBER = '#ffe36b';
+/** Bottom of DRIFT's fill: the Ship's cyan deepened toward blue. */
+const DEEP_BLUE = '#1f6bff';
 const SKY = css(PALETTE.sky);
 const EDGE = css(PALETTE.edge);
 const WIRE = css(PALETTE.ghostEdge);
@@ -110,6 +112,7 @@ const GLYPHS: Record<string, { w: number; paths: [number, number][][] }> = {
       ],
     ],
   },
+  // The leg runs on from the bowl's corner so no stroke end pokes into the counter.
   R: {
     w: 4,
     paths: [
@@ -120,11 +123,12 @@ const GLYPHS: Record<string, { w: number; paths: [number, number][][] }> = {
         [4, 1],
         [4, 2],
         [3, 3],
-        [0, 3],
+        [4, 4],
+        [4, 6],
       ],
       [
-        [2, 3],
-        [4, 6],
+        [0, 3],
+        [3, 3],
       ],
     ],
   },
@@ -227,9 +231,9 @@ function logo(cx: number, top: number): string {
 
   return `<g transform="skewX(-14)" transform-origin="${cx} ${top + u * 8}">
     ${echoes}
-    ${solid(ghost.d, weight, 'url(#ghostFill)')}
+    ${hollow(ghost.d, weight, 3, CYAN)}
     ${speedLines}
-    ${hollow(drift.d, weight, 3, CYAN)}
+    ${solid(drift.d, weight, 'url(#driftFill)')}
     ${bar}
   </g>`;
 }
@@ -331,9 +335,10 @@ export function splashSvg(): string {
         <stop offset="0.62" stop-color="#140b2a"/>
         <stop offset="1" stop-color="${SKY}"/>
       </linearGradient>
-      <linearGradient id="ghostFill" x1="0" y1="0" x2="0" y2="1">
+      <linearGradient id="driftFill" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0" stop-color="${PALE}"/>
-        <stop offset="1" stop-color="${CYAN}"/>
+        <stop offset="0.45" stop-color="${CYAN}"/>
+        <stop offset="1" stop-color="${DEEP_BLUE}"/>
       </linearGradient>
       <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
         <feGaussianBlur stdDeviation="6" result="blur"/>
