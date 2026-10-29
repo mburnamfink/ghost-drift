@@ -118,7 +118,7 @@ The browser only exposes a controller after a button is pressed with the page fo
 
 ## MVP scope
 
-- A seeded city per Run in one of four Layouts, bounded by the Edge, densifying between Waves.
+- A seeded city per Run in one of seven Layouts, bounded by the Edge, densifying between Waves.
 - A heading-up minimap: city, Edge and Hunters, with Hunters beyond its range pinned to the rim.
 - Ship with thrust, steering, Powerslide, Burst (3 Charges) and Bolts.
 - Four Hunter types: Tanks (Chaser and Cutter roles), Berserkers, Snipers and Artillery.
