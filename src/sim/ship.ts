@@ -70,12 +70,15 @@ export function stepShip(
 
   if (bursting) {
     ship.vel = { x: forward.x * cfg.burstSpeed, y: forward.y * cfg.burstSpeed };
+  } else if (ship.sliding) {
+    // Momentum carries the Ship straight on while the nose swings free; thrust has no effect.
+    const decay = Math.exp(-cfg.slideDrag * dt);
+    ship.vel = { x: ship.vel.x * decay, y: ship.vel.y * decay };
   } else {
-    const thrust = controls.thrust * cfg.thrust * (ship.sliding ? cfg.slideThrustScale : 1);
-    let along = dot(ship.vel, forward) + thrust * dt;
+    let along = dot(ship.vel, forward) + controls.thrust * cfg.thrust * dt;
     let side = dot(ship.vel, right);
-    side *= Math.exp(-(ship.sliding ? cfg.slideGrip : cfg.grip) * dt);
-    const drag = Math.exp(-(cfg.drag + (ship.sliding ? cfg.slideExtraDrag : 0)) * dt);
+    side *= Math.exp(-cfg.grip * dt);
+    const drag = Math.exp(-cfg.drag * dt);
     along *= drag;
     side *= drag;
     ship.vel = {

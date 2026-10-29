@@ -31,16 +31,22 @@ describe('Ship handling', () => {
     expect(Math.abs(travel - ship.heading)).toBeLessThan(0.05);
   });
 
-  it('lets the heading swing away from travel while Powersliding, at a cost in speed', () => {
-    const gripping = centre();
-    const sliding = centre();
-    run(gripping, { thrust: 1 }, 2);
-    run(sliding, { thrust: 1 }, 2);
-    run(gripping, { thrust: 1, steer: 1 }, 0.4);
-    run(sliding, { thrust: 1, steer: 1, slide: true }, 0.4);
-    const slip = Math.abs(Math.atan2(sliding.vel.y, sliding.vel.x) - sliding.heading);
-    expect(slip).toBeGreaterThan(0.8);
-    expect(speedOf(sliding)).toBeLessThan(speedOf(gripping));
+  it('keeps travelling in a straight line while Powersliding, whatever the heading does', () => {
+    const ship = centre();
+    run(ship, { thrust: 1 }, 2);
+    const before = Math.atan2(ship.vel.y, ship.vel.x);
+    run(ship, { thrust: 1, steer: 1, slide: true }, 0.6);
+    expect(Math.atan2(ship.vel.y, ship.vel.x)).toBeCloseTo(before, 6);
+    expect(Math.abs(ship.heading - before)).toBeGreaterThan(2);
+  });
+
+  it('bleeds speed slowly while Powersliding, even under thrust', () => {
+    const ship = centre();
+    run(ship, { thrust: 1 }, 2);
+    const before = speedOf(ship);
+    run(ship, { thrust: 1, slide: true }, 0.5);
+    expect(speedOf(ship)).toBeLessThan(before);
+    expect(speedOf(ship)).toBeCloseTo(before * Math.exp(-CONFIG.ship.slideDrag * 0.5), 1);
   });
 });
 

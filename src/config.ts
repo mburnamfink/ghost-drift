@@ -29,9 +29,8 @@ export const CONFIG = {
     /** Rate at which sideways velocity is bled off; high values feel planted. */
     grip: 7,
     slideTurnRate: 4.2,
-    slideGrip: 0.35,
-    slideExtraDrag: 0.7,
-    slideThrustScale: 0.25,
+    /** Speed decay rate while Powersliding. The direction of travel is locked, so this is the only cost. */
+    slideDrag: 0.4,
     hull: 3,
     hitInvulnerability: 1.2,
     burstCharges: 3,

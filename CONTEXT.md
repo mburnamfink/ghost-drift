@@ -19,7 +19,7 @@ The Ship's remaining hit points. At zero the run ends.
 _Avoid_: Health, HP, shields
 
 **Powerslide**:
-A held maneuver in which the Ship loses grip, so its Heading turns freely while momentum carries it on. Bleeds speed.
+A held maneuver in which the Ship keeps travelling in a straight line, slowly losing speed, while its Heading turns freely. Thrust does nothing until it ends.
 _Avoid_: Drift, strafe mode
 
 **Burst**:
