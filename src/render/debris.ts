@@ -12,6 +12,18 @@ interface Particle {
   size: number;
 }
 
+export interface ParticleSpec {
+  x: number;
+  y: number;
+  z: number;
+  vx: number;
+  vy: number;
+  vz: number;
+  color: number;
+  life: number;
+  size: number;
+}
+
 /** Cosmetic flying fragments for explosions and hits. Lives entirely in the render layer. */
 export class Debris {
   readonly mesh: THREE.InstancedMesh;
@@ -28,21 +40,35 @@ export class Debris {
     this.mesh.frustumCulled = false;
   }
 
+  /** Throws `count` fragments outward in all directions from a point on the ground. */
   burst(x: number, z: number, color: number, count: number, speed: number): void {
-    const c = new THREE.Color(color);
-    for (let i = 0; i < count && this.particles.length < CAPACITY; i++) {
+    for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;
       const s = speed * (0.3 + Math.random() * 0.7);
-      const maxLife = 0.5 + Math.random() * 0.6;
-      this.particles.push({
-        pos: new THREE.Vector3(x, 1 + Math.random(), z),
-        vel: new THREE.Vector3(Math.cos(a) * s, 6 + Math.random() * 12, Math.sin(a) * s),
-        color: c,
-        life: maxLife,
-        maxLife,
+      this.emit({
+        x,
+        y: 1 + Math.random(),
+        z,
+        vx: Math.cos(a) * s,
+        vy: 6 + Math.random() * 12,
+        vz: Math.sin(a) * s,
+        color,
+        life: 0.5 + Math.random() * 0.6,
         size: 0.3 + Math.random() * 0.6,
       });
     }
+  }
+
+  emit(p: ParticleSpec): void {
+    if (this.particles.length >= CAPACITY) return;
+    this.particles.push({
+      pos: new THREE.Vector3(p.x, p.y, p.z),
+      vel: new THREE.Vector3(p.vx, p.vy, p.vz),
+      color: new THREE.Color(p.color),
+      life: p.life,
+      maxLife: p.life,
+      size: p.size,
+    });
   }
 
   update(dt: number): void {

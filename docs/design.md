@@ -6,7 +6,7 @@ Battlezone meets Wipeout. Terms are defined in [CONTEXT.md](../CONTEXT.md); arch
 
 1. **Speed is armor.** A moving Ship is hard to hit; a slow one gets Boxed in. Every system should push the player to keep speed up.
 2. **Every defensive tool costs speed or a scarce resource.** Powerslide trades speed for aim. Burst trades a Charge for safety.
-3. **Readable at speed.** Flat-shaded solid polygons, a strict palette, distance fog.
+3. **Readable at speed.** Flat-shaded solid polygons, a strict palette, distance fog. Anything between the camera and the Ship fades to a wireframe, so the Ship is never hidden.
 
 ## Core rules
 
@@ -32,14 +32,16 @@ The browser only exposes a controller after a button is pressed with the page fo
 
 ## Palette
 
-| Element           | Color                            |
-| ----------------- | -------------------------------- |
-| Ground            | near-black blue                  |
-| Blocks            | muted slate, lighter with height |
-| Arena wall        | dark violet                      |
-| Ship, Bolts       | cyan                             |
-| Hunters, Shells   | hot orange-red                   |
-| Ship during Burst | white                            |
+| Element             | Color                               |
+| ------------------- | ----------------------------------- |
+| Ground              | near-black blue                     |
+| Blocks              | muted slate, lighter with height    |
+| Arena wall          | dark violet                         |
+| Ship, Bolts         | cyan                                |
+| Hunters, Shells     | hot orange-red                      |
+| Ship during Burst   | white                               |
+| Powerslide sparks   | pale yellow-white                   |
+| Ghosted Block edges | pale blue; faces fade to near-clear |
 
 ## MVP scope
 

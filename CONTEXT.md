@@ -52,7 +52,7 @@ The bounded square play space. Its outer wall cannot be passed, even during Burs
 _Avoid_: Map, level
 
 **Block**:
-One solid cell of Arena terrain. Stops Ships, Hunters and shots.
+A solid rectangular structure covering one or more whole cells of the Arena. Stops Ships, Hunters and shots.
 _Avoid_: Wall (reserved for the Arena edge), obstacle, tile
 
 **Density**:

@@ -12,13 +12,16 @@ export const CONFIG = {
     spawnClearRadius: 4,
     /** Noise period, in cells, of the large-scale Density field. */
     densityPeriod: 16,
-    /** Noise period, in cells, of the clumps that Density turns into Blocks. */
-    detailPeriod: 3,
-    /** Block coverage at maximum Density. */
-    maxFill: 0.6,
-    minBlockHeight: 1.5,
-    /** Kept below the chase camera's height so Blocks never fill the view. */
-    maxBlockHeight: 5.5,
+    placementAttempts: 900,
+    /** Chance a candidate Block is kept at maximum Density. */
+    placementChance: 0.9,
+    /** Block footprint range, in cells per side. */
+    minBlockCells: 2,
+    maxBlockCells: 6,
+    /** Open cells always left between Blocks, so corridors never close. */
+    blockGap: 1,
+    minBlockHeight: 3,
+    maxBlockHeight: 12,
   },
   ship: {
     radius: 1.2,

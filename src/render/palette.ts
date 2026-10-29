@@ -12,4 +12,6 @@ export const PALETTE = {
   hunter: 0xff4a1c,
   hunterTurret: 0xb8300f,
   shell: 0xffa040,
+  spark: 0xfff0b0,
+  ghostEdge: 0x8fb4e6,
 } as const;

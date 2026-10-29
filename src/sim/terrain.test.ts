@@ -7,7 +7,7 @@ describe('generateTerrain', () => {
   it('is deterministic for a seed', () => {
     const a = generateTerrain(new Rng(42));
     const b = generateTerrain(new Rng(42));
-    expect(Array.from(a.heights)).toEqual(Array.from(b.heights));
+    expect(a.blocks).toEqual(b.blocks);
   });
 
   it('keeps the spawn area open', () => {
@@ -26,6 +26,23 @@ describe('generateTerrain', () => {
     const fraction = blocks / (t.cells * t.cells);
     expect(fraction).toBeGreaterThan(0.05);
     expect(fraction).toBeLessThan(0.6);
+  });
+
+  it('builds multi-cell Blocks that never touch each other', () => {
+    const t = generateTerrain(new Rng(5));
+    const gap = CONFIG.arena.blockGap;
+    for (const b of t.blocks) {
+      expect(Math.min(b.w, b.h)).toBeGreaterThanOrEqual(CONFIG.arena.minBlockCells);
+      for (const o of t.blocks) {
+        if (o === b) continue;
+        const apart =
+          o.x >= b.x + b.w + gap ||
+          b.x >= o.x + o.w + gap ||
+          o.y >= b.y + b.h + gap ||
+          b.y >= o.y + o.h + gap;
+        expect(apart).toBe(true);
+      }
+    }
   });
 
   it('leaves every open cell reachable from the centre', () => {

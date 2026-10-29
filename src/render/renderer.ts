@@ -3,11 +3,11 @@ import { SHIP_TOP_SPEED } from '../config';
 import { clamp, wrapAngle } from '../core/vec2';
 import { isBursting, speedOf } from '../sim/ship';
 import type { Shot } from '../sim/shots';
-import type { Terrain } from '../sim/terrain';
 import type { SimEvent, World } from '../sim/world';
 import { Debris } from './debris';
 import { type HunterModel, createHunterModel, createShipModel } from './models';
 import { PALETTE } from './palette';
+import { TerrainView } from './terrainView';
 
 const SHOT_CAPACITY = 512;
 const CAMERA = {
@@ -21,6 +21,11 @@ const CAMERA = {
   burstFov: 10,
 };
 const SHIP_HOVER_HEIGHT = 0.9;
+const SPARK = {
+  /** Sparks per second at top speed. */
+  rate: 140,
+  minSpeed: 4,
+};
 
 /**
  * Draws a World. Reads simulation state every frame and never writes to it (ADR-0002).
@@ -36,7 +41,8 @@ export class GameRenderer {
   private readonly shells: THREE.InstancedMesh;
   private readonly debris = new Debris();
   private readonly dummy = new THREE.Object3D();
-  private terrainGroup = new THREE.Group();
+  private terrain: TerrainView | null = null;
+  private sparkBudget = 0;
   private cameraYaw = 0;
   private lastHeading = 0;
   private shake = 0;
@@ -56,7 +62,7 @@ export class GameRenderer {
 
     this.bolts = shotMesh(new THREE.BoxGeometry(1.6, 0.25, 0.25), PALETTE.bolt);
     this.shells = shotMesh(new THREE.IcosahedronGeometry(0.6, 0), PALETTE.shell);
-    this.scene.add(this.ship.root, this.bolts, this.shells, this.debris.mesh, this.terrainGroup);
+    this.scene.add(this.ship.root, this.bolts, this.shells, this.debris.mesh);
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -64,10 +70,12 @@ export class GameRenderer {
 
   /** Rebuilds static scenery for a new World and snaps the camera behind the Ship. */
   setWorld(world: World): void {
-    this.scene.remove(this.terrainGroup);
-    disposeTree(this.terrainGroup);
-    this.terrainGroup = buildTerrain(world.terrain);
-    this.scene.add(this.terrainGroup);
+    if (this.terrain) {
+      this.scene.remove(this.terrain.group);
+      this.terrain.dispose();
+    }
+    this.terrain = new TerrainView(world.terrain);
+    this.scene.add(this.terrain.group);
     for (const model of this.hunters.values()) this.scene.remove(model.root);
     this.hunters.clear();
     this.debris.clear();
@@ -132,6 +140,31 @@ export class GameRenderer {
     this.ship.material.color.setHex(bursting ? PALETTE.shipBurst : PALETTE.ship);
     this.ship.material.emissive.setHex(bursting ? PALETTE.shipBurst : PALETTE.ship);
     root.scale.set(bursting ? 1.6 : 1, bursting ? 0.7 : 1, bursting ? 0.7 : 1);
+    if (ship.sliding && !world.over) this.emitSparks(world, frameTime);
+  }
+
+  /** Sparks are thrown from the hull's trailing edge and left behind, tracing the line of travel. */
+  private emitSparks(world: World, frameTime: number): void {
+    const { ship } = world;
+    const speed = speedOf(ship);
+    if (speed < SPARK.minSpeed) return;
+    this.sparkBudget += SPARK.rate * Math.min(1, speed / SHIP_TOP_SPEED) * frameTime;
+    const tx = ship.vel.x / speed;
+    const ty = ship.vel.y / speed;
+    for (; this.sparkBudget >= 1; this.sparkBudget--) {
+      const side = (Math.random() - 0.5) * 2;
+      this.debris.emit({
+        x: ship.pos.x - tx * 1.2 - ty * side,
+        y: 0.3,
+        z: ship.pos.y - ty * 1.2 + tx * side,
+        vx: tx * speed * 0.15 + (Math.random() - 0.5) * 6,
+        vy: 2 + Math.random() * 5,
+        vz: ty * speed * 0.15 + (Math.random() - 0.5) * 6,
+        color: PALETTE.spark,
+        life: 0.35 + Math.random() * 0.45,
+        size: 0.15 + Math.random() * 0.2,
+      });
+    }
   }
 
   private syncHunters(world: World): void {
@@ -170,6 +203,11 @@ export class GameRenderer {
       ship.pos.y - fz * CAMERA.distance + jitter(),
     );
     this.camera.lookAt(ship.pos.x + fx * CAMERA.lookAhead, 1, ship.pos.y + fz * CAMERA.lookAhead);
+    this.terrain?.updateOcclusion(
+      this.camera.position,
+      new THREE.Vector3(ship.pos.x, SHIP_HOVER_HEIGHT, ship.pos.y),
+      frameTime,
+    );
 
     const speedFraction = Math.min(1, speedOf(ship) / SHIP_TOP_SPEED);
     const targetFov =
@@ -218,80 +256,4 @@ function syncShots(
   }
   mesh.count = n;
   mesh.instanceMatrix.needsUpdate = true;
-}
-
-function buildTerrain(terrain: Terrain): THREE.Group {
-  const group = new THREE.Group();
-  const size = terrain.worldSize;
-  const half = size / 2;
-
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(size, size).rotateX(-Math.PI / 2),
-    new THREE.MeshStandardMaterial({ color: PALETTE.ground, roughness: 1 }),
-  );
-  ground.position.set(half, 0, half);
-  const grid = new THREE.GridHelper(size, terrain.cells, PALETTE.grid, PALETTE.grid);
-  grid.position.set(half, 0.02, half);
-  group.add(ground, grid);
-
-  let count = 0;
-  for (let y = 0; y < terrain.cells; y++) {
-    for (let x = 0; x < terrain.cells; x++) if (terrain.isBlock(x, y)) count++;
-  }
-  const blocks = new THREE.InstancedMesh(
-    new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0),
-    new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.9 }),
-    Math.max(1, count),
-  );
-  const dummy = new THREE.Object3D();
-  const low = new THREE.Color(PALETTE.blockLow);
-  const high = new THREE.Color(PALETTE.blockHigh);
-  const color = new THREE.Color();
-  let maxHeight = 0;
-  for (const h of terrain.heights) maxHeight = Math.max(maxHeight, h);
-  let i = 0;
-  for (let y = 0; y < terrain.cells; y++) {
-    for (let x = 0; x < terrain.cells; x++) {
-      if (!terrain.isBlock(x, y)) continue;
-      const h = terrain.heights[terrain.index(x, y)]!;
-      dummy.position.set(terrain.cellCenter(x), 0, terrain.cellCenter(y));
-      dummy.scale.set(terrain.cellSize * 0.97, h, terrain.cellSize * 0.97);
-      dummy.updateMatrix();
-      blocks.setMatrixAt(i, dummy.matrix);
-      blocks.setColorAt(i, color.lerpColors(low, high, h / maxHeight));
-      i++;
-    }
-  }
-  blocks.count = count;
-  group.add(blocks);
-
-  const wallMaterial = new THREE.MeshStandardMaterial({
-    color: PALETTE.wall,
-    emissive: PALETTE.wall,
-    emissiveIntensity: 0.6,
-    flatShading: true,
-  });
-  const thickness = 2;
-  const wallHeight = 14;
-  for (const [x, z, w, d] of [
-    [half, -thickness / 2, size + thickness * 2, thickness],
-    [half, size + thickness / 2, size + thickness * 2, thickness],
-    [-thickness / 2, half, thickness, size],
-    [size + thickness / 2, half, thickness, size],
-  ] as const) {
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(w, wallHeight, d), wallMaterial);
-    wall.position.set(x, wallHeight / 2, z);
-    group.add(wall);
-  }
-  return group;
-}
-
-function disposeTree(root: THREE.Object3D): void {
-  root.traverse((o) => {
-    if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) {
-      o.geometry.dispose();
-      const materials = Array.isArray(o.material) ? o.material : [o.material];
-      for (const m of materials) m.dispose();
-    }
-  });
 }

@@ -3,13 +3,26 @@ import { valueNoiseGrid } from '../core/noise';
 import type { Rng } from '../core/rng';
 import type { Vec2 } from '../core/vec2';
 
+/** A solid rectangular structure covering whole cells. Position and size are in cells. */
+export interface Block {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** Visual height in world units; ignored by the simulation (ADR-0002). */
+  height: number;
+}
+
 export interface TerrainParams {
   cells: number;
   cellSize: number;
   spawnClearRadius: number;
   densityPeriod: number;
-  detailPeriod: number;
-  maxFill: number;
+  placementAttempts: number;
+  placementChance: number;
+  minBlockCells: number;
+  maxBlockCells: number;
+  blockGap: number;
   minBlockHeight: number;
   maxBlockHeight: number;
 }
@@ -25,8 +38,7 @@ export class Terrain {
     readonly cells: number,
     readonly cellSize: number,
     private readonly solid: Uint8Array,
-    /** Visual height of each Block; ignored by the simulation (ADR-0002). */
-    readonly heights: Float32Array,
+    readonly blocks: readonly Block[],
   ) {
     this.worldSize = cells * cellSize;
   }
@@ -107,78 +119,61 @@ const smoothstep = (lo: number, hi: number, v: number) => {
 };
 
 /**
- * Builds an Arena whose Density varies smoothly across it. A coarse noise field sets local Density;
- * a fine noise field, thresholded by that Density, decides which cells become Blocks. Open pockets
- * unreachable from the centre are filled so every open cell is navigable.
+ * Builds an Arena of rectangular Blocks whose Density varies smoothly across it. Candidate Blocks
+ * are scattered at random and kept with a probability set by a coarse noise field, so some regions
+ * are open and others are mazes. Blocks never touch: a `blockGap` of open cells always separates
+ * them, which keeps every open cell reachable.
  */
 export function generateTerrain(rng: Rng, params: TerrainParams = CONFIG.arena): Terrain {
-  const { cells } = params;
+  const { cells, blockGap, minBlockCells, maxBlockCells } = params;
   const density = valueNoiseGrid(rng, cells, params.densityPeriod);
-  const detail = valueNoiseGrid(rng, cells, params.detailPeriod);
   const solid = new Uint8Array(cells * cells);
-  const heights = new Float32Array(cells * cells);
+  const blocks: Block[] = [];
   const mid = cells / 2;
 
-  for (let y = 0; y < cells; y++) {
-    for (let x = 0; x < cells; x++) {
-      const i = y * cells + x;
-      if (Math.hypot(x + 0.5 - mid, y + 0.5 - mid) <= params.spawnClearRadius) continue;
-      const d = density[i]!;
-      const fill = params.maxFill * smoothstep(0.3, 0.8, d);
-      if (detail[i]! < fill) {
-        solid[i] = 1;
-        heights[i] =
-          params.minBlockHeight +
-          (params.maxBlockHeight - params.minBlockHeight) * (0.4 * d + 0.6 * rng.next());
-      }
+  const areaFree = (x0: number, y0: number, x1: number, y1: number) => {
+    for (let y = Math.max(0, y0); y < Math.min(cells, y1); y++) {
+      for (let x = Math.max(0, x0); x < Math.min(cells, x1); x++)
+        if (solid[y * cells + x]) return false;
     }
-  }
+    return true;
+  };
 
-  fillUnreachable(solid, cells, Math.floor(mid), Math.floor(mid));
-  for (let i = 0; i < solid.length; i++) {
-    if (solid[i] === 1 && heights[i] === 0) heights[i] = params.minBlockHeight;
+  for (let attempt = 0; attempt < params.placementAttempts; attempt++) {
+    const w = minBlockCells + rng.int(maxBlockCells - minBlockCells + 1);
+    const h = minBlockCells + rng.int(maxBlockCells - minBlockCells + 1);
+    const x = rng.int(cells - w + 1);
+    const y = rng.int(cells - h + 1);
+    const d = density[Math.floor(y + h / 2) * cells + Math.floor(x + w / 2)]!;
+    const keep = rng.next() < params.placementChance * smoothstep(0.3, 0.75, d);
+    const height =
+      params.minBlockHeight +
+      (params.maxBlockHeight - params.minBlockHeight) * (0.4 * d + 0.6 * rng.next());
+    if (!keep) continue;
+    const nearestX = Math.max(x, Math.min(mid, x + w));
+    const nearestY = Math.max(y, Math.min(mid, y + h));
+    if (Math.hypot(nearestX - mid, nearestY - mid) <= params.spawnClearRadius) continue;
+    if (!areaFree(x - blockGap, y - blockGap, x + w + blockGap, y + h + blockGap)) continue;
+    for (let cy = y; cy < y + h; cy++)
+      for (let cx = x; cx < x + w; cx++) solid[cy * cells + cx] = 1;
+    blocks.push({ x, y, w, h, height });
   }
-  return new Terrain(cells, params.cellSize, solid, heights);
+  return new Terrain(cells, params.cellSize, solid, blocks);
 }
 
-function fillUnreachable(solid: Uint8Array, cells: number, sx: number, sy: number): void {
-  const seen = new Uint8Array(cells * cells);
-  const queue = [sy * cells + sx];
-  seen[queue[0]!] = 1;
-  for (let head = 0; head < queue.length; head++) {
-    const i = queue[head]!;
-    const x = i % cells;
-    const y = (i - x) / cells;
-    for (const [nx, ny] of [
-      [x + 1, y],
-      [x - 1, y],
-      [x, y + 1],
-      [x, y - 1],
-    ] as const) {
-      if (nx < 0 || ny < 0 || nx >= cells || ny >= cells) continue;
-      const n = ny * cells + nx;
-      if (seen[n] || solid[n]) continue;
-      seen[n] = 1;
-      queue.push(n);
-    }
-  }
-  for (let i = 0; i < solid.length; i++) if (!seen[i]) solid[i] = 1;
-}
-
-/** Builds Terrain from a square ASCII map, `#` for a Block. The first row is y = 0. */
+/** Builds Terrain from a square ASCII map, `#` for a one-cell Block. The first row is y = 0. */
 export function terrainFromRows(rows: readonly string[], cellSize: number = CONFIG.arena.cellSize) {
   const cells = rows.length;
   const solid = new Uint8Array(cells * cells);
-  const heights = new Float32Array(cells * cells);
+  const blocks: Block[] = [];
   rows.forEach((row, y) => {
     if (row.length !== cells)
       throw new Error(`Row ${y} has ${row.length} cells, expected ${cells}`);
     for (let x = 0; x < cells; x++) {
-      if (row[x] === '#') {
-        solid[y * cells + x] = 1;
-        heights[y * cells + x] = 1;
-      }
+      if (row[x] !== '#') continue;
+      solid[y * cells + x] = 1;
+      blocks.push({ x, y, w: 1, h: 1, height: 1 });
     }
   });
-  return new Terrain(cells, cellSize, solid, heights);
+  return new Terrain(cells, cellSize, solid, blocks);
 }
