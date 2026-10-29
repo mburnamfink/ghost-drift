@@ -100,7 +100,7 @@ describe('Artillery', () => {
   it('lands a Salvo along the Ship’s projected path when it is under open sky', () => {
     const world = liveWorld();
     cruise(world);
-    const a = createArtillery(60, { x: 30, y: 30 }, world.terrain, new Rng(1));
+    const a = createArtillery(60, { x: 60, y: 60 }, world.terrain, new Rng(1));
     a.fireCooldown = 0;
     const action = stepHunter(a, context(world), DT);
     expect(action?.type).toBe('salvo');
@@ -109,6 +109,20 @@ describe('Artillery', () => {
     expect(action.targets.map((p) => Math.round(p.x - pos.x))).toEqual(
       CONFIG.artillery.salvoLeads.map((t) => Math.round(SHIP_TOP_SPEED * t)),
     );
+  });
+
+  it('holds fire at a Ship beyond its maximum range', () => {
+    const world = liveWorld();
+    cruise(world);
+    const { pos } = world.ship;
+    const a = createArtillery(
+      60,
+      { x: pos.x - CONFIG.artillery.maxRange - 5, y: pos.y },
+      world.terrain,
+      new Rng(1),
+    );
+    a.fireCooldown = 0;
+    expect(stepHunter(a, context(world), DT)).toBeNull();
   });
 
   it('holds fire while the Ship is near Blocks', () => {

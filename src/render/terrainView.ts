@@ -135,7 +135,12 @@ export class TerrainView {
     const cell = this.cellSize;
     const low = new THREE.Color(PALETTE.blockLow);
     const high = new THREE.Color(PALETTE.blockHigh);
-    const color = new THREE.Color().lerpColors(low, high, Math.min(1, b.height / this.maxHeight));
+    const color =
+      'kind' in b && b.kind === 'edge'
+        ? new THREE.Color(PALETTE.edge).multiplyScalar(
+            0.8 + 0.4 * Math.min(1, b.height / CONFIG.city.edgeHeight[1]),
+          )
+        : new THREE.Color().lerpColors(low, high, Math.min(1, b.height / this.maxHeight));
     // A small inset keeps neighbouring faces from z-fighting with the grid lines.
     const o = this.addOccluder(
       (b.x + b.w / 2) * cell,

@@ -220,6 +220,11 @@ export class GameRenderer {
     else this.afterimages.stop(h.id);
   }
 
+  /** Direction the camera faces, in simulation radians. */
+  get viewYaw(): number {
+    return this.cameraYaw;
+  }
+
   /**
    * Direction from the Ship to `pos` as seen from behind the camera: 0 = right, π/2 = straight
    * ahead. For pointers that say which way to go, not where something is on screen.

@@ -105,7 +105,8 @@ export class Hud {
     this.updateTargeting(world, screen.kind === 'none');
     const { ship } = world;
     this.score.textContent = world.score.toString().padStart(6, '0');
-    this.wave.textContent = world.wave > 0 ? `WAVE ${world.wave}` : '';
+    const layout = world.city ? world.city.layout.toUpperCase() : '';
+    this.wave.textContent = world.wave > 0 ? `WAVE ${world.wave} · ${layout}` : layout;
     this.hull.textContent = pips(ship.hull, CONFIG.ship.hull, '■', '□');
     this.charges.textContent = pips(ship.charges, CONFIG.ship.burstCharges, '◆', '◇');
     this.weapon.textContent = ship.weapon.toUpperCase();

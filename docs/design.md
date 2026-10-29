@@ -36,13 +36,22 @@ Every type dies to one Bolt. Snipers and Artillery keep their distance and move 
 
 ## The city
 
-Each Run builds a new seeded city (ADR-0005). A ring road runs inside the Arena wall; three-cell Avenues frame a central Plaza 35% of the Arena wide; the eight districts around it are split by two-cell Streets and one-cell Alleys into Plots. About one Plot in ten stays empty as a pocket park.
+Each Run builds a new seeded city, 96 cells (384 units) across, in one of four Layouts picked at random (ADR-0006):
 
-| Wave            | Building Plots standing                                        | Plaza obstacles  |
-| --------------- | -------------------------------------------------------------- | ---------------- |
-| 1               | 50%, mostly those facing an Avenue, the ring road or the Plaza | 3                |
-| each later Wave | +4%, side streets filling in                                   | +1 every 3 Waves |
-| ceiling         | 90%, reached around Wave 11                                    | 7                |
+| Layout    | Shape                                                           | Plays like                       |
+| --------- | --------------------------------------------------------------- | -------------------------------- |
+| Grid      | Five-cell Avenues edge to edge around a square central Plaza    | Long straight speed lanes        |
+| Circuit   | A wide loop around a dense core, with spurs to 3–4 side Plazas  | Lapping, cutting across the core |
+| Districts | 3–5 Plazas of different sizes joined by Avenues, one extra loop | Moving between arenas            |
+| Hub       | Central Plaza, 6–8 radiating Avenues, two ring roads            | Spokes and orbits                |
+
+Everywhere else, two-cell Streets and one-cell Alleys split the ground into Plots up to 12 cells on a side. About one Plot in ten stays empty as a pocket park. The city's outline is several overlapping arcs. Beyond it stands the Edge: purple towers that stand all Run. Plots near the Edge rise sooner and stand taller, so the city visibly thickens into it.
+
+| Wave            | Building Plots standing                                       | Plaza obstacles  |
+| --------------- | ------------------------------------------------------------- | ---------------- |
+| 1               | 60%, mostly those facing an Avenue or Plaza, or near the Edge | 3                |
+| each later Wave | +4%, side streets filling in                                  | +1 every 3 Waves |
+| ceiling         | 90%, reached around Wave 9                                    | 7                |
 
 From Wave 3, three standing Blocks Sink and are replaced each Wave, so routes keep changing after density levels off.
 
@@ -78,7 +87,8 @@ The browser only exposes a controller after a button is pressed with the page fo
 
 ## MVP scope
 
-- A seeded city per Run: Plaza, Avenues, Streets and Alleys, densifying between Waves.
+- A seeded city per Run in one of four Layouts, bounded by the Edge, densifying between Waves.
+- A heading-up minimap: city, Edge and Hunters, with Hunters beyond its range pinned to the rim.
 - Ship with thrust, steering, Powerslide, Burst (3 Charges) and Bolts.
 - Four Hunter types: Tanks (Chaser and Cutter roles), Berserkers, Snipers and Artillery.
 - Endless Waves with growing Hunter counts, score with a Wave multiplier, Hull of 3.

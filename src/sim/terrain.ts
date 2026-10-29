@@ -22,6 +22,8 @@ export class Terrain {
   readonly worldSize: number;
   private readonly solid: Uint8Array;
   private readonly standing = new Map<number, Block>();
+  /** Bumped whenever a Block Rises or Sinks, so views can tell when to redraw. */
+  version = 0;
 
   constructor(
     readonly cells: number,
@@ -56,6 +58,7 @@ export class Terrain {
   }
 
   private fill(b: Block, value: 0 | 1): void {
+    this.version++;
     for (let y = b.y; y < b.y + b.h; y++) {
       for (let x = b.x; x < b.x + b.w; x++)
         if (this.inBounds(x, y)) this.solid[this.index(x, y)] = value;

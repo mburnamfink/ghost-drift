@@ -18,7 +18,13 @@ import {
 } from './hunters';
 import { type Ship, canBeHit, createShip, isBursting, stepShip } from './ship';
 import { type Shot, createShot, stepShots } from './shots';
-import { type CityPlan, type TerrainChange, generateCity, planChange } from './city';
+import {
+  type CityPlan,
+  type LayoutName,
+  type TerrainChange,
+  generateCity,
+  planChange,
+} from './city';
 import { Terrain } from './terrain';
 import { spawnPoints, tankSpeed, waveMix, waveTotal } from './waves';
 import { type Pulse, homeBolts, pulseReaches, stepPulses } from './weapons';
@@ -97,10 +103,16 @@ export interface World {
 /**
  * @param terrain Fixed terrain to use instead of generating a city; it then never changes.
  * @param firstWave Wave the Run opens on, with the city already grown to match. For testing.
+ * @param layout City layout; chosen at random from the seed if omitted.
  */
-export function createWorld(seed: number, terrain?: Terrain, firstWave = 1): World {
+export function createWorld(
+  seed: number,
+  terrain?: Terrain,
+  firstWave = 1,
+  layout?: LayoutName,
+): World {
   const rng = new Rng(seed);
-  const city = terrain ? null : generateCity(rng);
+  const city = terrain ? null : generateCity(rng, layout);
   const t = terrain ?? new Terrain(CONFIG.arena.cells, CONFIG.arena.cellSize);
   if (city) {
     for (let wave = 1; wave <= firstWave; wave++) {
@@ -109,7 +121,9 @@ export function createWorld(seed: number, terrain?: Terrain, firstWave = 1): Wor
       for (const p of change.rise) t.raise(p);
     }
   }
-  const ship = createShip(t.center, -Math.PI / 2);
+  const ship = city
+    ? createShip({ x: city.spawn.x * t.cellSize, y: city.spawn.y * t.cellSize }, city.spawnHeading)
+    : createShip(t.center, -Math.PI / 2);
   return {
     seed,
     rng,

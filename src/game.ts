@@ -6,10 +6,23 @@ import { KeyboardInput } from './input/keyboard';
 import { GameRenderer } from './render/renderer';
 import { NO_CONTROLS } from './sim/controls';
 import { type World, createWorld, stepWorld } from './sim/world';
+import type { LayoutName } from './sim/city';
 import { Hud, type LastEnemies, type Screen } from './ui/hud';
+import { Minimap } from './ui/minimap';
 import { distance } from './core/vec2';
 
 type Phase = 'title' | 'playing' | 'paused' | 'over';
+
+/** Debug overrides, all optional; set from URL parameters. */
+export interface GameOptions {
+  /** Fixed seed for every Run instead of a random one. */
+  seed?: number;
+  /** Top-down camera. */
+  overhead?: boolean;
+  firstWave?: number;
+  /** Force a city layout instead of picking one at random. */
+  layout?: LayoutName;
+}
 
 const BEST_SCORE_KEY = 'quantum-breach.best';
 /** Ignore confirm briefly after death so a held fire/burst button doesn't skip the score screen. */
@@ -27,6 +40,7 @@ export class Game {
   private readonly renderer: GameRenderer;
   private readonly hud: Hud;
   private readonly loop = new FixedStep(1 / CONFIG.sim.stepHz, CONFIG.sim.maxFrameTime);
+  private readonly minimap: Minimap;
   private world: World;
   private phase: Phase = 'title';
   private overTime = 0;
@@ -35,12 +49,11 @@ export class Game {
 
   constructor(
     container: HTMLElement,
-    private readonly fixedSeed: number | null,
-    overhead = false,
-    private readonly firstWave = 1,
+    private readonly options: GameOptions = {},
   ) {
-    this.renderer = new GameRenderer(container, overhead);
+    this.renderer = new GameRenderer(container, options.overhead ?? false);
     this.hud = new Hud(container);
+    this.minimap = new Minimap(container);
     this.world = this.newWorld();
     document.addEventListener('visibilitychange', () => {
       if (document.hidden && this.phase === 'playing') this.phase = 'paused';
@@ -83,6 +96,7 @@ export class Game {
       this.renderer.offscreenThreats(this.world),
       this.lastEnemies(),
     );
+    this.minimap.update(this.world, this.renderer.viewYaw, this.phase === 'playing');
 
     requestAnimationFrame((t) => this.frame(t));
   }
@@ -138,8 +152,13 @@ export class Game {
   }
 
   private newWorld(): World {
-    const seed = this.fixedSeed ?? Math.floor(Math.random() * 2 ** 31);
-    const world = createWorld(seed, undefined, this.firstWave);
+    const { seed, firstWave, layout } = this.options;
+    const world = createWorld(
+      seed ?? Math.floor(Math.random() * 2 ** 31),
+      undefined,
+      firstWave ?? 1,
+      layout,
+    );
     this.renderer.setWorld(world);
     return world;
   }

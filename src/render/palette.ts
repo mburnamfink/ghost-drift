@@ -6,6 +6,8 @@ export const PALETTE = {
   blockLow: 0x1f2a3d,
   blockHigh: 0x4a5c78,
   wall: 0x2a1640,
+  /** Edge towers: the city grown too dense to enter. */
+  edge: 0x3a2258,
   ship: 0x37e8ff,
   shipBurst: 0xffffff,
   bolt: 0x9ff6ff,

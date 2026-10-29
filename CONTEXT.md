@@ -78,7 +78,7 @@ The failure state the game is built around: Hunters have closed every exit aroun
 ### The world
 
 **Arena**:
-The bounded square play space. Its outer wall cannot be passed, even during Burst.
+The whole play space, bounded by the Edge. Edge Blocks cannot be passed, even during Burst.
 _Avoid_: Map, level
 
 **Block**:
@@ -88,12 +88,20 @@ _Avoid_: Wall (reserved for the Arena edge), obstacle, tile
 **Density**:
 The fraction of building Plots with a standing Block. Rises Wave by Wave to a ceiling.
 
+**Layout**:
+The plan a Run's city follows: Grid, Circuit, Districts or Hub. Picked at random each Run.
+_Avoid_: Map, level
+
+**Edge**:
+The towers beyond the city's arced outline, where the city has grown too dense to enter. Never Sinks.
+_Avoid_: Wall, border
+
 **Plaza**:
-The large open square at the Arena's centre where the Ship starts. Holds only a few low obstacles.
-_Avoid_: Arena (the whole play space), centre
+A large open space in the city, holding only a few low obstacles. Some Layouts have several.
+_Avoid_: Arena (the whole play space)
 
 **Avenue**:
-A wide road framing the Plaza and dividing the rest of the Arena into districts. Never blocked.
+A wide road a Layout carves through the city, such as a speed lane, loop or spoke. Never blocked.
 
 **Street**:
 A narrower road inside a district. **Alleys** are the narrowest, one cell wide.

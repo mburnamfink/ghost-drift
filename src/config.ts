@@ -6,22 +6,23 @@ export const CONFIG = {
     maxFrameTime: 0.25,
   },
   arena: {
-    cells: 64,
+    cells: 96,
     cellSize: 4,
     /** Open radius around the Ship's spawn at the Plaza centre, in cells. */
     spawnClearRadius: 4,
   },
   city: {
-    /** Plaza side as a fraction of the Arena side. */
-    plazaFraction: 0.35,
-    /** Road widths in cells. The ring road runs inside the Arena wall. */
-    ringRoad: 2,
-    avenue: 3,
+    /** Road widths in cells. */
+    avenue: 5,
     street: 2,
     alley: 1,
+    /** Areas longer than this on a side are split by Streets, smaller ones by Alleys. */
+    streetAbove: 28,
     /** Plots are split until both sides are at most this many cells. */
-    maxPlotCells: 7,
-    minPlotCells: 3,
+    maxPlotCells: 12,
+    minPlotCells: 4,
+    /** Plots trimmed by open ground or the Edge are dropped if either side ends up shorter. */
+    minTrimmedPlot: 2,
     /** Chance a plot is left as permanent open ground. */
     emptyPlotChance: 0.1,
     minBlockHeight: 4,
@@ -29,11 +30,20 @@ export const CONFIG = {
     plazaObstacleCandidates: 10,
     plazaObstacleHeight: [3, 5],
     /** Fraction of building plots standing in Wave 1, the growth per Wave, and the ceiling. */
-    startDensity: 0.5,
+    startDensity: 0.6,
     densityPerWave: 0.04,
     maxDensity: 0.9,
-    /** Priority multiplier for Plots facing an Avenue, the ring road or the Plaza. */
-    frontagePriority: 3,
+    /** Priority multiplier for Plots facing an Avenue or a Plaza. */
+    frontagePriority: 8,
+    /**
+     * Plots within this many cells of the Edge Rise up to `1 + edgePriority` times sooner and stand
+     * up to `edgeExtraHeight` taller, so the city thickens toward it.
+     */
+    edgeBand: 10,
+    edgePriority: 3,
+    edgeExtraHeight: 5,
+    /** Edge Block heights: nearest the city at the low end, taller further out. */
+    edgeHeight: [16, 32],
     /** From this Wave on, this many standing Blocks Sink each Wave so routes keep changing. */
     churnFromWave: 3,
     churnPerWave: 3,
@@ -68,7 +78,7 @@ export const CONFIG = {
     life: 0.9,
     radius: 0.35,
     /** Half-angle either side of a Bolt's flight within which it notices a Hunter. */
-    homingCone: 0.2,
+    homingCone: (6 * Math.PI) / 180,
     /** Fastest a Bolt turns toward its Hunter, radians per second. */
     homingRate: 2.5,
   },
@@ -145,9 +155,10 @@ export const CONFIG = {
   artillery: {
     radius: 2,
     speed: 9,
-    idealRange: 105,
+    idealRange: 85,
     fleeDistance: 45,
-    maxRange: 170,
+    /** Never fires at a Ship farther away than this. */
+    maxRange: 115,
     /** Seconds from launch to impact for the first shell of a Salvo. */
     flightTime: 1.8,
     /** Each shell lands where the Ship will be this many seconds after launch, if it holds course. */
