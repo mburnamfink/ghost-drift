@@ -8,8 +8,15 @@ import { Debris } from './debris';
 import { type HunterModel, createHunterModel, createShipModel } from './models';
 import { PALETTE } from './palette';
 import { TerrainView } from './terrainView';
+import { ThreatsView } from './threatsView';
 
 const SHOT_CAPACITY = 512;
+
+/** A threat outside the view, as a screen-space angle from the centre (0 = right, π/2 = up). */
+export interface ScreenThreat {
+  angle: number;
+  kind: 'sniper' | 'artillery';
+}
 const CAMERA = {
   distance: 14,
   height: 9,
@@ -41,6 +48,7 @@ export class GameRenderer {
   private readonly shells: THREE.InstancedMesh;
   private readonly debris = new Debris();
   private readonly dummy = new THREE.Object3D();
+  private readonly threats = new ThreatsView();
   private terrain: TerrainView | null = null;
   private sparkBudget = 0;
   private cameraYaw = 0;
@@ -66,7 +74,7 @@ export class GameRenderer {
 
     this.bolts = shotMesh(new THREE.BoxGeometry(1.6, 0.25, 0.25), PALETTE.bolt);
     this.shells = shotMesh(new THREE.IcosahedronGeometry(0.6, 0), PALETTE.shell);
-    this.scene.add(this.ship.root, this.bolts, this.shells, this.debris.mesh);
+    this.scene.add(this.ship.root, this.bolts, this.shells, this.debris.mesh, this.threats.group);
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -83,11 +91,13 @@ export class GameRenderer {
     for (const model of this.hunters.values()) this.scene.remove(model.root);
     this.hunters.clear();
     this.debris.clear();
+    this.threats.clear();
     this.cameraYaw = world.ship.heading;
     this.lastHeading = world.ship.heading;
   }
 
   handleEvents(events: readonly SimEvent[]): void {
+    this.threats.handleEvents(events);
     for (const e of events) {
       switch (e.type) {
         case 'hunterDestroyed':
@@ -101,6 +111,13 @@ export class GameRenderer {
         case 'shipDestroyed':
           this.debris.burst(e.pos.x, e.pos.y, PALETTE.ship, 60, 26);
           this.shake = 1.5;
+          break;
+        case 'impact':
+          this.debris.burst(e.pos.x, e.pos.y, PALETTE.impactZone, 40, 22);
+          this.shake = Math.max(this.shake, this.shakeAtDistance(e.pos, 1.2));
+          break;
+        case 'salvoFired':
+          this.debris.burst(e.from.x, e.from.y, PALETTE.shell, 8, 6);
           break;
         case 'terrainChanged':
           this.terrain?.applyChange(e.change);
@@ -121,9 +138,36 @@ export class GameRenderer {
     syncShots(this.bolts, world.bolts, this.dummy, true);
     syncShots(this.shells, world.shells, this.dummy, false);
     this.debris.update(frameTime);
+    this.threats.update(world, frameTime);
     this.terrain?.update(world.pendingChange, frameTime);
     this.updateCamera(world, frameTime);
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /**
+   * Directions, in screen space from the screen centre, of active threats the camera cannot see:
+   * charging Snipers and incoming Artillery impacts. Call after `render` so the camera is current.
+   */
+  offscreenThreats(world: World): ScreenThreat[] {
+    const out: ScreenThreat[] = [];
+    const consider = (x: number, y: number, kind: ScreenThreat['kind']) => {
+      const world3 = new THREE.Vector3(x, 1, y);
+      const ndc = world3.clone().project(this.camera);
+      const view = world3.applyMatrix4(this.camera.matrixWorldInverse);
+      const inFront = view.z < 0;
+      if (inFront && Math.abs(ndc.x) <= 0.95 && Math.abs(ndc.y) <= 0.95) return;
+      // Camera-space x/y point the right way from the screen centre whether in front or behind.
+      out.push({ angle: Math.atan2(view.y, view.x), kind });
+    };
+    for (const h of world.hunters)
+      if (h.kind === 'sniper' && h.charge) consider(h.pos.x, h.pos.y, 'sniper');
+    for (const i of world.impacts) consider(i.pos.x, i.pos.y, 'artillery');
+    return out;
+  }
+
+  private shakeAtDistance(pos: { x: number; y: number }, strength: number): number {
+    const d = Math.hypot(pos.x - this.camera.position.x, pos.y - this.camera.position.z);
+    return strength * Math.max(0, 1 - d / 60);
   }
 
   private syncShip(world: World, frameTime: number): void {
@@ -181,7 +225,7 @@ export class GameRenderer {
       alive.add(h.id);
       let model = this.hunters.get(h.id);
       if (!model) {
-        model = createHunterModel();
+        model = createHunterModel(h.kind);
         this.hunters.set(h.id, model);
         this.scene.add(model.root);
       }

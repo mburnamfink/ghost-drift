@@ -73,11 +73,21 @@ export interface World {
   nextId: number;
 }
 
-export function createWorld(seed: number, terrain?: Terrain): World {
+/**
+ * @param terrain Fixed terrain to use instead of generating a city; it then never changes.
+ * @param firstWave Wave the Run opens on, with the city already grown to match. For testing.
+ */
+export function createWorld(seed: number, terrain?: Terrain, firstWave = 1): World {
   const rng = new Rng(seed);
   const city = terrain ? null : generateCity(rng);
   const t = terrain ?? new Terrain(CONFIG.arena.cells, CONFIG.arena.cellSize);
-  if (city) for (const p of planChange(city, () => false, 1, rng).rise) t.raise(p);
+  if (city) {
+    for (let wave = 1; wave <= firstWave; wave++) {
+      const change = planChange(city, (id) => t.hasBlock(id), wave, rng);
+      for (const p of change.sink) t.lower(p.id);
+      for (const p of change.rise) t.raise(p);
+    }
+  }
   const ship = createShip(t.center, -Math.PI / 2);
   return {
     seed,
@@ -90,7 +100,7 @@ export function createWorld(seed: number, terrain?: Terrain): World {
     bolts: [],
     shells: [],
     impacts: [],
-    wave: 0,
+    wave: firstWave - 1,
     lull: 1.5,
     score: 0,
     time: 0,

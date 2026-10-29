@@ -18,6 +18,16 @@ Battlezone meets Wipeout. Terms are defined in [CONTEXT.md](../CONTEXT.md); arch
 - During the lull, Plots about to Rise glow amber on the floor and Blocks about to Sink are outlined in cyan. The change happens as the next Wave starts.
 - A Run is endless and ends when Hull reaches zero.
 
+## Hunters
+
+| Type      | From Wave | Behaviour                                                                                                                                  | Punishes                                   | Counter                                         | Score |
+| --------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ | ----------------------------------------------- | ----- |
+| Tank      | 1         | Chasers close on the Ship, Cutters head it off; Shells aimed at where the Ship is                                                          | Slowing down                               | Keep moving                                     | 1×    |
+| Sniper    | 3 (max 4) | Holds a long-sightline Perch 60–110 away; red laser tracks where the Ship will be 0.6 s ahead, flashes white on lock, then an instant shot | Straight lines, including long Powerslides | Turn after the lock, break line of sight, Burst | 2.5×  |
+| Artillery | 5 (max 3) | Holds a covered Perch ~105 away; three-shell Salvo along the projected path, each landing as its ground circle fills                       | Open ground: the Plaza and Avenues         | Speed, or get under the buildings               | 3×    |
+
+Snipers and Artillery die to one Bolt but keep their distance and move to a new Perch when the Ship gets close. Artillery blasts destroy any Hunter caught in them, and the player gets the score. Threats outside the view show as blinking arrows at the screen edge: red for a charging Sniper, orange for an incoming shell.
+
 ## The city
 
 Each Run builds a new seeded city (ADR-0005). A ring road runs inside the Arena wall; three-cell Avenues frame a central Plaza 35% of the Arena wide; the eight districts around it are split by two-cell Streets and one-cell Alleys into Plots. About one Plot in ten stays empty as a pocket park.
@@ -45,28 +55,30 @@ The browser only exposes a controller after a button is pressed with the page fo
 
 ## Palette
 
-| Element             | Color                               |
-| ------------------- | ----------------------------------- |
-| Ground              | near-black blue                     |
-| Blocks              | muted slate, lighter with height    |
-| Arena wall          | dark violet                         |
-| Ship, Bolts         | cyan                                |
-| Hunters, Shells     | hot orange-red                      |
-| Ship during Burst   | white                               |
-| Powerslide sparks   | pale yellow-white                   |
-| Ghosted Block edges | pale blue; faces fade to near-clear |
+| Element                  | Color                               |
+| ------------------------ | ----------------------------------- |
+| Ground                   | near-black blue                     |
+| Blocks                   | muted slate, lighter with height    |
+| Arena wall               | dark violet                         |
+| Ship, Bolts              | cyan                                |
+| Hunters, Shells          | hot orange-red                      |
+| Ship during Burst        | white                               |
+| Powerslide sparks        | pale yellow-white                   |
+| Ghosted Block edges      | pale blue; faces fade to near-clear |
+| Sniper laser             | red, flashing white when locked     |
+| Artillery target circles | orange                              |
 
 ## MVP scope
 
 - A seeded city per Run: Plaza, Avenues, Streets and Alleys, densifying between Waves.
 - Ship with thrust, steering, Powerslide, Burst (3 Charges) and Bolts.
-- One Hunter type, split into Chaser and Cutter roles, that fires Shells with line of sight.
+- Three Hunter types: Tanks (Chaser and Cutter roles), Snipers and Artillery.
 - Endless Waves with growing Hunter counts, score with a Wave multiplier, Hull of 3.
 - HUD: score, Wave, Hull, Charges, speed bar marked at Hunter speed. Title, pause and game-over screens.
 
 ## Roadmap after MVP
 
-- Hunter types: fast hunters, minibosses, artillery (area denial), snipers (punish straight lines).
+- Hunter types: fast hunters, minibosses.
 - Defended objectives: targets placed in dense terrain, guarded by Hunters, that reward the player for diving into danger.
 - Density and Hunter mix ramping over a Run.
 - Audio, screen shake, hit feedback; high-score persistence.

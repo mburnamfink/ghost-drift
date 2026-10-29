@@ -155,3 +155,31 @@ body {
   z-index: 10;
   pointer-events: none;
 }
+
+.hud-threats {
+  position: absolute;
+  inset: 0;
+}
+
+/* A right-pointing triangle; rotated by the HUD to face the threat. */
+.hud-threat {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-top: 11px solid transparent;
+  border-bottom: 11px solid transparent;
+  border-left: 20px solid #ff2a2a;
+  filter: drop-shadow(0 0 6px #ff2a2a);
+  animation: threat-blink 0.3s steps(2) infinite;
+}
+
+.hud-threat.artillery {
+  border-left-color: #ff7a1c;
+  filter: drop-shadow(0 0 6px #ff7a1c);
+}
+
+@keyframes threat-blink {
+  50% {
+    opacity: 0.35;
+  }
+}

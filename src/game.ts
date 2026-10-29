@@ -31,6 +31,7 @@ export class Game {
     container: HTMLElement,
     private readonly fixedSeed: number | null,
     overhead = false,
+    private readonly firstWave = 1,
   ) {
     this.renderer = new GameRenderer(container, overhead);
     this.hud = new Hud(container);
@@ -69,7 +70,12 @@ export class Game {
     this.hud.handleEvents(this.world.events);
     this.world.events.length = 0;
     this.renderer.render(this.world, this.phase === 'paused' ? 0 : frameTime);
-    this.hud.update(this.world, this.screen(), frameTime);
+    this.hud.update(
+      this.world,
+      this.screen(),
+      frameTime,
+      this.renderer.offscreenThreats(this.world),
+    );
 
     requestAnimationFrame((t) => this.frame(t));
   }
@@ -110,7 +116,7 @@ export class Game {
 
   private newWorld(): World {
     const seed = this.fixedSeed ?? Math.floor(Math.random() * 2 ** 31);
-    const world = createWorld(seed);
+    const world = createWorld(seed, undefined, this.firstWave);
     this.renderer.setWorld(world);
     return world;
   }

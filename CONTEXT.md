@@ -35,12 +35,30 @@ One use of Burst. The Ship holds at most three; all are restored when a Wave is 
 Any enemy unit. Slower than the Ship at speed; deadly to a slow one.
 _Avoid_: Enemy (in code), mob, tank
 
+**Tank**:
+The common Hunter. Closes on the Ship as a Chaser or a Cutter and fires Shells at where the Ship is.
+
 **Chaser**:
-A Hunter role that steers toward where the Ship is now.
+A Tank role that steers toward where the Ship is now.
 
 **Cutter**:
-A Hunter role that steers toward where the Ship is about to be, to close its escape routes.
+A Tank role that steers toward where the Ship is about to be, to close its escape routes.
 _Avoid_: Interceptor, flanker
+
+**Sniper**:
+A Hunter that holds a Perch with long sightlines and fires an instant shot at where the Ship will be if it keeps a straight line. Its laser warns of the shot.
+
+**Artillery**:
+A Hunter that holds a covered Perch far away and fires Salvos at a Ship under open sky.
+
+**Perch**:
+The firing position a Sniper or Artillery holds instead of chasing. Abandoned when the Ship comes close.
+
+**Salvo**:
+Three Artillery shells landing in sequence along the Ship's projected path, each marked by a closing circle on the ground. A blast destroys Hunters as well as hurting the Ship.
+
+**Open sky**:
+No Block within a couple of cells. Artillery fires only at a Ship under open sky, since tall Blocks block the arc.
 
 **Boxed in**:
 The failure state the game is built around: Hunters have closed every exit around a slowed Ship.

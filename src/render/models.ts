@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG } from '../config';
+import type { HunterKind } from '../sim/hunters';
 import { PALETTE } from './palette';
 
 /** All models face local +X, matching Heading 0 in the simulation (ADR-0002). */
@@ -29,9 +30,6 @@ export function createShipModel(): { root: THREE.Group; material: THREE.MeshStan
   return { root, material };
 }
 
-const hunterBody = new THREE.BoxGeometry(3.4, 1.3, 2.6);
-const hunterTurret = new THREE.BoxGeometry(1.5, 0.9, 1.5);
-const hunterBarrel = new THREE.BoxGeometry(2, 0.3, 0.3);
 const hunterBodyMaterial = new THREE.MeshStandardMaterial({
   color: PALETTE.hunter,
   emissive: PALETTE.hunter,
@@ -45,19 +43,64 @@ const hunterTurretMaterial = new THREE.MeshStandardMaterial({
 
 export interface HunterModel {
   root: THREE.Group;
+  /** Yaws to the Hunter's aim, relative to its hull. */
   turret: THREE.Group;
 }
 
-export function createHunterModel(): HunterModel {
-  const body = new THREE.Mesh(hunterBody, hunterBodyMaterial);
-  body.position.y = 0.75;
+const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
+
+/** Silhouettes differ by type so each threat reads at a glance: wide tank, tall sniper, squat mortar. */
+const SHAPES: Record<
+  HunterKind,
+  { body: THREE.BufferGeometry; bodyY: number; turretY: number; parts: () => THREE.Object3D[] }
+> = {
+  tank: {
+    body: box(3.4, 1.3, 2.6),
+    bodyY: 0.75,
+    turretY: 1.85,
+    parts: () => {
+      const barrel = new THREE.Mesh(box(2, 0.3, 0.3), hunterTurretMaterial);
+      barrel.position.x = 1.4;
+      return [new THREE.Mesh(box(1.5, 0.9, 1.5), hunterTurretMaterial), barrel];
+    },
+  },
+  sniper: {
+    body: box(1.6, 2.8, 1.6),
+    bodyY: 1.4,
+    turretY: 3.1,
+    parts: () => {
+      const barrel = new THREE.Mesh(box(3.6, 0.22, 0.22), hunterTurretMaterial);
+      barrel.position.x = 1.9;
+      return [new THREE.Mesh(box(1, 0.6, 1), hunterTurretMaterial), barrel];
+    },
+  },
+  artillery: {
+    body: box(4.2, 1.1, 3.6),
+    bodyY: 0.6,
+    turretY: 1.3,
+    parts: () => {
+      // A fat tube pitched up toward +X, the direction the turret faces.
+      const tube = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.65, 0.75, 2.8, 8).translate(0, 1.2, 0),
+        hunterTurretMaterial,
+      );
+      tube.rotation.z = -0.65;
+      return [new THREE.Mesh(box(2, 0.8, 2), hunterTurretMaterial), tube];
+    },
+  },
+};
+
+export function createHunterModel(kind: HunterKind): HunterModel {
+  const shape = SHAPES[kind];
+  const body = new THREE.Mesh(shape.body, hunterBodyMaterial);
+  body.position.y = shape.bodyY;
   const turret = new THREE.Group();
-  turret.position.y = 1.85;
-  const dome = new THREE.Mesh(hunterTurret, hunterTurretMaterial);
-  const barrel = new THREE.Mesh(hunterBarrel, hunterTurretMaterial);
-  barrel.position.x = 1.4;
-  turret.add(dome, barrel);
+  turret.position.y = shape.turretY;
+  turret.add(...shape.parts());
   const root = new THREE.Group();
   root.add(body, turret);
   return { root, turret };
 }
+
+/** Where Sniper lasers and tracers start. */
+export const SNIPER_MUZZLE_HEIGHT = SHAPES.sniper.turretY;

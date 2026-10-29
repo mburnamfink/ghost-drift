@@ -16,4 +16,8 @@ export const PALETTE = {
   ghostEdge: 0x8fb4e6,
   riseWarning: 0xffb347,
   sinkWarning: 0x37e8ff,
+  laser: 0xff2a2a,
+  laserLocked: 0xffffff,
+  tracer: 0xffd6d6,
+  impactZone: 0xff7a1c,
 } as const;

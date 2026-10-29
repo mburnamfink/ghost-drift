@@ -1,4 +1,5 @@
 import { CONFIG, SHIP_TOP_SPEED } from '../config';
+import type { ScreenThreat } from '../render/renderer';
 import { speedOf } from '../sim/ship';
 import { tankSpeed } from '../sim/waves';
 import type { SimEvent, World } from '../sim/world';
@@ -22,6 +23,7 @@ export class Hud {
   private readonly speedMarker: HTMLElement;
   private readonly banner: HTMLElement;
   private readonly screen: HTMLElement;
+  private readonly threats: HTMLElement;
   private bannerTime = 0;
   private lastScreen = '';
 
@@ -35,6 +37,7 @@ export class Hud {
       </div>
       <div class="hud-speed"><div class="hud-speed-fill"></div><div class="hud-speed-marker"></div><span class="hud-label">SPEED</span></div>
       <div class="hud-banner"></div>
+      <div class="hud-threats"></div>
       <div class="hud-screen"></div>`;
     container.appendChild(this.root);
     const q = (s: string) => this.root.querySelector<HTMLElement>(s)!;
@@ -46,6 +49,7 @@ export class Hud {
     this.speedMarker = q('.hud-speed-marker');
     this.banner = q('.hud-banner');
     this.screen = q('.hud-screen');
+    this.threats = q('.hud-threats');
   }
 
   handleEvents(events: readonly SimEvent[]): void {
@@ -55,7 +59,8 @@ export class Hud {
     }
   }
 
-  update(world: World, screen: Screen, frameTime: number): void {
+  update(world: World, screen: Screen, frameTime: number, threats: readonly ScreenThreat[]): void {
+    this.updateThreats(screen.kind === 'none' ? threats : []);
     const { ship } = world;
     this.score.textContent = world.score.toString().padStart(6, '0');
     this.wave.textContent = world.wave > 0 ? `WAVE ${world.wave}` : '';
@@ -78,6 +83,29 @@ export class Hud {
       this.screen.innerHTML = renderScreen(screen);
       this.screen.style.display = screen.kind === 'none' ? 'none' : 'flex';
     }
+  }
+
+  /** Arrows pinned to the screen edge, pointing toward threats outside the view. */
+  private updateThreats(threats: readonly ScreenThreat[]): void {
+    while (this.threats.children.length < threats.length)
+      this.threats.appendChild(el('div', 'hud-threat'));
+    Array.from(this.threats.children).forEach((node, i) => {
+      const marker = node as HTMLElement;
+      const t = threats[i];
+      marker.style.display = t ? 'block' : 'none';
+      if (!t) return;
+      const cos = Math.cos(t.angle);
+      const sin = Math.sin(t.angle);
+      // Scale the direction out to whichever screen edge it reaches first.
+      const reach = Math.min(
+        0.46 / Math.max(Math.abs(cos), 1e-6),
+        0.42 / Math.max(Math.abs(sin), 1e-6),
+      );
+      marker.style.left = `${50 + cos * reach * 100}%`;
+      marker.style.top = `${50 - sin * reach * 100}%`;
+      marker.style.transform = `translate(-50%, -50%) rotate(${-t.angle}rad)`;
+      marker.className = `hud-threat ${t.kind}`;
+    });
   }
 
   private showBanner(text: string): void {
