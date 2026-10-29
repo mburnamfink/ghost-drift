@@ -22,6 +22,9 @@ _Avoid_: Health, HP, shields
 A held maneuver in which the Ship keeps travelling in a straight line, slowly losing speed, while its Heading turns freely. Thrust does nothing until it ends.
 _Avoid_: Drift, strafe mode
 
+**Slide combo**:
+The kills made during one Powerslide. Each scores its place in the combo times normal (×1, ×2, ×3…), capped.
+
 **Burst**:
 A short forward surge during which the Ship cannot be hurt and passes through Blocks. Limited Charges.
 _Avoid_: Dash, boost, phase
@@ -36,7 +39,18 @@ Any enemy unit. Slower than the Ship at speed; deadly to a slow one.
 _Avoid_: Enemy (in code), mob, tank
 
 **Tank**:
-The common Hunter. Out of sight it closes in as a Chaser or a Cutter; once it can see the Ship it circles at Stand-off range, firing Shells at where the Ship is.
+The common Hunter. Moves in a Pack. Out of sight it closes in as a Chaser or a Cutter; once it can see the Ship it circles at Stand-off range and fires in Volleys.
+
+**Pack**:
+Three to five Tanks that spawn together, share a role and orbit direction, and hold together.
+_Avoid_: Squad, group
+
+**Volley**:
+Every Tank with a clear shot firing a Shell at once, after a shared wind-up signalled by glowing barrels and a ring closing on the Ship.
+_Avoid_: Barrage, salvo (reserved for Artillery)
+
+**Chain Blast**:
+The explosion a destroyed Tank leaves a moment later, destroying Hunters close to it. Never hurts the Ship.
 
 **Stand-off**:
 The range, about 28 units, at which a Tank that can see the Ship circles instead of closing in.

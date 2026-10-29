@@ -4,6 +4,13 @@ import { speedOf } from '../sim/ship';
 import { tankSpeed } from '../sim/waves';
 import type { SimEvent, World } from '../sim/world';
 
+/** Shown when only a few Hunters are left in a live Wave. */
+export interface LastEnemies {
+  count: number;
+  /** Direction to the nearest, from the Ship as the camera sees it: 0 = right, π/2 = ahead. */
+  bearing: number;
+}
+
 export type Screen =
   | { kind: 'none' }
   | { kind: 'title'; pad: string | null }
@@ -27,6 +34,11 @@ export class Hud {
   private readonly screen: HTMLElement;
   private readonly threats: HTMLElement;
   private readonly vignette: HTMLElement;
+  private readonly combo: HTMLElement;
+  private readonly remaining: HTMLElement;
+  private readonly remainingArrow: HTMLElement;
+  private readonly remainingText: HTMLElement;
+  private shownCombo = 0;
   private readonly locked: HTMLElement;
   private bannerTime = 0;
   private lastScreen = '';
@@ -42,6 +54,8 @@ export class Hud {
       <div class="hud-speed"><div class="hud-speed-fill"></div><div class="hud-speed-marker"></div><span class="hud-label">SPEED</span></div>
       <div class="hud-banner"></div>
       <div class="hud-vignette"></div>
+      <div class="hud-combo"></div>
+      <div class="hud-remaining"><div class="hud-remaining-arrow"></div><div class="hud-remaining-text"></div></div>
       <div class="hud-locked">◢ LOCKED ◣</div>
       <div class="hud-threats"></div>
       <div class="hud-screen"></div>`;
@@ -57,6 +71,10 @@ export class Hud {
     this.screen = q('.hud-screen');
     this.threats = q('.hud-threats');
     this.vignette = q('.hud-vignette');
+    this.combo = q('.hud-combo');
+    this.remaining = q('.hud-remaining');
+    this.remainingArrow = q('.hud-remaining-arrow');
+    this.remainingText = q('.hud-remaining-text');
     this.locked = q('.hud-locked');
   }
 
@@ -64,10 +82,21 @@ export class Hud {
     for (const e of events) {
       if (e.type === 'waveStarted') this.showBanner(`WAVE ${e.wave}`);
       if (e.type === 'waveCleared') this.showBanner('WAVE CLEARED · BURST RECHARGED');
+      if (e.type === 'slideComboEnded' && e.kills >= 2) {
+        this.showBanner(`SLIDE ×${e.kills} · +${e.points.toLocaleString()}`);
+      }
     }
   }
 
-  update(world: World, screen: Screen, frameTime: number, threats: readonly ScreenThreat[]): void {
+  update(
+    world: World,
+    screen: Screen,
+    frameTime: number,
+    threats: readonly ScreenThreat[],
+    lastEnemies: LastEnemies | null,
+  ): void {
+    this.updateCombo(world, screen.kind === 'none');
+    this.updateRemaining(screen.kind === 'none' ? lastEnemies : null);
     this.updateThreats(screen.kind === 'none' ? threats : []);
     this.updateTargeting(world, screen.kind === 'none');
     const { ship } = world;
@@ -92,6 +121,27 @@ export class Hud {
       this.screen.innerHTML = renderScreen(screen);
       this.screen.style.display = screen.kind === 'none' ? 'none' : 'flex';
     }
+  }
+
+  /** The running multiplier while a Powerslide is scoring more than one kill. */
+  private updateCombo(world: World, playing: boolean): void {
+    const kills = playing ? world.slideCombo.kills : 0;
+    if (kills === this.shownCombo) return;
+    this.shownCombo = kills;
+    const multiplier = Math.min(CONFIG.slideCombo.maxMultiplier, kills);
+    this.combo.textContent = kills >= 2 ? `×${multiplier} SLIDE` : '';
+    // Restart the pop animation on every new kill.
+    this.combo.classList.remove('pop');
+    void this.combo.offsetWidth;
+    if (kills >= 2) this.combo.classList.add('pop');
+  }
+
+  private updateRemaining(last: LastEnemies | null): void {
+    this.remaining.style.display = last ? 'flex' : 'none';
+    if (!last) return;
+    this.remainingText.textContent = `${last.count} ${last.count === 1 ? 'ENEMY' : 'ENEMIES'} REMAINING`;
+    // The arrow glyph points up (ahead); bearings measure from the right, counter-clockwise.
+    this.remainingArrow.style.transform = `rotate(${Math.PI / 2 - last.bearing}rad)`;
   }
 
   /**

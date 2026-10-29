@@ -6,13 +6,16 @@ import { KeyboardInput } from './input/keyboard';
 import { GameRenderer } from './render/renderer';
 import { NO_CONTROLS } from './sim/controls';
 import { type World, createWorld, stepWorld } from './sim/world';
-import { Hud, type Screen } from './ui/hud';
+import { Hud, type LastEnemies, type Screen } from './ui/hud';
+import { distance } from './core/vec2';
 
 type Phase = 'title' | 'playing' | 'paused' | 'over';
 
 const BEST_SCORE_KEY = 'quantum-breach.best';
 /** Ignore confirm briefly after death so a held fire/burst button doesn't skip the score screen. */
 const OVER_INPUT_DELAY = 1;
+/** With this many Hunters or fewer left, the HUD counts them and points to the nearest. */
+const LAST_ENEMIES_SHOWN = 3;
 
 /** Owns the phase state machine and wires input, simulation, rendering and HUD together. */
 export class Game {
@@ -75,6 +78,7 @@ export class Game {
       this.screen(),
       frameTime,
       this.renderer.offscreenThreats(this.world),
+      this.lastEnemies(),
     );
 
     requestAnimationFrame((t) => this.frame(t));
@@ -103,6 +107,19 @@ export class Game {
         }
         break;
     }
+  }
+
+  private lastEnemies(): LastEnemies | null {
+    const { hunters, ship, lull } = this.world;
+    if (lull > 0 || hunters.length === 0 || hunters.length > LAST_ENEMIES_SHOWN) return null;
+    let nearest = hunters[0]!;
+    for (const h of hunters) {
+      if (distance(h.pos, ship.pos) < distance(nearest.pos, ship.pos)) nearest = h;
+    }
+    return {
+      count: hunters.length,
+      bearing: this.renderer.bearingFromShip(this.world, nearest.pos),
+    };
   }
 
   private enterOver(): void {

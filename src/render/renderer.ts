@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { SHIP_TOP_SPEED } from '../config';
+import { CONFIG, SHIP_TOP_SPEED } from '../config';
 import { clamp, wrapAngle } from '../core/vec2';
 import type { Berserker } from '../sim/hunters';
 import { isBursting, speedOf } from '../sim/ship';
@@ -59,7 +59,8 @@ export class GameRenderer {
   private readonly ship = createShipModel();
   private readonly hunters = new Map<number, HunterModel>();
   private readonly bolts: THREE.InstancedMesh;
-  private readonly shells: THREE.InstancedMesh;
+  /** Tank shells drawn as a solid core, a soft halo and a trail streaming behind. */
+  private readonly shellLayers: THREE.InstancedMesh[];
   private readonly debris = new Debris();
   private readonly afterimages = new Afterimages();
   private readonly dummy = new THREE.Object3D();
@@ -88,11 +89,15 @@ export class GameRenderer {
     this.scene.add(sun);
 
     this.bolts = shotMesh(new THREE.BoxGeometry(1.6, 0.25, 0.25), PALETTE.bolt);
-    this.shells = shotMesh(new THREE.IcosahedronGeometry(0.6, 0), PALETTE.shell);
+    this.shellLayers = [
+      shotMesh(new THREE.IcosahedronGeometry(0.75, 0), PALETTE.tankShell),
+      shotMesh(new THREE.IcosahedronGeometry(1.7, 1), PALETTE.tankShell, 0.3),
+      shotMesh(new THREE.BoxGeometry(4, 0.35, 0.35).translate(-2.2, 0, 0), PALETTE.tankShell, 0.45),
+    ];
     this.scene.add(
       this.ship.root,
       this.bolts,
-      this.shells,
+      ...this.shellLayers,
       this.debris.mesh,
       this.threats.group,
       this.afterimages.group,
@@ -142,6 +147,13 @@ export class GameRenderer {
         case 'sniperFired':
           this.shake = Math.max(this.shake, 0.5);
           break;
+        case 'chainBlast':
+          this.debris.burst(e.pos.x, e.pos.y, PALETTE.hunter, 22, 20);
+          this.shake = Math.max(this.shake, this.shakeAtDistance(e.pos, 0.5));
+          break;
+        case 'volleyFired':
+          this.shake = Math.max(this.shake, 0.15);
+          break;
         case 'salvoFired':
           this.debris.burst(e.from.x, e.from.y, PALETTE.shell, 8, 6);
           break;
@@ -162,7 +174,7 @@ export class GameRenderer {
     this.syncShip(world, frameTime);
     this.syncHunters(world, frameTime);
     syncShots(this.bolts, world.bolts, this.dummy, true);
-    syncShots(this.shells, world.shells, this.dummy, false);
+    for (const layer of this.shellLayers) syncShots(layer, world.shells, this.dummy, true);
     this.debris.update(frameTime);
     this.afterimages.update(frameTime);
     this.threats.update(world, frameTime);
@@ -206,6 +218,21 @@ export class GameRenderer {
     if (h.phase === 'lunge')
       this.afterimages.emit(h.id, model.root, PALETTE.berserkerBlur, frameTime);
     else this.afterimages.stop(h.id);
+  }
+
+  /**
+   * Direction from the Ship to `pos` as seen from behind the camera: 0 = right, π/2 = straight
+   * ahead. For pointers that say which way to go, not where something is on screen.
+   */
+  bearingFromShip(world: World, pos: { x: number; y: number }): number {
+    const dx = pos.x - world.ship.pos.x;
+    const dy = pos.y - world.ship.pos.y;
+    const fx = Math.cos(this.cameraYaw);
+    const fy = Math.sin(this.cameraYaw);
+    const ahead = dx * fx + dy * fy;
+    // Screen right is (-sin, cos) of the camera yaw in simulation coordinates.
+    const right = -dx * fy + dy * fx;
+    return Math.atan2(ahead, right);
   }
 
   private shakeAtDistance(pos: { x: number; y: number }, strength: number): number {
@@ -283,6 +310,11 @@ export class GameRenderer {
       model.root.rotation.y = -h.heading;
       model.turret.rotation.y = -(h.aim - h.heading);
       if (h.kind === 'berserker') this.styleBerserker(h, model, frameTime);
+      if (h.kind === 'tank' && model.muzzle) {
+        model.muzzle.visible = h.loading;
+        const progress = 1 - world.volley.windup / CONFIG.volley.windup;
+        model.muzzle.scale.setScalar(0.4 + 1.4 * progress + 0.2 * Math.sin(this.elapsed * 40));
+      }
     }
     for (const [id, model] of this.hunters) {
       if (alive.has(id)) continue;
@@ -343,12 +375,23 @@ export class GameRenderer {
   }
 }
 
-function shotMesh(geometry: THREE.BufferGeometry, color: number): THREE.InstancedMesh {
-  const mesh = new THREE.InstancedMesh(
-    geometry,
-    new THREE.MeshBasicMaterial({ color }),
-    SHOT_CAPACITY,
-  );
+/** `glow` makes the layer additive at that opacity, for halos and trails. */
+function shotMesh(
+  geometry: THREE.BufferGeometry,
+  color: number,
+  glow?: number,
+): THREE.InstancedMesh {
+  const material =
+    glow === undefined
+      ? new THREE.MeshBasicMaterial({ color })
+      : new THREE.MeshBasicMaterial({
+          color,
+          transparent: true,
+          opacity: glow,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        });
+  const mesh = new THREE.InstancedMesh(geometry, material, SHOT_CAPACITY);
   mesh.count = 0;
   mesh.frustumCulled = false;
   return mesh;

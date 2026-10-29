@@ -11,7 +11,10 @@ export const PALETTE = {
   bolt: 0x9ff6ff,
   hunter: 0xff4a1c,
   hunterTurret: 0xb8300f,
+  /** Artillery shells and launch flashes. */
   shell: 0xffa040,
+  /** Tank shells and volley warnings: a hue nothing else uses. */
+  tankShell: 0xff3cf0,
   spark: 0xfff0b0,
   ghostEdge: 0x8fb4e6,
   riseWarning: 0xffb347,
