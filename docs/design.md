@@ -49,15 +49,15 @@ Every Hunter is built in the same faceted style, with a silhouette that names it
 
 Each Run builds a new seeded city, 96 cells (384 units) across, in one of seven Layouts picked at random (ADR-0006):
 
-| Layout    | Shape                                                                                                                         | Plays like                               |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| Grid      | Five-cell Avenues edge to edge around a square central Plaza                                                                  | Long straight speed lanes                |
-| Circuit   | A wide loop around a dense core, with spurs to 3–4 side Plazas                                                                | Lapping, cutting across the core         |
-| Districts | 3–5 Plazas of different sizes joined by Avenues, one extra loop                                                               | Moving between arenas                    |
-| Hub       | Central Plaza, 6–8 radiating Avenues, two ring roads                                                                          | Spokes and orbits                        |
-| Raceway   | A figure-eight inside a sharp-cornered loop (triangle to hexagon), 7-cell walled highways, Plazas at the crossing and corners | Racing laps                              |
-| Downtown  | A dense core of tall permanent buildings inside a ring road; boulevards out to low, half-empty suburbs with parks             | Open outskirts, a fortress in the middle |
-| Towers    | Open ground with 4–8 isolated clumps of tall buildings around a central field                                                 | Cover is scarce; dash between clumps     |
+| Layout    | Shape                                                                                                                                                                                                                             | Plays like                           |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| Grid      | Five-cell Avenues edge to edge around a square central Plaza                                                                                                                                                                      | Long straight speed lanes            |
+| Circuit   | A wide loop around a dense core, with spurs to 3–4 side Plazas                                                                                                                                                                    | Lapping, cutting across the core     |
+| Districts | 3–5 Plazas of different sizes joined by Avenues, one extra loop                                                                                                                                                                   | Moving between arenas                |
+| Hub       | Central Plaza, 6–8 radiating Avenues, two ring roads                                                                                                                                                                              | Spokes and orbits                    |
+| Raceway   | A figure-eight inside a sharp-cornered loop (triangle to hexagon), 7-cell walled highways, Plazas at the crossing and corners                                                                                                     | Racing laps                          |
+| Downtown  | A dense core of permanent skyscrapers centered on the city's outline, so half merges into the Edge and the suburbs wrap around it in a U; a ring road skirts it and boulevards run out through low, half-empty suburbs with parks | Open U around a fortress             |
+| Towers    | Open ground with 4–8 isolated clumps of skyscrapers (2–3 cells wide, 30–56 tall) around a central field                                                                                                                           | Cover is scarce; dash between clumps |
 
 Everywhere else, two-cell Streets and one-cell Alleys split the ground into Plots up to 12 cells on a side. About one Plot in ten stays empty as a pocket park. The city's outline is several overlapping arcs. Beyond it stands the Edge: purple towers that stand all Run. Plots near the Edge rise sooner and stand taller, so the city visibly thickens into it.
 

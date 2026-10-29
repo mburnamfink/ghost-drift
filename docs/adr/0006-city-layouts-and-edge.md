@@ -9,10 +9,10 @@ A single fixed layout (Plaza, ring road, eight districts) inside a square wall p
 - **Districts**: several Plazas of different sizes joined by Avenues.
 - **Hub**: a central Plaza with radiating Avenues crossed by ring roads.
 - **Raceway**: a walled figure-eight inside a sharp-cornered polygon loop.
-- **Downtown**: a dense permanent core inside a ring road, with sparse suburbs.
-- **Towers**: isolated clumps of tall buildings on open ground.
+- **Downtown**: a dense permanent core of skyscrapers centered on the outline, with sparse suburbs wrapped around it in a U.
+- **Towers**: isolated clumps of skyscrapers on open ground.
 
-A recipe may also set `zone` (per-area building height, empty-lot chance and permanence) and `buildOnly` (areas outside which nothing is built). The generator moves a spawn that falls outside the city onto the nearest open ground inside it.
+A recipe may also set `zone` (per-area building height or height range, empty-lot chance, permanence, and a maximum footprint that splits lots into towers) and `buildOnly` (areas outside which nothing is built). The generator moves a spawn that falls outside the city onto the nearest open ground inside it.
 
 A Layout is only a recipe (`LayoutSpec`): open shapes (rectangles, discs, elliptical rings, thick lines), the Plazas, a boundary made of a union of circles, and a spawn point. One generator turns any recipe into Plots:
 
