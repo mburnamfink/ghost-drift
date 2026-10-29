@@ -30,6 +30,10 @@ _Avoid_: Combo, slide combo
 The player, as the fiction knows them: the lone pilot defending Arcadia whom nothing can track.
 _Avoid_: Hero, player character
 
+**High-score table**:
+The ten best finished Runs in this browser, each with three initials, score and Wave.
+_Avoid_: Leaderboard (implies online)
+
 **Legend rank**:
 The title a Run earns from its score, shown on game over: Rumor, Sighting, The Ghost, Legend, Myth.
 

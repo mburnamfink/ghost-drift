@@ -81,16 +81,16 @@ From Wave 3, three standing Blocks Sink and are replaced each Wave, so routes ke
 
 ## Controls
 
-| Action             | Xbox controller | Keyboard       |
-| ------------------ | --------------- | -------------- |
-| Steer              | Left stick      | A / D or ← / → |
-| Thrust             | RT              | W or ↑         |
-| Powerslide (hold)  | LT              | Shift          |
-| Fire (hold)        | RB or X         | Space          |
-| Burst              | A or LB         | E              |
-| Switch gun         | Y               | Q              |
-| Start / pause      | Menu (Start)    | Enter / Esc    |
-| Main menu (paused) | B               | Backspace      |
+| Action                        | Xbox controller | Keyboard       |
+| ----------------------------- | --------------- | -------------- |
+| Steer                         | Left stick      | A / D or ← / → |
+| Thrust                        | RT              | W or ↑         |
+| Powerslide (hold)             | LT              | Shift          |
+| Fire (hold)                   | RB or X         | Space          |
+| Burst                         | A or LB         | E              |
+| Switch gun                    | Y               | Q              |
+| Start / pause                 | Menu (Start)    | Enter / Esc    |
+| Main menu (paused, game over) | B               | Backspace      |
 
 The browser only exposes a controller after a button is pressed with the page focused.
 
