@@ -20,4 +20,5 @@ export const PALETTE = {
   laserLocked: 0xffffff,
   tracer: 0xffd6d6,
   impactZone: 0xff7a1c,
+  berserkerBlur: 0xff6a2a,
 } as const;

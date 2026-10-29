@@ -8,9 +8,6 @@ import { PALETTE } from './palette';
 const TRACER_SECONDS = 0.3;
 /** Locked lasers flash this many times per second. */
 const LOCK_FLASH_HZ = 12;
-/** Ground reticle radius at the start of a charge; it closes to the Ship's hit radius at the lock. */
-const RETICLE_START_RADIUS = 7;
-const RETICLE_LOCK_RADIUS = CONFIG.ship.radius + CONFIG.sniper.shotWidth;
 /** Peak height of an Artillery shell's arc. */
 const ARC_HEIGHT = 35;
 
@@ -68,8 +65,8 @@ export class ThreatsView {
   }
 
   /**
-   * A charging Sniper shows a beam that thickens and brightens, a scope glint visible from across
-   * the city, and a reticle on the ground closing on its aim point. Once locked, all three flash.
+   * A charging Sniper shows a beam that thickens and brightens and a scope glint visible from
+   * across the city. Once locked, both flash.
    */
   private updateLasers(world: World): void {
     const flashOn = Math.floor(this.time * LOCK_FLASH_HZ) % 2 === 0;
@@ -95,15 +92,6 @@ export class ThreatsView {
         (locked ? 10 : 3 + 6 * progress) * (0.85 + 0.15 * Math.sin(this.time * 30)),
       );
       sight.glint.material.color.setHex(color);
-
-      const radius = locked
-        ? RETICLE_LOCK_RADIUS
-        : THREE.MathUtils.lerp(RETICLE_START_RADIUS, RETICLE_LOCK_RADIUS, progress);
-      sight.reticle.position.set(h.charge.target.x, 0.12, h.charge.target.y);
-      sight.reticle.scale.setScalar(radius);
-      sight.reticle.rotation.y = this.time * (locked ? 0 : 2.5);
-      sight.reticleMaterial.color.setHex(color);
-      sight.reticleMaterial.opacity = locked ? 1 : 0.5 + 0.5 * progress;
     }
     for (const [id, sight] of this.sights) {
       if (active.has(id)) continue;
@@ -134,10 +122,6 @@ export class ThreatsView {
     this.group.remove(sight.root);
     disposeBeam(sight.beam);
     sight.glint.material.dispose();
-    sight.reticleMaterial.dispose();
-    sight.reticle.traverse((o) => {
-      if (o instanceof THREE.Mesh) o.geometry.dispose();
-    });
   }
 
   private updateImpacts(world: World): void {
@@ -226,8 +210,6 @@ interface SniperSight {
   root: THREE.Group;
   beam: Beam;
   glint: THREE.Sprite;
-  reticle: THREE.Group;
-  reticleMaterial: THREE.MeshBasicMaterial;
 }
 
 const unitBeam = new THREE.BoxGeometry(1, 1, 1);
@@ -318,27 +300,10 @@ function createGlint(color: number): THREE.Sprite {
   );
 }
 
-/** A unit-radius ring with four inward ticks, laid flat; scaled to the reticle radius. */
-function createReticle(material: THREE.MeshBasicMaterial): THREE.Group {
-  const reticle = new THREE.Group();
-  reticle.add(new THREE.Mesh(new THREE.RingGeometry(0.88, 1, 40).rotateX(-Math.PI / 2), material));
-  for (let i = 0; i < 4; i++) {
-    const tick = new THREE.Mesh(new THREE.PlaneGeometry(0.45, 0.1).rotateX(-Math.PI / 2), material);
-    const a = (i * Math.PI) / 2;
-    tick.position.set(Math.cos(a) * 0.72, 0, Math.sin(a) * 0.72);
-    tick.rotation.y = -a;
-    reticle.add(tick);
-  }
-  return reticle;
-}
-
 function createSight(): SniperSight {
   const beam = createBeam(PALETTE.laser);
   const glint = createGlint(PALETTE.laser);
-  const reticleMaterial = additive(PALETTE.laser);
-  reticleMaterial.side = THREE.DoubleSide;
-  const reticle = createReticle(reticleMaterial);
   const root = new THREE.Group();
-  root.add(beam.group, glint, reticle);
-  return { root, beam, glint, reticle, reticleMaterial };
+  root.add(beam.group, glint);
+  return { root, beam, glint };
 }

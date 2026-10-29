@@ -5,6 +5,7 @@ import type { Berserker } from '../sim/hunters';
 import { isBursting, speedOf } from '../sim/ship';
 import type { Shot } from '../sim/shots';
 import type { SimEvent, World } from '../sim/world';
+import { Afterimages } from './afterimages';
 import { Debris } from './debris';
 import { type HunterModel, createHunterModel, createShipModel } from './models';
 import { PALETTE } from './palette';
@@ -29,6 +30,15 @@ const CAMERA = {
   burstFov: 10,
 };
 const SHIP_HOVER_HEIGHT = 0.9;
+const SHIP_BANK = {
+  /** Roll in radians per radian-per-second of turn; full steering banks about 30 degrees. */
+  perTurnRate: 0.2,
+  max: 0.7,
+  /** How quickly the roll follows the turn; higher is snappier. */
+  response: 10,
+};
+/** Fraction of top speed above which the Ship leaves afterimages. */
+const SHIP_BLUR_SPEED = 0.92;
 const SPARK = {
   /** Sparks per second at top speed. */
   rate: 140,
@@ -48,6 +58,7 @@ export class GameRenderer {
   private readonly bolts: THREE.InstancedMesh;
   private readonly shells: THREE.InstancedMesh;
   private readonly debris = new Debris();
+  private readonly afterimages = new Afterimages();
   private readonly dummy = new THREE.Object3D();
   private readonly threats = new ThreatsView();
   private terrain: TerrainView | null = null;
@@ -75,7 +86,14 @@ export class GameRenderer {
 
     this.bolts = shotMesh(new THREE.BoxGeometry(1.6, 0.25, 0.25), PALETTE.bolt);
     this.shells = shotMesh(new THREE.IcosahedronGeometry(0.6, 0), PALETTE.shell);
-    this.scene.add(this.ship.root, this.bolts, this.shells, this.debris.mesh, this.threats.group);
+    this.scene.add(
+      this.ship.root,
+      this.bolts,
+      this.shells,
+      this.debris.mesh,
+      this.threats.group,
+      this.afterimages.group,
+    );
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -92,6 +110,7 @@ export class GameRenderer {
     for (const model of this.hunters.values()) this.scene.remove(model.root);
     this.hunters.clear();
     this.debris.clear();
+    this.afterimages.clear();
     this.threats.clear();
     this.cameraYaw = world.ship.heading;
     this.lastHeading = world.ship.heading;
@@ -138,10 +157,11 @@ export class GameRenderer {
   render(world: World, frameTime: number): void {
     this.elapsed += frameTime;
     this.syncShip(world, frameTime);
-    this.syncHunters(world);
+    this.syncHunters(world, frameTime);
     syncShots(this.bolts, world.bolts, this.dummy, true);
     syncShots(this.shells, world.shells, this.dummy, false);
     this.debris.update(frameTime);
+    this.afterimages.update(frameTime);
     this.threats.update(world, frameTime);
     this.terrain?.update(world.pendingChange, frameTime);
     this.updateCamera(world, frameTime);
@@ -169,8 +189,8 @@ export class GameRenderer {
     return out;
   }
 
-  /** Glows and shudders while winding up; stretches while lunging. */
-  private styleBerserker(h: Berserker, model: HunterModel): void {
+  /** Glows and shudders while winding up; stretches and blurs while lunging. */
+  private styleBerserker(h: Berserker, model: HunterModel, frameTime: number): void {
     const material = model.body.material;
     if (h.phase === 'windup') {
       material.emissiveIntensity = 0.6 + 0.4 * Math.sin(this.elapsed * 60);
@@ -180,6 +200,9 @@ export class GameRenderer {
       material.emissiveIntensity = h.phase === 'lunge' ? 1 : 0.25;
     }
     model.root.scale.set(h.phase === 'lunge' ? 1.4 : 1, 1, h.phase === 'lunge' ? 0.8 : 1);
+    if (h.phase === 'lunge')
+      this.afterimages.emit(h.id, model.root, PALETTE.berserkerBlur, frameTime);
+    else this.afterimages.stop(h.id);
   }
 
   private shakeAtDistance(pos: { x: number; y: number }, strength: number): number {
@@ -200,16 +223,25 @@ export class GameRenderer {
     const turnRate = frameTime > 0 ? wrapAngle(ship.heading - this.lastHeading) / frameTime : 0;
     this.lastHeading = ship.heading;
     root.rotation.y = -ship.heading;
-    root.rotation.x = THREE.MathUtils.lerp(
-      root.rotation.x,
-      clamp(turnRate * 0.07, -0.35, 0.35),
-      0.2,
-    );
+    // Bank into turns: positive roll about the nose axis drops the right side.
+    const bank = clamp(turnRate * SHIP_BANK.perTurnRate, -SHIP_BANK.max, SHIP_BANK.max);
+    root.rotation.x += (bank - root.rotation.x) * (1 - Math.exp(-SHIP_BANK.response * frameTime));
     const bursting = isBursting(ship);
     this.ship.material.color.setHex(bursting ? PALETTE.shipBurst : PALETTE.ship);
     this.ship.material.emissive.setHex(bursting ? PALETTE.shipBurst : PALETTE.ship);
     root.scale.set(bursting ? 1.6 : 1, bursting ? 0.7 : 1, bursting ? 0.7 : 1);
     if (ship.sliding && !world.over) this.emitSparks(world, frameTime);
+    const flatOut = speedOf(ship) >= SHIP_TOP_SPEED * SHIP_BLUR_SPEED;
+    if (root.visible && (bursting || flatOut)) {
+      this.afterimages.emit(
+        this.ship,
+        root,
+        bursting ? PALETTE.shipBurst : PALETTE.ship,
+        frameTime,
+      );
+    } else {
+      this.afterimages.stop(this.ship);
+    }
   }
 
   /** Sparks are thrown from the hull's trailing edge and left behind, tracing the line of travel. */
@@ -236,7 +268,7 @@ export class GameRenderer {
     }
   }
 
-  private syncHunters(world: World): void {
+  private syncHunters(world: World, frameTime: number): void {
     const alive = new Set<number>();
     for (const h of world.hunters) {
       alive.add(h.id);
@@ -249,10 +281,11 @@ export class GameRenderer {
       model.root.position.set(h.pos.x, 0, h.pos.y);
       model.root.rotation.y = -h.heading;
       model.turret.rotation.y = -(h.aim - h.heading);
-      if (h.kind === 'berserker') this.styleBerserker(h, model);
+      if (h.kind === 'berserker') this.styleBerserker(h, model, frameTime);
     }
     for (const [id, model] of this.hunters) {
       if (alive.has(id)) continue;
+      this.afterimages.stop(id);
       this.scene.remove(model.root);
       this.hunters.delete(id);
     }
