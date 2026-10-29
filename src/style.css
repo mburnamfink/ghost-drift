@@ -26,6 +26,15 @@ body {
   margin-right: 8px;
 }
 
+.hud-demo {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  font-size: 13px;
+  letter-spacing: 0.3em;
+  opacity: 0.6;
+}
+
 .minimap {
   position: fixed;
   left: 20px;

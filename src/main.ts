@@ -14,6 +14,7 @@ const options: GameOptions = {
   overhead: debug.has('overhead'),
   firstWave: wave,
   plainBlocks: params.get('blocks') === 'plain',
+  demo: params.has('demo'),
 };
 if (seed !== null && Number.isFinite(seed)) options.seed = seed;
 if (isLayoutName(map)) options.layout = map;

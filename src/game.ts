@@ -9,6 +9,7 @@ import { type World, createWorld, stepWorld } from './sim/world';
 import type { LayoutName } from './sim/city';
 import { Hud, type LastEnemies, type Screen } from './ui/hud';
 import { Minimap } from './ui/minimap';
+import { Autopilot } from './ai/autopilot';
 import { distance } from './core/vec2';
 
 type Phase = 'title' | 'playing' | 'paused' | 'over';
@@ -24,6 +25,8 @@ export interface GameOptions {
   layout?: LayoutName;
   /** Draw every Block as a plain box. */
   plainBlocks?: boolean;
+  /** The game plays itself, restarting after each death. Only pause is read from the player. */
+  demo?: boolean;
 }
 
 const BEST_SCORE_KEY = 'quantum-breach.best';
@@ -34,6 +37,8 @@ const OVER_INPUT_DELAY = 1;
  * counts them and points to the nearest.
  */
 const LAST_ENEMIES_SHOWN = 3;
+/** Seconds the score screen shows in demo mode before the next Run starts. */
+const DEMO_RESTART = 4;
 
 /** Owns the phase state machine and wires input, simulation, rendering and HUD together. */
 export class Game {
@@ -43,6 +48,7 @@ export class Game {
   private readonly hud: Hud;
   private readonly loop = new FixedStep(1 / CONFIG.sim.stepHz, CONFIG.sim.maxFrameTime);
   private readonly minimap: Minimap;
+  private readonly autopilot: Autopilot | null;
   private world: World;
   private phase: Phase = 'title';
   private overTime = 0;
@@ -60,7 +66,12 @@ export class Game {
     );
     this.hud = new Hud(container);
     this.minimap = new Minimap(container);
+    this.autopilot = options.demo ? new Autopilot() : null;
     this.world = this.newWorld();
+    if (this.autopilot) {
+      this.phase = 'playing';
+      this.hud.showDemoBadge();
+    }
     document.addEventListener('visibilitychange', () => {
       if (document.hidden && this.phase === 'playing') this.phase = 'paused';
     });
@@ -82,7 +93,11 @@ export class Game {
     this.updatePhase(input, frameTime);
     if (this.phase === 'playing' || this.phase === 'over') {
       // A both confirms and Bursts, so the press that starts a Run must not also spend a Charge.
-      const runInput = wasPlaying ? input : { ...input, burst: false };
+      const runInput = this.autopilot
+        ? this.autopilot.controls(this.world, frameTime)
+        : wasPlaying
+          ? input
+          : { ...input, burst: false };
       this.loop.advance(frameTime, (dt, first) => {
         const controls = this.phase === 'playing' ? runInput : NO_CONTROLS;
         // Edge-triggered actions apply once per frame, not once per step.
@@ -121,14 +136,18 @@ export class Game {
           this.loop.reset();
         }
         break;
-      case 'over':
+      case 'over': {
         this.overTime += frameTime;
-        if (input.confirm && this.overTime > OVER_INPUT_DELAY) {
+        const restart = this.autopilot
+          ? this.overTime > DEMO_RESTART
+          : input.confirm && this.overTime > OVER_INPUT_DELAY;
+        if (restart) {
           this.world = this.newWorld();
           this.loop.reset();
           this.phase = 'playing';
         }
         break;
+      }
     }
   }
 
@@ -151,7 +170,7 @@ export class Game {
   private enterOver(): void {
     this.phase = 'over';
     this.overTime = 0;
-    if (this.world.score > this.best) {
+    if (!this.autopilot && this.world.score > this.best) {
       this.best = this.world.score;
       saveBest(this.best);
     }
@@ -166,6 +185,7 @@ export class Game {
       layout,
     );
     this.renderer.setWorld(world);
+    this.autopilot?.reset(world);
     return world;
   }
 

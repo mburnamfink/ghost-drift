@@ -86,6 +86,11 @@ export class Hud {
     this.locked = q('.hud-locked');
   }
 
+  /** Marks the screen as the game playing itself. */
+  showDemoBadge(): void {
+    this.root.appendChild(el('div', 'hud-demo')).textContent = 'DEMO · AUTOPILOT';
+  }
+
   handleEvents(events: readonly SimEvent[]): void {
     for (const e of events) {
       if (e.type === 'waveStarted') {
