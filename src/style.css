@@ -161,14 +161,14 @@ body {
   inset: 0;
 }
 
-/* A right-pointing triangle; rotated by the HUD to face the threat. */
+/* A long, narrow right-pointing triangle, so its direction reads at any rotation. */
 .hud-threat {
   position: absolute;
   width: 0;
   height: 0;
-  border-top: 11px solid transparent;
-  border-bottom: 11px solid transparent;
-  border-left: 20px solid #ff2a2a;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-left: 26px solid #ff2a2a;
   filter: drop-shadow(0 0 6px #ff2a2a);
   animation: threat-blink 0.3s steps(2) infinite;
 }
@@ -233,22 +233,25 @@ body {
 .hud-remaining {
   display: none;
   position: absolute;
-  top: 2%;
+  top: 3%;
   width: 100%;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
+  text-align: center;
   font-size: 18px;
   color: #ffb08a;
   text-shadow: 0 0 8px #ff4a1c;
 }
 
-/* An upward-pointing triangle; the HUD rotates it toward the nearest Hunter. */
+/* An upward-pointing arrow (SVG), pinned to the screen edge and rotated toward the nearest Hunter. */
 .hud-remaining-arrow {
-  width: 0;
-  height: 0;
-  border-left: 12px solid transparent;
-  border-right: 12px solid transparent;
-  border-bottom: 22px solid #ff4a1c;
-  filter: drop-shadow(0 0 6px #ff4a1c);
+  display: none;
+  position: absolute;
+  width: 40px;
+  height: 56px;
+  filter: drop-shadow(0 0 8px #ff4a1c);
+}
+
+.hud-remaining-arrow svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }

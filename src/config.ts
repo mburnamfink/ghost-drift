@@ -85,13 +85,7 @@ export const CONFIG = {
     cutterLead: 1.3,
     /** Within this distance a Cutter stops predicting and chases. */
     cutterCommitDistance: 14,
-    /** Fraction of packs that are Cutters; a pack shares one role. */
     cutterFraction: 0.4,
-    packSize: [3, 5],
-    /** Pull toward the pack's centre, against `hunters.separation`, which keeps packs tight. */
-    packCohesion: 0.8,
-    /** Pack members spawn within this many cells of the pack's spawn point. */
-    packSpawnSpread: 3,
     /** With the Ship in sight and within `engageRange`, a Tank circles at about `standoff`. */
     engageRange: 50,
     standoff: 28,
@@ -154,18 +148,17 @@ export const CONFIG = {
   },
   /** Tanks fire together: a shared wind-up, then every loaded Tank fires at once. */
   volley: {
-    interval: 3.5,
+    /** Seconds between volleys, plus or minus `jitter`. */
+    interval: 2.25,
+    jitter: 0.2,
     windup: 0.55,
+    /** Each Shell is aimed at a random point within this distance of the Ship. */
+    aimSpread: 5,
   },
   shell: {
     speed: 26,
     life: 3.5,
     radius: 0.6,
-  },
-  /** A destroyed Tank blows up a moment later, destroying Hunters nearby; never hurts the Ship. */
-  chain: {
-    radius: 8,
-    delay: 0.12,
   },
   slideCombo: {
     /** Each kill during one Powerslide scores this many times more than the last, up to the cap. */

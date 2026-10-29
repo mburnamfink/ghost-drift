@@ -39,18 +39,11 @@ Any enemy unit. Slower than the Ship at speed; deadly to a slow one.
 _Avoid_: Enemy (in code), mob, tank
 
 **Tank**:
-The common Hunter. Moves in a Pack. Out of sight it closes in as a Chaser or a Cutter; once it can see the Ship it circles at Stand-off range and fires in Volleys.
-
-**Pack**:
-Three to five Tanks that spawn together, share a role and orbit direction, and hold together.
-_Avoid_: Squad, group
+The common Hunter. Out of sight it closes in as a Chaser or a Cutter; once it can see the Ship it circles at Stand-off range and fires in Volleys.
 
 **Volley**:
-Every Tank with a clear shot firing a Shell at once, after a shared wind-up signalled by glowing barrels and a ring closing on the Ship.
+Every Tank with a clear shot firing a Shell at once, roughly at the Ship, after a shared wind-up signalled by glowing barrels and a ring closing on the Ship.
 _Avoid_: Barrage, salvo (reserved for Artillery)
-
-**Chain Blast**:
-The explosion a destroyed Tank leaves a moment later, destroying Hunters close to it. Never hurts the Ship.
 
 **Stand-off**:
 The range, about 28 units, at which a Tank that can see the Ship circles instead of closing in.

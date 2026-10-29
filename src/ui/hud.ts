@@ -37,7 +37,6 @@ export class Hud {
   private readonly combo: HTMLElement;
   private readonly remaining: HTMLElement;
   private readonly remainingArrow: HTMLElement;
-  private readonly remainingText: HTMLElement;
   private shownCombo = 0;
   private readonly locked: HTMLElement;
   private bannerTime = 0;
@@ -55,7 +54,10 @@ export class Hud {
       <div class="hud-banner"></div>
       <div class="hud-vignette"></div>
       <div class="hud-combo"></div>
-      <div class="hud-remaining"><div class="hud-remaining-arrow"></div><div class="hud-remaining-text"></div></div>
+      <div class="hud-remaining"></div>
+      <div class="hud-remaining-arrow">
+        <svg viewBox="0 0 40 56"><polygon points="20,0 40,24 27,24 27,56 13,56 13,24 0,24" fill="#ff4a1c"/></svg>
+      </div>
       <div class="hud-locked">◢ LOCKED ◣</div>
       <div class="hud-threats"></div>
       <div class="hud-screen"></div>`;
@@ -74,7 +76,6 @@ export class Hud {
     this.combo = q('.hud-combo');
     this.remaining = q('.hud-remaining');
     this.remainingArrow = q('.hud-remaining-arrow');
-    this.remainingText = q('.hud-remaining-text');
     this.locked = q('.hud-locked');
   }
 
@@ -136,12 +137,20 @@ export class Hud {
     if (kills >= 2) this.combo.classList.add('pop');
   }
 
+  /**
+   * Counts the last Hunters and pins an arrow to the screen edge on the side of the nearest,
+   * pointing at it: right edge means turn right, bottom means it is behind.
+   */
   private updateRemaining(last: LastEnemies | null): void {
-    this.remaining.style.display = last ? 'flex' : 'none';
+    this.remaining.style.display = last ? 'block' : 'none';
+    this.remainingArrow.style.display = last ? 'block' : 'none';
     if (!last) return;
-    this.remainingText.textContent = `${last.count} ${last.count === 1 ? 'ENEMY' : 'ENEMIES'} REMAINING`;
-    // The arrow glyph points up (ahead); bearings measure from the right, counter-clockwise.
-    this.remainingArrow.style.transform = `rotate(${Math.PI / 2 - last.bearing}rad)`;
+    this.remaining.textContent = `${last.count} ${last.count === 1 ? 'ENEMY' : 'ENEMIES'} REMAINING`;
+    const { x, y } = edgePoint(last.bearing, 0.44, 0.4);
+    this.remainingArrow.style.left = `${x}%`;
+    this.remainingArrow.style.top = `${y}%`;
+    // The arrow glyph points up; bearings measure counter-clockwise from the right.
+    this.remainingArrow.style.transform = `translate(-50%, -50%) rotate(${Math.PI / 2 - last.bearing}rad)`;
   }
 
   /**
@@ -172,15 +181,9 @@ export class Hud {
       const t = threats[i];
       marker.style.display = t ? 'block' : 'none';
       if (!t) return;
-      const cos = Math.cos(t.angle);
-      const sin = Math.sin(t.angle);
-      // Scale the direction out to whichever screen edge it reaches first.
-      const reach = Math.min(
-        0.46 / Math.max(Math.abs(cos), 1e-6),
-        0.42 / Math.max(Math.abs(sin), 1e-6),
-      );
-      marker.style.left = `${50 + cos * reach * 100}%`;
-      marker.style.top = `${50 - sin * reach * 100}%`;
+      const { x, y } = edgePoint(t.angle, 0.46, 0.42);
+      marker.style.left = `${x}%`;
+      marker.style.top = `${y}%`;
       marker.style.transform = `translate(-50%, -50%) rotate(${-t.angle}rad)`;
       marker.className = `hud-threat ${t.kind}`;
     });
@@ -237,6 +240,20 @@ function controlsTable(gamepad: boolean): string {
         ['Pause', 'Esc'],
       ];
   return `<table class="controls">${rows.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>`;
+}
+
+/**
+ * Where a direction from the screen centre (0 = right, π/2 = up) meets an inset screen edge, as
+ * percentages. `halfWidth` and `halfHeight` are the inset edge's distance from the centre.
+ */
+function edgePoint(angle: number, halfWidth: number, halfHeight: number): { x: number; y: number } {
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const reach = Math.min(
+    halfWidth / Math.max(Math.abs(cos), 1e-6),
+    halfHeight / Math.max(Math.abs(sin), 1e-6),
+  );
+  return { x: 50 + cos * reach * 100, y: 50 - sin * reach * 100 };
 }
 
 const pips = (n: number, max: number, on: string, off: string) =>

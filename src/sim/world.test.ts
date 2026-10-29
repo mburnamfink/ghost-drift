@@ -24,16 +24,14 @@ describe('Waves', () => {
     const world = createWorld(1, openArena());
     runUntil(world, (w) => w.wave === 1);
     expect(world.hunters).toHaveLength(waveTotal(waveMix(1)));
-    // Pack members spread a few cells around a pack spawn point that respects the minimum.
-    const packSpread = (CONFIG.tank.packSpawnSpread + 1) * CONFIG.arena.cellSize * Math.SQRT2;
     for (const h of world.hunters) {
       expect(
         Math.hypot(h.pos.x - world.ship.pos.x, h.pos.y - world.ship.pos.y),
-      ).toBeGreaterThanOrEqual(CONFIG.waves.minSpawnDistance - packSpread);
+      ).toBeGreaterThanOrEqual(CONFIG.waves.minSpawnDistance);
     }
   });
 
-  it('sends both Chasing and Cutting packs once a Wave has several packs', () => {
+  it('sends both Chasers and Cutters', () => {
     const world = createWorld(1, openArena(), 6);
     runUntil(world, (w) => w.wave === 6);
     const tanks = world.hunters.filter((h): h is Tank => h.kind === 'tank');

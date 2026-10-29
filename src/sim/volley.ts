@@ -40,7 +40,7 @@ export function advanceVolley(
   }
   volley.timer -= dt;
   if (volley.timer > 0) return [];
-  volley.timer = CONFIG.volley.interval * rng.range(0.9, 1.1);
+  volley.timer = CONFIG.volley.interval + rng.range(-CONFIG.volley.jitter, CONFIG.volley.jitter);
   let loaded = false;
   for (const t of tanks) {
     t.loading = tankHasShot(t, ctx);

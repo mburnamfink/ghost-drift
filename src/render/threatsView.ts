@@ -10,7 +10,6 @@ const TRACER_SECONDS = 0.3;
 const LOCK_FLASH_HZ = 12;
 const VOLLEY_RING_START = 12;
 const VOLLEY_RING_END = CONFIG.ship.radius + 1;
-const PULSE_SECONDS = 0.3;
 /** Peak height of an Artillery shell's arc. */
 const ARC_HEIGHT = 35;
 
@@ -42,8 +41,6 @@ export class ThreatsView {
       side: THREE.DoubleSide,
     }),
   );
-  private pulses: { mesh: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>; age: number }[] =
-    [];
 
   constructor() {
     this.volleyRing.visible = false;
@@ -52,7 +49,6 @@ export class ThreatsView {
 
   handleEvents(events: readonly SimEvent[]): void {
     for (const e of events) {
-      if (e.type === 'chainBlast') this.addPulse(e.pos.x, e.pos.y);
       if (e.type !== 'sniperFired') continue;
       const beam = createBeam(PALETTE.tracer);
       placeBeam(
@@ -72,7 +68,6 @@ export class ThreatsView {
   update(world: World, frameTime: number): void {
     this.time += frameTime;
     this.updateVolleyRing(world);
-    this.updatePulses(frameTime);
     this.updateLasers(world);
     this.updateTracers(frameTime);
     this.updateImpacts(world);
@@ -92,46 +87,7 @@ export class ThreatsView {
     this.volleyRing.material.opacity = 0.4 + 0.6 * progress;
   }
 
-  /** A shockwave ring for each Chain Blast, expanding to the blast radius. */
-  private addPulse(x: number, z: number): void {
-    const mesh = new THREE.Mesh(
-      new THREE.RingGeometry(0.8, 1, 40).rotateX(-Math.PI / 2),
-      new THREE.MeshBasicMaterial({
-        color: PALETTE.hunter,
-        transparent: true,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-        side: THREE.DoubleSide,
-      }),
-    );
-    mesh.position.set(x, 0.3, z);
-    this.group.add(mesh);
-    this.pulses.push({ mesh, age: 0 });
-  }
-
-  private updatePulses(frameTime: number): void {
-    this.pulses = this.pulses.filter((p) => {
-      p.age += frameTime;
-      const t = p.age / PULSE_SECONDS;
-      if (t >= 1) {
-        this.group.remove(p.mesh);
-        p.mesh.geometry.dispose();
-        p.mesh.material.dispose();
-        return false;
-      }
-      p.mesh.scale.setScalar(Math.max(0.01, CONFIG.chain.radius * Math.sqrt(t)));
-      p.mesh.material.opacity = 1 - t;
-      return true;
-    });
-  }
-
   clear(): void {
-    for (const p of this.pulses) {
-      this.group.remove(p.mesh);
-      p.mesh.geometry.dispose();
-      p.mesh.material.dispose();
-    }
-    this.pulses = [];
     for (const v of this.impacts.values()) this.removeImpact(v);
     this.impacts.clear();
     for (const t of this.tracers) this.removeTracer(t);

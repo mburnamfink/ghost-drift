@@ -14,7 +14,10 @@ type Phase = 'title' | 'playing' | 'paused' | 'over';
 const BEST_SCORE_KEY = 'quantum-breach.best';
 /** Ignore confirm briefly after death so a held fire/burst button doesn't skip the score screen. */
 const OVER_INPUT_DELAY = 1;
-/** With this many Hunters or fewer left, the HUD counts them and points to the nearest. */
+/**
+ * With this many Hunters or fewer left, and at least one of the Wave already destroyed, the HUD
+ * counts them and points to the nearest.
+ */
 const LAST_ENEMIES_SHOWN = 3;
 
 /** Owns the phase state machine and wires input, simulation, rendering and HUD together. */
@@ -110,8 +113,11 @@ export class Game {
   }
 
   private lastEnemies(): LastEnemies | null {
-    const { hunters, ship, lull } = this.world;
-    if (lull > 0 || hunters.length === 0 || hunters.length > LAST_ENEMIES_SHOWN) return null;
+    const { hunters, ship, lull, waveStrength } = this.world;
+    const someKilled = hunters.length < waveStrength;
+    if (lull > 0 || !someKilled || hunters.length === 0 || hunters.length > LAST_ENEMIES_SHOWN) {
+      return null;
+    }
     let nearest = hunters[0]!;
     for (const h of hunters) {
       if (distance(h.pos, ship.pos) < distance(nearest.pos, ship.pos)) nearest = h;

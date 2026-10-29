@@ -147,10 +147,6 @@ export class GameRenderer {
         case 'sniperFired':
           this.shake = Math.max(this.shake, 0.5);
           break;
-        case 'chainBlast':
-          this.debris.burst(e.pos.x, e.pos.y, PALETTE.hunter, 22, 20);
-          this.shake = Math.max(this.shake, this.shakeAtDistance(e.pos, 0.5));
-          break;
         case 'volleyFired':
           this.shake = Math.max(this.shake, 0.15);
           break;

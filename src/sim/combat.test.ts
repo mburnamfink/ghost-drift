@@ -4,7 +4,6 @@ import { Rng } from '../core/rng';
 import { NO_CONTROLS } from './controls';
 import { type Tank, createTank } from './hunters';
 import { terrainFromRows } from './terrain';
-import { packPositions, packSizes } from './waves';
 import { type World, createWorld, stepWorld } from './world';
 
 const DT = 1 / CONFIG.sim.stepHz;
@@ -48,51 +47,27 @@ describe('Volleys', () => {
     expect(tanks.every((t) => !t.loading)).toBe(true);
   });
 
+  it('aims each Shell roughly at the Ship, not all at one point', () => {
+    const world = liveWorld();
+    world.volley.timer = DT / 2;
+    ringOfTanks(world, 8, 30);
+    run(world, CONFIG.volley.windup + DT);
+    const { pos } = world.ship;
+    const misses = world.shells.map((s) => {
+      // Closest approach of the Shell's line of flight to the Ship.
+      const speed = Math.hypot(s.vel.x, s.vel.y);
+      return Math.abs((pos.x - s.pos.x) * s.vel.y - (pos.y - s.pos.y) * s.vel.x) / speed;
+    });
+    for (const m of misses) expect(m).toBeLessThanOrEqual(CONFIG.volley.aimSpread + 0.01);
+    expect(new Set(misses.map((m) => m.toFixed(2))).size).toBeGreaterThan(1);
+  });
+
   it('holds fire between volleys', () => {
     const world = liveWorld();
     world.volley.timer = 2;
     ringOfTanks(world, 4, 30);
     run(world, 1.5);
     expect(world.shells).toHaveLength(0);
-  });
-});
-
-describe('Packs', () => {
-  it('splits Tanks into packs of three to five', () => {
-    for (const n of [3, 7, 12, 23]) {
-      const sizes = packSizes(n, new Rng(n));
-      expect(sizes.reduce((a, b) => a + b, 0)).toBe(n);
-      for (const s of sizes) expect(s).toBeGreaterThanOrEqual(Math.min(n, CONFIG.tank.packSize[0]));
-    }
-  });
-
-  it('spawns a pack close together', () => {
-    const world = liveWorld();
-    const centre = { x: 40, y: 40 };
-    const spread = (CONFIG.tank.packSpawnSpread + 1) * world.terrain.cellSize * Math.SQRT2;
-    for (const p of packPositions(world.terrain, centre, 5, new Rng(1))) {
-      expect(Math.hypot(p.x - centre.x, p.y - centre.y)).toBeLessThan(spread);
-    }
-  });
-});
-
-describe('Chain Blasts', () => {
-  it('sets off nearby Tanks in sequence and spares distant ones and the Ship', () => {
-    const world = liveWorld();
-    world.volley.timer = 99;
-    const { x, y } = world.ship.pos;
-    const near = [0, 6, 12].map((dx, i) => createTank(200 + i, { x: x + 40 + dx, y }, new Rng(i)));
-    const far = createTank(210, { x: x + 40, y: y + 40 }, new Rng(9));
-    world.hunters.push(...near, far);
-    world.hunters.splice(0, 1);
-    world.blasts.push({ pos: { x: x + 40, y }, time: 0 });
-    // Freeze the Tanks in place so only blasts act.
-    for (const t of world.hunters) t.vel = { x: 0, y: 0 };
-    stepWorld(world, NO_CONTROLS, DT);
-    expect(world.hunters.map((h) => h.id)).not.toContain(201);
-    run(world, CONFIG.chain.delay * 2 + DT);
-    expect(world.hunters.map((h) => h.id)).toEqual([210]);
-    expect(world.ship.hull).toBe(CONFIG.ship.hull);
   });
 });
 
@@ -103,8 +78,7 @@ describe('Slide combo', () => {
     world.ship.heading = 0;
     world.ship.vel = { x: 30, y: 0 };
     const { x, y } = world.ship.pos;
-    // Beyond engagement range, so they drive straight down the firing line instead of circling,
-    // and spaced wider than a Chain Blast so each needs its own Bolt.
+    // Beyond engagement range, so they drive straight down the firing line instead of circling.
     world.hunters.push(
       ...[55, 70, 85].map((dx, i) => createTank(300 + i, { x: x + dx, y }, new Rng(i))),
     );

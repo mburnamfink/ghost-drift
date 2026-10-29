@@ -20,8 +20,6 @@ interface HunterBase {
 
 export interface Tank extends HunterBase {
   kind: 'tank';
-  /** Tanks of a pack share a role and orbit direction and hold together. */
-  packId: number;
   role: TankRole;
   /** 1 to circle the Ship anticlockwise, -1 clockwise. */
   orbitDir: 1 | -1;
