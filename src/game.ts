@@ -112,16 +112,16 @@ export class Game {
   }
 
   private screen(): Screen {
-    const gamepad = this.gamepad.connected;
+    const pad = this.gamepad.description;
     switch (this.phase) {
       case 'title':
-        return { kind: 'title', gamepad };
+        return { kind: 'title', pad };
       case 'paused':
-        return { kind: 'paused', gamepad };
+        return { kind: 'paused', pad };
       case 'over':
         return {
           kind: 'over',
-          gamepad,
+          pad,
           score: this.world.score,
           wave: this.world.wave,
           best: this.best,

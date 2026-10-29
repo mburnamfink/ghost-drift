@@ -143,3 +143,15 @@ body {
     opacity: 0.3;
   }
 }
+
+.pad-debug {
+  position: fixed;
+  left: 12px;
+  bottom: 56px;
+  margin: 0;
+  padding: 8px;
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 10;
+  pointer-events: none;
+}

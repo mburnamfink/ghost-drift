@@ -5,9 +5,9 @@ import type { SimEvent, World } from '../sim/world';
 
 export type Screen =
   | { kind: 'none' }
-  | { kind: 'title'; gamepad: boolean }
-  | { kind: 'paused'; gamepad: boolean }
-  | { kind: 'over'; gamepad: boolean; score: number; wave: number; best: number };
+  | { kind: 'title'; pad: string | null }
+  | { kind: 'paused'; pad: string | null }
+  | { kind: 'over'; pad: string | null; score: number; wave: number; best: number };
 
 const BANNER_SECONDS = 2;
 
@@ -88,9 +88,10 @@ export class Hud {
 
 function renderScreen(screen: Screen): string {
   if (screen.kind === 'none') return '';
-  const confirm = screen.gamepad ? 'A' : 'ENTER';
-  const device = screen.gamepad
-    ? 'Controller connected'
+  const gamepad = screen.pad !== null;
+  const confirm = gamepad ? 'A' : 'ENTER';
+  const device = gamepad
+    ? `Controller: ${escapeHtml(screen.pad ?? '')}`
     : 'Keyboard · press any controller button to use a gamepad';
   switch (screen.kind) {
     case 'title':
@@ -98,10 +99,10 @@ function renderScreen(screen: Screen): string {
         <h1>QUANTUM BREACH</h1>
         <p class="tagline">Speed is armor. Stop and they box you in.</p>
         <p class="prompt">Press ${confirm} to start</p>
-        ${controlsTable(screen.gamepad)}
+        ${controlsTable(gamepad)}
         <p class="device">${device}</p>`;
     case 'paused':
-      return `<h1>PAUSED</h1><p class="prompt">Press ${screen.gamepad ? 'MENU' : 'ESC'} to resume</p>${controlsTable(screen.gamepad)}`;
+      return `<h1>PAUSED</h1><p class="prompt">Press ${gamepad ? 'MENU' : 'ESC'} to resume</p>${controlsTable(gamepad)}`;
     case 'over':
       return `
         <h1>DESTROYED</h1>
@@ -140,3 +141,6 @@ function el(tag: string, className: string): HTMLElement {
   e.className = className;
   return e;
 }
+
+const escapeHtml = (s: string) =>
+  s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);

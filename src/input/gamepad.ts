@@ -1,17 +1,18 @@
 import { IDLE_INPUT, type FrameInput, type InputSource } from './input';
+import { type PadState, choosePad, layoutFor, readTrigger } from './padLayout';
 
-/** Indices in the W3C "standard" gamepad mapping, which Chrome and Firefox use for Xbox pads. */
-const BUTTON = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, VIEW: 8, MENU: 9 } as const;
-const AXIS = { LEFT_X: 0 } as const;
 const STICK_DEADZONE = 0.15;
 const TRIGGER_THRESHOLD = 0.2;
 
 export class GamepadInput implements InputSource {
   private previous = new Set<number>();
+  private touchedAxes = new Set<number>();
+  private activeId: string | null = null;
 
-  /** Whether any controller is visible. Browsers hide pads until a button is pressed on the page. */
-  get connected(): boolean {
-    return this.pad() !== null;
+  /** Description of the pad in use, or null. Browsers hide pads until a button is pressed on the page. */
+  get description(): string | null {
+    const pad = this.pad();
+    return pad ? `${pad.id} · ${layoutFor(pad).name}` : null;
   }
 
   poll(): FrameInput {
@@ -20,7 +21,12 @@ export class GamepadInput implements InputSource {
       this.previous.clear();
       return IDLE_INPUT;
     }
-    const value = (i: number) => pad.buttons[i]?.value ?? 0;
+    if (pad.id !== this.activeId) {
+      this.activeId = pad.id;
+      this.previous.clear();
+      this.touchedAxes.clear();
+    }
+    const layout = layoutFor(pad);
     const down = new Set<number>();
     pad.buttons.forEach((b, i) => {
       if (b.pressed) down.add(i);
@@ -30,21 +36,18 @@ export class GamepadInput implements InputSource {
     this.previous = down;
 
     return {
-      steer: deadzone(pad.axes[AXIS.LEFT_X] ?? 0),
-      thrust: value(BUTTON.RT),
-      slide: value(BUTTON.LT) > TRIGGER_THRESHOLD,
-      fire: held(BUTTON.RB, BUTTON.X),
-      burst: tapped(BUTTON.A, BUTTON.LB),
-      confirm: tapped(BUTTON.A, BUTTON.MENU),
-      pause: tapped(BUTTON.MENU),
+      steer: deadzone(pad.axes[layout.steerAxis] ?? 0),
+      thrust: readTrigger(pad, layout.thrust, this.touchedAxes),
+      slide: readTrigger(pad, layout.slide, this.touchedAxes) > TRIGGER_THRESHOLD,
+      fire: held(layout.rb, layout.x),
+      burst: tapped(layout.a, layout.lb),
+      confirm: tapped(layout.a, layout.menu),
+      pause: tapped(layout.menu),
     };
   }
 
-  private pad(): Gamepad | null {
-    for (const p of navigator.getGamepads?.() ?? []) {
-      if (p?.connected && p.mapping === 'standard') return p;
-    }
-    return null;
+  private pad(): PadState | null {
+    return choosePad(navigator.getGamepads?.() ?? []);
   }
 }
 
