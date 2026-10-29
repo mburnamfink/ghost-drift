@@ -15,17 +15,29 @@ export interface WaveMix {
 const ramp = (wave: number, from: number, every: number, max: number) =>
   wave < from ? 0 : Math.min(max, 1 + Math.floor((wave - from) / every));
 
-/** How many of each Hunter type a Wave sends. From Wave 4, fewer Tanks and more special types. */
-export function waveMix(wave: number): WaveMix {
+/** Multiplies how many of each Hunter type a Wave sends; 1 where unset, 0 for none. */
+export type EnemyDensity = Partial<Record<keyof WaveMix, number>>;
+
+/**
+ * How many of each Hunter type a Wave sends, scaled by `density`. From Wave 4, fewer Tanks and
+ * more special types. A Wave always has at least one Hunter, or it would end before it began.
+ */
+export function waveMix(wave: number, density: EnemyDensity = {}): WaveMix {
   const c = CONFIG.waves;
   const tanks = Math.min(c.maxCount, c.firstCount + c.countPerWave * (wave - 1));
-  return {
+  const base: WaveMix = {
     tanks: wave >= c.tankReductionFromWave ? Math.round(tanks * (1 - c.tankReduction)) : tanks,
     berserkers: ramp(wave, c.berserkerFromWave, 2, c.maxBerserkers),
     snipers: ramp(wave, c.sniperFromWave, 1.5, c.maxSnipers),
     artillery: ramp(wave, c.artilleryFromWave, 2, c.maxArtillery),
     juggernauts: juggernautsFor(wave),
   };
+  const mix = { ...base };
+  for (const key of Object.keys(mix) as (keyof WaveMix)[]) {
+    mix[key] = Math.round(base[key] * (density[key] ?? 1));
+  }
+  if (waveTotal(mix) === 0) mix.tanks = 1;
+  return mix;
 }
 
 /** Juggernauts come in their own Waves, every few Waves, with a second joining later on. */

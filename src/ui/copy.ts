@@ -1,3 +1,10 @@
+/** The Help page's account of who you are and what to do. */
+export const PREMISE =
+  "The army is at the gates of Arcadia, and you're all that's left: one pilot in an experimental " +
+  'hovertank, faster than anything they field. Keep moving and their guns cannot track you; slow ' +
+  'down and they box you in. Powerslide past them with guns blazing, Burst through walls when ' +
+  'cornered, and hold the city as long as you can.';
+
 /** Rotating lines under the title. */
 export const LEGENDS: readonly string[] = [
   'Outnumbered. Outgunned. Never outmaneuvered.',

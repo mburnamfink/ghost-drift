@@ -3,9 +3,10 @@ import type { ScreenThreat } from '../render/renderer';
 import { speedOf } from '../sim/ship';
 import { tankSpeed } from '../sim/waves';
 import type { SimEvent, World } from '../sim/world';
-import { LEGENDS, LEGEND_SECONDS, legendRank } from './copy';
+import { LEGENDS, LEGEND_SECONDS, PREMISE, legendRank } from './copy';
 import { headingSvg, initialsSvg, splashSvg } from './splash';
 import type { ScoreEntry } from '../scores/highScores';
+import type { MenuView } from './menu';
 
 /** Shown when only a few Hunters are left in a live Wave. */
 export interface LastEnemies {
@@ -16,7 +17,14 @@ export interface LastEnemies {
 
 export type Screen =
   | { kind: 'none' }
-  | { kind: 'title'; pad: string | null; scores: readonly ScoreEntry[] }
+  | {
+      kind: 'title';
+      pad: string | null;
+      scores: readonly ScoreEntry[];
+      menu: MenuView;
+      /** The attract loop is showing the high-score table instead of the menu. */
+      attract: boolean;
+    }
   | { kind: 'paused'; pad: string | null }
   | {
       kind: 'over';
@@ -24,6 +32,8 @@ export type Screen =
       score: number;
       wave: number;
       message: string;
+      /** False for custom games, which never enter the high-score table. */
+      ranked: boolean;
       scores: readonly ScoreEntry[];
       /** Row of the table to highlight: where this Run just landed. */
       highlight: number | null;
@@ -32,9 +42,6 @@ export type Screen =
     };
 
 const BANNER_SECONDS = 2;
-/** The title screen alternates between itself and the high-score table, like an arcade cabinet. */
-const ATTRACT_TITLE_SECONDS = 12;
-const ATTRACT_SCORES_SECONDS = 7;
 /** A Sniper whose aim point is this close to the Ship counts as targeting it. */
 const TARGETED_DISTANCE = 10;
 
@@ -61,6 +68,7 @@ export class Hud {
   private readonly locked: HTMLElement;
   private bannerTime = 0;
   private lastScreen = '';
+  private readonly demoBadge: HTMLElement;
   private titleTime = 0;
   /** Which legend the title opens on, so repeat visits don't always start the same. */
   private readonly legendStart = Math.floor(Math.random() * LEGENDS.length);
@@ -104,11 +112,15 @@ export class Hud {
     this.remaining = q('.hud-remaining');
     this.remainingArrow = q('.hud-remaining-arrow');
     this.locked = q('.hud-locked');
+    this.demoBadge = this.root.appendChild(el('div', 'hud-demo'));
+    this.demoBadge.textContent = 'UNCONFIRMED FOOTAGE';
+    this.setDemoBadge(false);
   }
 
   /** Marks the screen as the game playing itself. */
-  showDemoBadge(): void {
-    this.root.appendChild(el('div', 'hud-demo')).textContent = 'UNCONFIRMED FOOTAGE';
+  /** Marks the screen as the game playing itself. */
+  setDemoBadge(on: boolean): void {
+    this.demoBadge.style.display = on ? '' : 'none';
   }
 
   handleEvents(events: readonly SimEvent[]): void {
@@ -156,7 +168,8 @@ export class Hud {
     this.banner.style.opacity =
       this.bannerTime > 0 ? String(Math.min(1, this.bannerTime * 2)) : '0';
 
-    const key = JSON.stringify(screen);
+    // The attract flag only toggles a class; it must not rebuild the screen.
+    const key = JSON.stringify(screen.kind === 'title' ? { ...screen, attract: false } : screen);
     if (key !== this.lastScreen) {
       this.lastScreen = key;
       this.screen.innerHTML = renderScreen(screen);
@@ -175,11 +188,10 @@ export class Hud {
       return;
     }
     this.titleTime += frameTime;
-    // Attract loop: the title, then the high-score table if there is one.
-    const cycle = this.titleTime % (ATTRACT_TITLE_SECONDS + ATTRACT_SCORES_SECONDS);
+    this.screen.dataset.page = screen.menu.page;
     this.screen.classList.toggle(
       'show-scores',
-      screen.scores.length > 0 && cycle >= ATTRACT_TITLE_SECONDS,
+      screen.attract && screen.menu.page === 'main' && screen.scores.length > 0,
     );
     const index = (this.legendStart + Math.floor(this.titleTime / LEGEND_SECONDS)) % LEGENDS.length;
     const line = this.screen.querySelector<HTMLElement>('.tagline');
@@ -278,17 +290,7 @@ function renderScreen(screen: Screen): string {
     : 'Keyboard · press any controller button to use a gamepad';
   switch (screen.kind) {
     case 'title':
-      return `
-        ${splash()}
-        <div class="title-text">
-          <p class="tagline"></p>
-          <p class="prompt">Press ${confirm} to start</p>
-        </div>
-        <div class="title-scores">
-          ${headingSvg('High scores', 'cool')}
-          ${scoresTable(screen.scores, null)}
-        </div>
-        <div class="title-controls">${controlsTable(gamepad)}<p class="device">${device}</p></div>`;
+      return titleScreen(screen, gamepad, device);
     case 'paused':
       return `
         ${headingSvg('Paused', 'cool')}
@@ -312,11 +314,65 @@ function renderScreen(screen: Screen): string {
       return `
         ${heading}
         <p class="legend">YOUR LEGEND: ${legendRank(screen.score)}</p>
+        ${screen.ranked ? '' : '<p class="unranked">CUSTOM GAME · NOT RANKED</p>'}
         ${stats}
         ${scoresTable(screen.scores, screen.highlight)}
         <p class="prompt">Press ${confirm} to retry</p>
         <p class="menu-option">${gamepad ? 'B' : 'BACKSPACE'} · Main menu</p>`;
     }
+  }
+}
+
+/** The title screen: the main menu over the live scene, or the custom-game or help page. */
+function titleScreen(
+  screen: Extract<Screen, { kind: 'title' }>,
+  gamepad: boolean,
+  device: string,
+): string {
+  const { menu } = screen;
+  const hint = gamepad
+    ? '↑ ↓ select · ← → change · A confirm · B back'
+    : '↑ ↓ select · ← → change · ENTER confirm · BACKSPACE back';
+  const rows = menu.rows
+    .map((row, i) => {
+      const on = i === menu.selected;
+      const value =
+        row.value === undefined
+          ? ''
+          : `<span class="value">${on ? '◀ ' : ''}${row.value}${on ? ' ▶' : ''}</span>`;
+      return `<li class="${on ? 'selected' : ''}"><span class="label">${row.label}</span>${value}</li>`;
+    })
+    .join('');
+  switch (menu.page) {
+    case 'main':
+      return `
+        ${splash()}
+        <div class="title-text">
+          <p class="tagline"></p>
+          <ul class="menu">${rows}</ul>
+        </div>
+        <div class="title-scores">
+          ${headingSvg('High scores', 'cool')}
+          ${scoresTable(screen.scores, null)}
+        </div>
+        <div class="title-controls"><p class="device">${device}</p></div>`;
+    case 'custom':
+      return `
+        <div class="title-panel">
+          ${headingSvg('Custom game', 'cool')}
+          <ul class="menu settings">${rows}</ul>
+          <p class="entry-help">${hint}</p>
+          <p class="unranked">Custom games are not ranked unless every setting is left as it is.</p>
+        </div>`;
+    case 'help':
+      return `
+        <div class="title-panel">
+          ${headingSvg('How to play', 'cool')}
+          <p class="premise">${PREMISE}</p>
+          ${controlsTable(gamepad)}
+          <ul class="menu">${rows}</ul>
+          <p class="device">${device}</p>
+        </div>`;
   }
 }
 
@@ -344,6 +400,7 @@ function controlsTable(gamepad: boolean): string {
         ['Burst', 'A / LB'],
         ['Switch gun', 'Y'],
         ['Pause', 'Menu'],
+        ['Back / main menu', 'B'],
       ]
     : [
         ['Steer', 'A D / ← →'],
@@ -353,6 +410,7 @@ function controlsTable(gamepad: boolean): string {
         ['Burst', 'E'],
         ['Switch gun', 'Q'],
         ['Pause', 'Esc'],
+        ['Back / main menu', 'Backspace'],
       ];
   return `<table class="controls">${rows.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>`;
 }

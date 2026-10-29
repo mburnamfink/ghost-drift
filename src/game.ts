@@ -13,6 +13,8 @@ import { Autopilot } from './ai/autopilot';
 import { GAME_OVER_MESSAGES } from './ui/copy';
 import { insertScore, loadScores, rankFor, saveScores } from './scores/highScores';
 import { InitialsEntry } from './scores/initials';
+import { type CustomSettings, Menu, densityOf, isStandard } from './ui/menu';
+import type { EnemyDensity } from './sim/waves';
 import { distance } from './core/vec2';
 
 type Phase = 'title' | 'playing' | 'paused' | 'over';
@@ -50,7 +52,12 @@ export class Game {
   private readonly hud: Hud;
   private readonly loop = new FixedStep(1 / CONFIG.sim.stepHz, CONFIG.sim.maxFrameTime);
   private readonly minimap: Minimap;
-  private readonly autopilot: Autopilot | null;
+  private autopilot: Autopilot | null = null;
+  private readonly menu = new Menu();
+  /** Seconds since the last menu input, for the attract loop. */
+  private titleIdle = 0;
+  /** How the current Run was set up, so Retry plays it again. */
+  private run: RunSettings;
   private world: World;
   private phase: Phase = 'title';
   private overTime = 0;
@@ -73,12 +80,9 @@ export class Game {
     );
     this.hud = new Hud(container);
     this.minimap = new Minimap(container);
-    this.autopilot = options.demo ? new Autopilot() : null;
+    this.run = this.standardRun();
     this.world = this.newWorld();
-    if (this.autopilot) {
-      this.phase = 'playing';
-      this.hud.showDemoBadge();
-    }
+    if (options.demo) this.startDemo();
     document.addEventListener('visibilitychange', () => {
       if (document.hidden && this.phase === 'playing') this.phase = 'paused';
     });
@@ -132,11 +136,20 @@ export class Game {
 
   private updatePhase(input: FrameInput, frameTime: number): void {
     switch (this.phase) {
-      case 'title':
-        if (input.confirm) this.phase = 'playing';
+      case 'title': {
+        const touched =
+          input.confirm || input.back || Object.values(input.nav).some((pushed) => pushed);
+        this.titleIdle = touched ? 0 : this.titleIdle + frameTime;
+        const action = this.menu.apply(input);
+        if (action?.type === 'play') this.startRun(this.standardRun());
+        if (action?.type === 'custom') this.startRun(customRun(action.settings));
+        if (action?.type === 'demo') this.startDemo();
         break;
+      }
       case 'playing':
-        if (input.pause) this.phase = 'paused';
+        // Like an arcade attract mode, any button ends the demo.
+        if (this.autopilot && (input.confirm || input.back || input.pause)) this.quitToTitle();
+        else if (input.pause) this.phase = 'paused';
         break;
       case 'paused':
         if (input.pause) {
@@ -151,6 +164,10 @@ export class Game {
         if (this.entry) {
           // The press that finishes the initials must not also restart.
           if (this.overTime > OVER_INPUT_DELAY) this.updateEntry(input);
+          break;
+        }
+        if (this.autopilot && (input.confirm || input.back || input.pause)) {
+          this.quitToTitle();
           break;
         }
         const restart = this.autopilot
@@ -184,11 +201,40 @@ export class Game {
     };
   }
 
-  /** Abandons the Run for the main menu. Only finished Runs enter the high-score table. */
+  /** Abandons the Run, or the demo, for the main menu. Only finished Runs enter the table. */
   private quitToTitle(): void {
+    this.autopilot = null;
+    this.hud.setDemoBadge(false);
+    this.run = this.standardRun();
     this.world = this.newWorld();
     this.loop.reset();
+    this.titleIdle = 0;
+    this.menu.home();
     this.phase = 'title';
+  }
+
+  private startRun(run: RunSettings): void {
+    this.run = run;
+    this.world = this.newWorld();
+    this.loop.reset();
+    this.phase = 'playing';
+  }
+
+  private startDemo(): void {
+    this.autopilot = new Autopilot();
+    this.hud.setDemoBadge(true);
+    this.startRun(this.standardRun());
+  }
+
+  /** A normal Run, with any debug overrides from the URL. */
+  private standardRun(): RunSettings {
+    const { firstWave, layout } = this.options;
+    return {
+      firstWave: firstWave ?? 1,
+      ...(layout ? { layout } : {}),
+      density: {},
+      ranked: true,
+    };
   }
 
   private enterOver(): void {
@@ -196,7 +242,8 @@ export class Game {
     this.overTime = 0;
     this.overMessage = GAME_OVER_MESSAGES[Math.floor(Math.random() * GAME_OVER_MESSAGES.length)]!;
     this.entryRank = null;
-    const qualifies = !this.autopilot && rankFor(this.scores, this.world.score) !== null;
+    const qualifies =
+      !this.autopilot && this.run.ranked && rankFor(this.scores, this.world.score) !== null;
     this.entry = qualifies ? new InitialsEntry() : null;
   }
 
@@ -216,12 +263,13 @@ export class Game {
   }
 
   private newWorld(): World {
-    const { seed, firstWave, layout } = this.options;
+    const { firstWave, layout, density } = this.run;
     const world = createWorld(
-      seed ?? Math.floor(Math.random() * 2 ** 31),
+      this.options.seed ?? Math.floor(Math.random() * 2 ** 31),
       undefined,
-      firstWave ?? 1,
+      firstWave,
       layout,
+      density,
     );
     this.renderer.setWorld(world);
     this.autopilot?.reset(world);
@@ -232,7 +280,13 @@ export class Game {
     const pad = this.gamepad.description;
     switch (this.phase) {
       case 'title':
-        return { kind: 'title', pad, scores: this.scores };
+        return {
+          kind: 'title',
+          pad,
+          scores: this.scores,
+          menu: this.menu.view(),
+          attract: isAttract(this.titleIdle),
+        };
       case 'paused':
         return { kind: 'paused', pad };
       case 'over':
@@ -242,6 +296,7 @@ export class Game {
           score: this.world.score,
           wave: this.world.wave,
           message: this.overMessage,
+          ranked: this.run.ranked,
           scores: this.scores,
           highlight: this.entryRank,
           entry: this.entry && {
@@ -255,3 +310,32 @@ export class Game {
     }
   }
 }
+
+/** How a Run is set up. */
+interface RunSettings {
+  firstWave: number;
+  layout?: LayoutName;
+  density: EnemyDensity;
+  /** Whether its score may enter the high-score table. */
+  ranked: boolean;
+}
+
+function customRun(settings: CustomSettings): RunSettings {
+  return {
+    firstWave: settings.wave,
+    ...(settings.layout === 'random' ? {} : { layout: settings.layout }),
+    density: densityOf(settings),
+    ranked: isStandard(settings),
+  };
+}
+
+/**
+ * After this long without input the title alternates with the high-score table, like an arcade
+ * cabinet, so it never covers the menu while someone is using it.
+ */
+const ATTRACT_IDLE = 12;
+const ATTRACT_SCORES = 7;
+const ATTRACT_TITLE = 12;
+
+const isAttract = (idle: number): boolean =>
+  idle > ATTRACT_IDLE && (idle - ATTRACT_IDLE) % (ATTRACT_SCORES + ATTRACT_TITLE) < ATTRACT_SCORES;

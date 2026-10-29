@@ -27,7 +27,7 @@ import {
   planChange,
 } from './city';
 import { Terrain } from './terrain';
-import { spawnPoints, tankSpeed, waveMix, waveTotal } from './waves';
+import { type EnemyDensity, spawnPoints, tankSpeed, waveMix, waveTotal } from './waves';
 import { type Pulse, homeBolts, pulseReaches, stepPulses } from './weapons';
 
 /** Things that happened during a step, for presentation layers to react to. Never read by the sim. */
@@ -88,6 +88,8 @@ export interface World {
   impacts: Impact[];
   /** Hunters the current Wave started with. */
   waveStrength: number;
+  /** Scales how many of each Hunter type every Wave sends. */
+  readonly density: EnemyDensity;
   multiplier: Multiplier;
   /** Current Wave number; 0 before the first. */
   wave: number;
@@ -109,12 +111,14 @@ export interface World {
  * @param terrain Fixed terrain to use instead of generating a city; it then never changes.
  * @param firstWave Wave the Run opens on, with the city already grown to match. For testing.
  * @param layout City layout; chosen at random from the seed if omitted.
+ * @param density Scales how many of each Hunter type every Wave sends.
  */
 export function createWorld(
   seed: number,
   terrain?: Terrain,
   firstWave = 1,
   layout?: LayoutName,
+  density: EnemyDensity = {},
 ): World {
   const rng = new Rng(seed);
   const city = terrain ? null : generateCity(rng, layout);
@@ -142,6 +146,7 @@ export function createWorld(
     shells: [],
     impacts: [],
     waveStrength: 0,
+    density,
     multiplier: { value: 1, timer: 0 },
     wave: firstWave - 1,
     lull: 1.5,
@@ -478,7 +483,7 @@ function applyPendingChange(world: World): void {
 function startWave(world: World): void {
   applyPendingChange(world);
   world.wave++;
-  const mix = waveMix(world.wave);
+  const mix = waveMix(world.wave, world.density);
   const { terrain, rng } = world;
   const points = spawnPoints(terrain, world.ship.pos, waveTotal(mix), rng);
   const specials = mix.juggernauts + mix.snipers + mix.artillery + mix.berserkers;
