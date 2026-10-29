@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { SHIP_TOP_SPEED } from '../config';
 import { clamp, wrapAngle } from '../core/vec2';
+import type { Berserker } from '../sim/hunters';
 import { isBursting, speedOf } from '../sim/ship';
 import type { Shot } from '../sim/shots';
 import type { SimEvent, World } from '../sim/world';
@@ -116,6 +117,9 @@ export class GameRenderer {
           this.debris.burst(e.pos.x, e.pos.y, PALETTE.impactZone, 40, 22);
           this.shake = Math.max(this.shake, this.shakeAtDistance(e.pos, 1.2));
           break;
+        case 'sniperFired':
+          this.shake = Math.max(this.shake, 0.5);
+          break;
         case 'salvoFired':
           this.debris.burst(e.from.x, e.from.y, PALETTE.shell, 8, 6);
           break;
@@ -163,6 +167,19 @@ export class GameRenderer {
       if (h.kind === 'sniper' && h.charge) consider(h.pos.x, h.pos.y, 'sniper');
     for (const i of world.impacts) consider(i.pos.x, i.pos.y, 'artillery');
     return out;
+  }
+
+  /** Glows and shudders while winding up; stretches while lunging. */
+  private styleBerserker(h: Berserker, model: HunterModel): void {
+    const material = model.body.material;
+    if (h.phase === 'windup') {
+      material.emissiveIntensity = 0.6 + 0.4 * Math.sin(this.elapsed * 60);
+      model.root.position.x += (Math.random() - 0.5) * 0.3;
+      model.root.position.z += (Math.random() - 0.5) * 0.3;
+    } else {
+      material.emissiveIntensity = h.phase === 'lunge' ? 1 : 0.25;
+    }
+    model.root.scale.set(h.phase === 'lunge' ? 1.4 : 1, 1, h.phase === 'lunge' ? 0.8 : 1);
   }
 
   private shakeAtDistance(pos: { x: number; y: number }, strength: number): number {
@@ -232,6 +249,7 @@ export class GameRenderer {
       model.root.position.set(h.pos.x, 0, h.pos.y);
       model.root.rotation.y = -h.heading;
       model.turret.rotation.y = -(h.aim - h.heading);
+      if (h.kind === 'berserker') this.styleBerserker(h, model);
     }
     for (const [id, model] of this.hunters) {
       if (alive.has(id)) continue;

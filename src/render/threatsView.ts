@@ -5,12 +5,14 @@ import type { Impact, SimEvent, World } from '../sim/world';
 import { SNIPER_MUZZLE_HEIGHT } from './models';
 import { PALETTE } from './palette';
 
-const TRACER_SECONDS = 0.15;
+const TRACER_SECONDS = 0.3;
 /** Locked lasers flash this many times per second. */
 const LOCK_FLASH_HZ = 12;
+/** Ground reticle radius at the start of a charge; it closes to the Ship's hit radius at the lock. */
+const RETICLE_START_RADIUS = 7;
+const RETICLE_LOCK_RADIUS = CONFIG.ship.radius + CONFIG.sniper.shotWidth;
 /** Peak height of an Artillery shell's arc. */
 const ARC_HEIGHT = 35;
-const MAX_LASERS = 16;
 
 interface ImpactVisual {
   zone: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
@@ -24,27 +26,28 @@ interface ImpactVisual {
  */
 export class ThreatsView {
   readonly group = new THREE.Group();
-  private readonly charging = laserLines(PALETTE.laser, 0.55);
-  private readonly locked = laserLines(PALETTE.laserLocked, 1);
-  private readonly tracers = laserLines(PALETTE.tracer, 1);
-  private tracerLife: { from: THREE.Vector3; to: THREE.Vector3; life: number }[] = [];
+  private readonly sights = new Map<number, SniperSight>();
+  private tracers: { beam: Beam; flash: THREE.Sprite; life: number }[] = [];
   private readonly impacts = new Map<Impact, ImpactVisual>();
   private readonly shellGeometry = new THREE.IcosahedronGeometry(0.8, 0);
   private readonly shellMaterial = new THREE.MeshBasicMaterial({ color: PALETTE.shell });
   private time = 0;
 
-  constructor() {
-    this.group.add(this.charging, this.locked, this.tracers);
-  }
-
   handleEvents(events: readonly SimEvent[]): void {
     for (const e of events) {
       if (e.type !== 'sniperFired') continue;
-      this.tracerLife.push({
-        from: new THREE.Vector3(e.from.x, SNIPER_MUZZLE_HEIGHT, e.from.y),
-        to: new THREE.Vector3(e.to.x, 1, e.to.y),
-        life: TRACER_SECONDS,
-      });
+      const beam = createBeam(PALETTE.tracer);
+      placeBeam(
+        beam,
+        new THREE.Vector3(e.from.x, SNIPER_MUZZLE_HEIGHT, e.from.y),
+        new THREE.Vector3(e.to.x, 1, e.to.y),
+        0.6,
+      );
+      const flash = createGlint(PALETTE.laserLocked);
+      flash.position.set(e.from.x, SNIPER_MUZZLE_HEIGHT, e.from.y);
+      flash.scale.setScalar(14);
+      this.group.add(beam.group, flash);
+      this.tracers.push({ beam, flash, life: TRACER_SECONDS });
     }
   }
 
@@ -58,29 +61,83 @@ export class ThreatsView {
   clear(): void {
     for (const v of this.impacts.values()) this.removeImpact(v);
     this.impacts.clear();
-    this.tracerLife = [];
+    for (const t of this.tracers) this.removeTracer(t);
+    this.tracers = [];
+    for (const sight of this.sights.values()) this.removeSight(sight);
+    this.sights.clear();
   }
 
+  /**
+   * A charging Sniper shows a beam that thickens and brightens, a scope glint visible from across
+   * the city, and a reticle on the ground closing on its aim point. Once locked, all three flash.
+   */
   private updateLasers(world: World): void {
-    const charging: THREE.Vector3[] = [];
-    const locked: THREE.Vector3[] = [];
     const flashOn = Math.floor(this.time * LOCK_FLASH_HZ) % 2 === 0;
+    const active = new Set<number>();
     for (const h of world.hunters) {
       if (h.kind !== 'sniper' || !h.charge) continue;
+      active.add(h.id);
+      let sight = this.sights.get(h.id);
+      if (!sight) {
+        sight = createSight();
+        this.sights.set(h.id, sight);
+        this.group.add(sight.root);
+      }
+      const progress = Math.min(1, h.charge.time / CONFIG.sniper.chargeTime);
+      const locked = h.charge.locked;
+      const color = locked && flashOn ? PALETTE.laserLocked : PALETTE.laser;
       const [from, to] = laserEnds(h, world);
-      if (!h.charge.locked) charging.push(from, to);
-      else if (flashOn) locked.push(from, to);
+      placeBeam(sight.beam, from, to, locked ? 0.4 : 0.06 + 0.22 * progress);
+      setBeamStyle(sight.beam, color, locked ? 1 : 0.35 + 0.55 * progress);
+
+      sight.glint.position.copy(from);
+      sight.glint.scale.setScalar(
+        (locked ? 10 : 3 + 6 * progress) * (0.85 + 0.15 * Math.sin(this.time * 30)),
+      );
+      sight.glint.material.color.setHex(color);
+
+      const radius = locked
+        ? RETICLE_LOCK_RADIUS
+        : THREE.MathUtils.lerp(RETICLE_START_RADIUS, RETICLE_LOCK_RADIUS, progress);
+      sight.reticle.position.set(h.charge.target.x, 0.12, h.charge.target.y);
+      sight.reticle.scale.setScalar(radius);
+      sight.reticle.rotation.y = this.time * (locked ? 0 : 2.5);
+      sight.reticleMaterial.color.setHex(color);
+      sight.reticleMaterial.opacity = locked ? 1 : 0.5 + 0.5 * progress;
     }
-    setSegments(this.charging, charging);
-    setSegments(this.locked, locked);
+    for (const [id, sight] of this.sights) {
+      if (active.has(id)) continue;
+      this.removeSight(sight);
+      this.sights.delete(id);
+    }
   }
 
   private updateTracers(frameTime: number): void {
-    this.tracerLife = this.tracerLife.filter((t) => (t.life -= frameTime) > 0);
-    setSegments(
-      this.tracers,
-      this.tracerLife.flatMap((t) => [t.from, t.to]),
-    );
+    this.tracers = this.tracers.filter((t) => {
+      t.life -= frameTime;
+      const fade = Math.max(0, t.life / TRACER_SECONDS);
+      setBeamStyle(t.beam, PALETTE.tracer, fade);
+      t.flash.material.opacity = fade;
+      if (t.life > 0) return true;
+      this.removeTracer(t);
+      return false;
+    });
+  }
+
+  private removeTracer(t: { beam: Beam; flash: THREE.Sprite }): void {
+    this.group.remove(t.beam.group, t.flash);
+    disposeBeam(t.beam);
+    t.flash.material.dispose();
+  }
+
+  private removeSight(sight: SniperSight): void {
+    this.group.remove(sight.root);
+    disposeBeam(sight.beam);
+    sight.glint.material.dispose();
+    sight.reticleMaterial.dispose();
+    sight.reticle.traverse((o) => {
+      if (o instanceof THREE.Mesh) o.geometry.dispose();
+    });
   }
 
   private updateImpacts(world: World): void {
@@ -159,27 +216,129 @@ function laserEnds(h: Sniper, world: World): [THREE.Vector3, THREE.Vector3] {
   ];
 }
 
-function laserLines(color: number, opacity: number): THREE.LineSegments {
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute(
-    'position',
-    new THREE.BufferAttribute(new Float32Array(MAX_LASERS * 2 * 3), 3).setUsage(
-      THREE.DynamicDrawUsage,
-    ),
-  );
-  geometry.setDrawRange(0, 0);
-  const lines = new THREE.LineSegments(
-    geometry,
-    new THREE.LineBasicMaterial({ color, transparent: opacity < 1, opacity }),
-  );
-  lines.frustumCulled = false;
-  return lines;
+interface Beam {
+  group: THREE.Group;
+  core: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>;
+  glow: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>;
 }
 
-function setSegments(lines: THREE.LineSegments, points: readonly THREE.Vector3[]): void {
-  const attr = lines.geometry.getAttribute('position') as THREE.BufferAttribute;
-  const n = Math.min(points.length, MAX_LASERS * 2);
-  for (let i = 0; i < n; i++) attr.setXYZ(i, points[i]!.x, points[i]!.y, points[i]!.z);
-  attr.needsUpdate = true;
-  lines.geometry.setDrawRange(0, n);
+interface SniperSight {
+  root: THREE.Group;
+  beam: Beam;
+  glint: THREE.Sprite;
+  reticle: THREE.Group;
+  reticleMaterial: THREE.MeshBasicMaterial;
+}
+
+const unitBeam = new THREE.BoxGeometry(1, 1, 1);
+const additive = (color: number) =>
+  new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    // Unfogged so a Sniper across the city still reads as a threat.
+    fog: false,
+  });
+
+/** A bright core inside a wider, fainter glow; both unit boxes stretched between two points. */
+function createBeam(color: number): Beam {
+  const core = new THREE.Mesh(unitBeam, additive(color));
+  const glow = new THREE.Mesh(unitBeam, additive(color));
+  const group = new THREE.Group();
+  group.add(core, glow);
+  return { group, core, glow };
+}
+
+function placeBeam(beam: Beam, from: THREE.Vector3, to: THREE.Vector3, thickness: number): void {
+  const dir = new THREE.Vector3().subVectors(to, from);
+  const length = dir.length();
+  beam.group.position.copy(from).addScaledVector(dir, 0.5);
+  beam.group.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), dir.normalize());
+  beam.core.scale.set(length, thickness, thickness);
+  beam.glow.scale.set(length, thickness * 3.5, thickness * 3.5);
+}
+
+function disposeBeam(beam: Beam): void {
+  beam.core.material.dispose();
+  beam.glow.material.dispose();
+}
+
+function setBeamStyle(beam: Beam, color: number, opacity: number): void {
+  beam.core.material.color.setHex(color);
+  beam.glow.material.color.setHex(color);
+  beam.core.material.opacity = opacity;
+  beam.glow.material.opacity = opacity * 0.3;
+}
+
+let glintTexture: THREE.CanvasTexture | null = null;
+
+/** A four-pointed lens flare, drawn once and shared. */
+function glintMap(): THREE.CanvasTexture {
+  if (glintTexture) return glintTexture;
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const g = canvas.getContext('2d')!;
+  const c = size / 2;
+  const halo = g.createRadialGradient(c, c, 0, c, c, c);
+  halo.addColorStop(0, 'rgba(255,255,255,1)');
+  halo.addColorStop(0.15, 'rgba(255,255,255,0.8)');
+  halo.addColorStop(0.4, 'rgba(255,255,255,0.15)');
+  halo.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = halo;
+  g.fillRect(0, 0, size, size);
+  g.fillStyle = 'rgba(255,255,255,0.9)';
+  g.beginPath();
+  g.moveTo(c, 0);
+  g.lineTo(c + 3, c - 3);
+  g.lineTo(size, c);
+  g.lineTo(c + 3, c + 3);
+  g.lineTo(c, size);
+  g.lineTo(c - 3, c + 3);
+  g.lineTo(0, c);
+  g.lineTo(c - 3, c - 3);
+  g.closePath();
+  g.fill();
+  glintTexture = new THREE.CanvasTexture(canvas);
+  return glintTexture;
+}
+
+function createGlint(color: number): THREE.Sprite {
+  return new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: glintMap(),
+      color,
+      transparent: true,
+      depthWrite: false,
+      depthTest: false,
+      blending: THREE.AdditiveBlending,
+      fog: false,
+    }),
+  );
+}
+
+/** A unit-radius ring with four inward ticks, laid flat; scaled to the reticle radius. */
+function createReticle(material: THREE.MeshBasicMaterial): THREE.Group {
+  const reticle = new THREE.Group();
+  reticle.add(new THREE.Mesh(new THREE.RingGeometry(0.88, 1, 40).rotateX(-Math.PI / 2), material));
+  for (let i = 0; i < 4; i++) {
+    const tick = new THREE.Mesh(new THREE.PlaneGeometry(0.45, 0.1).rotateX(-Math.PI / 2), material);
+    const a = (i * Math.PI) / 2;
+    tick.position.set(Math.cos(a) * 0.72, 0, Math.sin(a) * 0.72);
+    tick.rotation.y = -a;
+    reticle.add(tick);
+  }
+  return reticle;
+}
+
+function createSight(): SniperSight {
+  const beam = createBeam(PALETTE.laser);
+  const glint = createGlint(PALETTE.laser);
+  const reticleMaterial = additive(PALETTE.laser);
+  reticleMaterial.side = THREE.DoubleSide;
+  const reticle = createReticle(reticleMaterial);
+  const root = new THREE.Group();
+  root.add(beam.group, glint, reticle);
+  return { root, beam, glint, reticle, reticleMaterial };
 }

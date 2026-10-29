@@ -4,7 +4,7 @@ import type { FlowField } from '../flowfield';
 import type { Ship } from '../ship';
 import type { Terrain } from '../terrain';
 
-export type HunterKind = 'tank' | 'sniper' | 'artillery';
+export type HunterKind = 'tank' | 'berserker' | 'sniper' | 'artillery';
 export type TankRole = 'chaser' | 'cutter';
 
 interface HunterBase {
@@ -21,6 +21,19 @@ interface HunterBase {
 export interface Tank extends HunterBase {
   kind: 'tank';
   role: TankRole;
+  /** 1 to circle the Ship anticlockwise, -1 clockwise. */
+  orbitDir: 1 | -1;
+}
+
+export type BerserkerPhase = 'hunt' | 'windup' | 'lunge';
+
+export interface Berserker extends HunterBase {
+  kind: 'berserker';
+  phase: BerserkerPhase;
+  /** Seconds left in the current wind-up or lunge. */
+  phaseTime: number;
+  /** Fixed at the end of the wind-up: straight at where the Ship was then. */
+  lungeDir: Vec2;
 }
 
 /** Sniper or Artillery: holds a Perch at range rather than closing in. */
@@ -49,7 +62,7 @@ export interface Artillery extends Percher {
   kind: 'artillery';
 }
 
-export type Hunter = Tank | Sniper | Artillery;
+export type Hunter = Tank | Berserker | Sniper | Artillery;
 
 /** Shared per-step view of the world that every Hunter decides by. */
 export interface HuntContext {

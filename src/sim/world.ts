@@ -8,8 +8,10 @@ import {
   type HunterAction,
   type HunterKind,
   createArtillery,
+  createBerserker,
   createSniper,
   createTank,
+  endLunge,
   hunterRadius,
   hunterScoreMultiplier,
   stepHunter,
@@ -18,7 +20,7 @@ import { type Ship, canBeHit, createShip, isBursting, stepShip } from './ship';
 import { type Shot, createShot, stepShots } from './shots';
 import { type CityPlan, type TerrainChange, generateCity, planChange } from './city';
 import { Terrain } from './terrain';
-import { spawnPoints, tankSpeed, waveMix } from './waves';
+import { spawnPoints, tankSpeed, waveMix, waveTotal } from './waves';
 
 /** Things that happened during a step, for presentation layers to react to. Never read by the sim. */
 export type SimEvent =
@@ -285,6 +287,7 @@ function resolveShipContacts(world: World): void {
     ship.pos = { x: ship.pos.x + nx * (bodyReach - d), y: ship.pos.y + ny * (bodyReach - d) };
     const into = ship.vel.x * nx + ship.vel.y * ny;
     if (into < 0) ship.vel = { x: ship.vel.x - nx * into, y: ship.vel.y - ny * into };
+    if (h.kind === 'berserker' && h.phase === 'lunge') endLunge(h);
     if (canBeHit(ship)) damageShip(world);
   }
 }
@@ -350,16 +353,19 @@ function startWave(world: World): void {
   world.wave++;
   const mix = waveMix(world.wave);
   const { terrain, rng } = world;
-  const points = spawnPoints(terrain, world.ship.pos, mix.tanks + mix.snipers + mix.artillery, rng);
+  const points = spawnPoints(terrain, world.ship.pos, waveTotal(mix), rng);
+  const specials = mix.snipers + mix.artillery + mix.berserkers;
   points.forEach((p, i) => {
     const id = world.nextId++;
     if (i < mix.snipers) {
       world.hunters.push(createSniper(id, p, terrain, rng));
     } else if (i < mix.snipers + mix.artillery) {
       world.hunters.push(createArtillery(id, p, terrain, rng));
+    } else if (i < specials) {
+      world.hunters.push(createBerserker(id, p, rng));
     } else {
       // Interleave roles so every Wave has both Chasers and Cutters.
-      const t = i - mix.snipers - mix.artillery;
+      const t = i - specials;
       const f = CONFIG.tank.cutterFraction;
       const role = Math.floor((t + 1) * f) > Math.floor(t * f) ? 'cutter' : 'chaser';
       world.hunters.push(createTank(id, role, p, rng));

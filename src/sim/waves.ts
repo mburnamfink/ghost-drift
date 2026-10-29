@@ -5,25 +5,29 @@ import type { Terrain } from './terrain';
 
 export interface WaveMix {
   tanks: number;
+  berserkers: number;
   snipers: number;
   artillery: number;
 }
 
-/** How many of each Hunter type a Wave sends. Tanks are always the bulk. */
+/** Count for a special type: one when it first appears, then one more every `every` Waves, capped. */
+const ramp = (wave: number, from: number, every: number, max: number) =>
+  wave < from ? 0 : Math.min(max, 1 + Math.floor((wave - from) / every));
+
+/** How many of each Hunter type a Wave sends. From Wave 4, fewer Tanks and more special types. */
 export function waveMix(wave: number): WaveMix {
   const c = CONFIG.waves;
+  const tanks = Math.min(c.maxCount, c.firstCount + c.countPerWave * (wave - 1));
   return {
-    tanks: Math.min(c.maxCount, c.firstCount + c.countPerWave * (wave - 1)),
-    snipers:
-      wave < c.sniperFromWave
-        ? 0
-        : Math.min(c.maxSnipers, 1 + Math.floor((wave - c.sniperFromWave) / 2)),
-    artillery:
-      wave < c.artilleryFromWave
-        ? 0
-        : Math.min(c.maxArtillery, 1 + Math.floor((wave - c.artilleryFromWave) / 3)),
+    tanks: wave >= c.tankReductionFromWave ? Math.round(tanks * (1 - c.tankReduction)) : tanks,
+    berserkers: ramp(wave, c.berserkerFromWave, 2, c.maxBerserkers),
+    snipers: ramp(wave, c.sniperFromWave, 1.5, c.maxSnipers),
+    artillery: ramp(wave, c.artilleryFromWave, 2, c.maxArtillery),
   };
 }
+
+export const waveTotal = (mix: WaveMix): number =>
+  mix.tanks + mix.berserkers + mix.snipers + mix.artillery;
 
 export const tankSpeed = (wave: number): number =>
   Math.min(CONFIG.tank.maxSpeed, CONFIG.tank.baseSpeed + CONFIG.tank.speedPerWave * (wave - 1));

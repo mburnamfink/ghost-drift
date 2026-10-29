@@ -5,7 +5,7 @@ import { type Tank, createTank } from './hunters';
 import { Rng } from '../core/rng';
 import { terrainFromRows } from './terrain';
 import { createWorld, stepWorld, type World } from './world';
-import { waveMix } from './waves';
+import { waveMix, waveTotal } from './waves';
 
 const DT = 1 / CONFIG.sim.stepHz;
 const openArena = () => terrainFromRows(Array.from({ length: 64 }, () => '.'.repeat(64)));
@@ -23,7 +23,7 @@ describe('Waves', () => {
   it('spawns the first Wave after the opening lull, away from the Ship', () => {
     const world = createWorld(1, openArena());
     runUntil(world, (w) => w.wave === 1);
-    expect(world.hunters).toHaveLength(waveMix(1).tanks);
+    expect(world.hunters).toHaveLength(waveTotal(waveMix(1)));
     for (const h of world.hunters) {
       expect(
         Math.hypot(h.pos.x - world.ship.pos.x, h.pos.y - world.ship.pos.y),
@@ -42,7 +42,7 @@ describe('Waves', () => {
     expect(world.events.some((e) => e.type === 'waveCleared')).toBe(true);
     expect(world.ship.charges).toBe(CONFIG.ship.burstCharges);
     runUntil(world, (w) => w.wave === 2);
-    expect(world.hunters).toHaveLength(waveMix(2).tanks);
+    expect(world.hunters).toHaveLength(waveTotal(waveMix(2)));
   });
 });
 

@@ -36,7 +36,10 @@ Any enemy unit. Slower than the Ship at speed; deadly to a slow one.
 _Avoid_: Enemy (in code), mob, tank
 
 **Tank**:
-The common Hunter. Closes on the Ship as a Chaser or a Cutter and fires Shells at where the Ship is.
+The common Hunter. Out of sight it closes in as a Chaser or a Cutter; once it can see the Ship it circles at Stand-off range, firing Shells at where the Ship is.
+
+**Stand-off**:
+The range, about 28 units, at which a Tank that can see the Ship circles instead of closing in.
 
 **Chaser**:
 A Tank role that steers toward where the Ship is now.
@@ -44,6 +47,10 @@ A Tank role that steers toward where the Ship is now.
 **Cutter**:
 A Tank role that steers toward where the Ship is about to be, to close its escape routes.
 _Avoid_: Interceptor, flanker
+
+**Berserker**:
+An unarmed Hunter that runs the Ship down, winds up, then lunges in a straight line. Hurts only by ramming.
+_Avoid_: Rammer, kamikaze
 
 **Sniper**:
 A Hunter that holds a Perch with long sightlines and fires an instant shot at where the Ship will be if it keeps a straight line. Its laser warns of the shot.

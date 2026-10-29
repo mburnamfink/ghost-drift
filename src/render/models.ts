@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { CONFIG } from '../config';
 import type { HunterKind } from '../sim/hunters';
 import { PALETTE } from './palette';
@@ -45,6 +46,7 @@ export interface HunterModel {
   root: THREE.Group;
   /** Yaws to the Hunter's aim, relative to its hull. */
   turret: THREE.Group;
+  body: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
 }
 
 const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
@@ -74,6 +76,12 @@ const SHAPES: Record<
       return [new THREE.Mesh(box(1, 0.6, 1), hunterTurretMaterial), barrel];
     },
   },
+  berserker: {
+    body: spearhead(),
+    bodyY: 0.8,
+    turretY: 1.2,
+    parts: () => [],
+  },
   artillery: {
     body: box(4.2, 1.1, 3.6),
     bodyY: 0.6,
@@ -90,16 +98,30 @@ const SHAPES: Record<
   },
 };
 
+/** A four-sided ram pointing along +X with two swept side spikes. */
+function spearhead(): THREE.BufferGeometry {
+  const ram = new THREE.ConeGeometry(1.2, 3.8, 4).rotateZ(-Math.PI / 2).scale(1, 0.6, 1);
+  const spike = (side: number) =>
+    new THREE.ConeGeometry(0.35, 2, 4)
+      .rotateZ(-Math.PI / 2)
+      .rotateY(side * 0.5)
+      .translate(-0.2, 0, side * 1.1);
+  return mergeGeometries([ram, spike(1), spike(-1)].map((g) => g.toNonIndexed()));
+}
+
 export function createHunterModel(kind: HunterKind): HunterModel {
   const shape = SHAPES[kind];
-  const body = new THREE.Mesh(shape.body, hunterBodyMaterial);
+  // Berserkers glow while winding up, so each needs its own material.
+  const material = kind === 'berserker' ? hunterBodyMaterial.clone() : hunterBodyMaterial;
+  const body = new THREE.Mesh(shape.body, material);
   body.position.y = shape.bodyY;
   const turret = new THREE.Group();
   turret.position.y = shape.turretY;
-  turret.add(...shape.parts());
+  const parts = shape.parts();
+  if (parts.length > 0) turret.add(...parts);
   const root = new THREE.Group();
   root.add(body, turret);
-  return { root, turret };
+  return { root, turret, body };
 }
 
 /** Where Sniper lasers and tracers start. */

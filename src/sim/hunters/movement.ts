@@ -8,9 +8,8 @@ import type { Hunter, HuntContext } from './types';
 const ARRIVE_DISTANCE = 1.5;
 
 /**
- * Accelerates a Hunter toward `target` at up to `speed`, spreading away from other Hunters and
- * sliding along terrain. It steers straight at a visible, nearby target and otherwise descends
- * `field`, which must lead to the same target.
+ * Accelerates a Hunter toward `target` at up to `speed`. It steers straight at a visible, nearby
+ * target and otherwise descends `field`, which must lead to the same target.
  */
 export function moveHunter(
   h: Hunter,
@@ -31,7 +30,22 @@ export function moveHunter(
   } else {
     dir = field.directionFrom(h.pos) ?? normalize({ x: target.x - h.pos.x, y: target.y - h.pos.y });
   }
+  steerHunter(h, dir, speed, radius, ctx, dt);
+}
 
+/**
+ * Accelerates a Hunter along unit direction `dir` (or to a stop for a zero vector) at up to `speed`,
+ * spreading away from other Hunters and sliding along terrain.
+ */
+export function steerHunter(
+  h: Hunter,
+  dir: Vec2,
+  speed: number,
+  radius: number,
+  ctx: HuntContext,
+  dt: number,
+): void {
+  const cfg = CONFIG.hunters;
   const sep = separation(h, ctx.hunters);
   const steer = { x: dir.x + sep.x, y: dir.y + sep.y };
   const len = Math.hypot(steer.x, steer.y);
@@ -43,7 +57,11 @@ export function moveHunter(
   const maxDv = cfg.accel * dt;
   const k = dv > maxDv ? maxDv / dv : 1;
   h.vel = { x: h.vel.x + dvx * k, y: h.vel.y + dvy * k };
+  slideHunter(h, radius, ctx, dt);
+}
 
+/** Moves a Hunter by its velocity, sliding along terrain, and turns its hull toward travel. */
+export function slideHunter(h: Hunter, radius: number, ctx: HuntContext, dt: number): boolean {
   const hit = resolveCircle(
     ctx.terrain,
     { x: h.pos.x + h.vel.x * dt, y: h.pos.y + h.vel.y * dt },
@@ -51,10 +69,10 @@ export function moveHunter(
   );
   h.pos = hit.pos;
   if (hit.normal) h.vel = slideAlong(h.vel, hit.normal);
-
   if (Math.hypot(h.vel.x, h.vel.y) > 0.5) {
-    h.heading = turnToward(h.heading, Math.atan2(h.vel.y, h.vel.x), cfg.turnRate * dt);
+    h.heading = turnToward(h.heading, Math.atan2(h.vel.y, h.vel.x), CONFIG.hunters.turnRate * dt);
   }
+  return hit.normal !== null;
 }
 
 function separation(h: Hunter, hunters: readonly Hunter[]): Vec2 {

@@ -11,6 +11,8 @@ export type Screen =
   | { kind: 'over'; pad: string | null; score: number; wave: number; best: number };
 
 const BANNER_SECONDS = 2;
+/** A Sniper whose aim point is this close to the Ship counts as targeting it. */
+const TARGETED_DISTANCE = 10;
 
 /** DOM overlay: always-on readouts plus title, pause and game-over screens. */
 export class Hud {
@@ -24,6 +26,8 @@ export class Hud {
   private readonly banner: HTMLElement;
   private readonly screen: HTMLElement;
   private readonly threats: HTMLElement;
+  private readonly vignette: HTMLElement;
+  private readonly locked: HTMLElement;
   private bannerTime = 0;
   private lastScreen = '';
 
@@ -37,6 +41,8 @@ export class Hud {
       </div>
       <div class="hud-speed"><div class="hud-speed-fill"></div><div class="hud-speed-marker"></div><span class="hud-label">SPEED</span></div>
       <div class="hud-banner"></div>
+      <div class="hud-vignette"></div>
+      <div class="hud-locked">◢ LOCKED ◣</div>
       <div class="hud-threats"></div>
       <div class="hud-screen"></div>`;
     container.appendChild(this.root);
@@ -50,6 +56,8 @@ export class Hud {
     this.banner = q('.hud-banner');
     this.screen = q('.hud-screen');
     this.threats = q('.hud-threats');
+    this.vignette = q('.hud-vignette');
+    this.locked = q('.hud-locked');
   }
 
   handleEvents(events: readonly SimEvent[]): void {
@@ -61,6 +69,7 @@ export class Hud {
 
   update(world: World, screen: Screen, frameTime: number, threats: readonly ScreenThreat[]): void {
     this.updateThreats(screen.kind === 'none' ? threats : []);
+    this.updateTargeting(world, screen.kind === 'none');
     const { ship } = world;
     this.score.textContent = world.score.toString().padStart(6, '0');
     this.wave.textContent = world.wave > 0 ? `WAVE ${world.wave}` : '';
@@ -83,6 +92,25 @@ export class Hud {
       this.screen.innerHTML = renderScreen(screen);
       this.screen.style.display = screen.kind === 'none' ? 'none' : 'flex';
     }
+  }
+
+  /**
+   * A red vignette that deepens as a Sniper aimed at the Ship charges, and a LOCKED warning once
+   * one locks. A Sniper counts as aimed at the Ship while its aim point is near it.
+   */
+  private updateTargeting(world: World, playing: boolean): void {
+    let level = 0;
+    let locked = false;
+    for (const h of world.hunters) {
+      if (h.kind !== 'sniper' || !h.charge) continue;
+      const t = h.charge.target;
+      if (Math.hypot(t.x - world.ship.pos.x, t.y - world.ship.pos.y) > TARGETED_DISTANCE) continue;
+      locked ||= h.charge.locked;
+      level = Math.max(level, h.charge.locked ? 1 : h.charge.time / CONFIG.sniper.chargeTime);
+    }
+    if (!playing) level = 0;
+    this.vignette.style.opacity = String(level);
+    this.locked.style.display = playing && locked ? 'block' : 'none';
   }
 
   /** Arrows pinned to the screen edge, pointing toward threats outside the view. */

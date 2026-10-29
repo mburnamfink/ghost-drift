@@ -87,7 +87,25 @@ export const CONFIG = {
     /** Within this distance a Cutter stops predicting and chases. */
     cutterCommitDistance: 14,
     cutterFraction: 0.4,
+    /** With the Ship in sight and within `engageRange`, a Tank circles at about `standoff`. */
+    engageRange: 50,
+    standoff: 28,
+    /** Distance from `standoff` at which a Tank steers fully inward or outward. */
+    standoffBand: 8,
     scoreMultiplier: 1,
+  },
+  berserker: {
+    radius: 1.5,
+    /** Faster than any Tank, still slower than the Ship at speed. */
+    speed: 27,
+    /** Within this distance, with line of sight, it winds up a lunge. */
+    lungeRange: 24,
+    /** Seconds it stands still, glowing, before lunging; the Ship's chance to sidestep. */
+    windup: 0.35,
+    lungeSpeed: 58,
+    lungeTime: 0.55,
+    lungeCooldown: 1.8,
+    scoreMultiplier: 1.5,
   },
   sniper: {
     radius: 1.4,
@@ -143,10 +161,15 @@ export const CONFIG = {
     minSpawnDistance: 70,
     /** Score for a Tank; other types multiply it, and every kill is multiplied by the Wave number. */
     killScore: 100,
+    /** From this Wave, Tank numbers are cut by `tankReduction` to make room for special Hunters. */
+    tankReductionFromWave: 4,
+    tankReduction: 0.25,
+    berserkerFromWave: 2,
+    maxBerserkers: 6,
     sniperFromWave: 3,
-    maxSnipers: 4,
+    maxSnipers: 5,
     artilleryFromWave: 5,
-    maxArtillery: 3,
+    maxArtillery: 4,
   },
 } as const;
 

@@ -20,13 +20,16 @@ Battlezone meets Wipeout. Terms are defined in [CONTEXT.md](../CONTEXT.md); arch
 
 ## Hunters
 
-| Type      | From Wave | Behaviour                                                                                                                                  | Punishes                                   | Counter                                         | Score |
-| --------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ | ----------------------------------------------- | ----- |
-| Tank      | 1         | Chasers close on the Ship, Cutters head it off; Shells aimed at where the Ship is                                                          | Slowing down                               | Keep moving                                     | 1×    |
-| Sniper    | 3 (max 4) | Holds a long-sightline Perch 60–110 away; red laser tracks where the Ship will be 0.6 s ahead, flashes white on lock, then an instant shot | Straight lines, including long Powerslides | Turn after the lock, break line of sight, Burst | 2.5×  |
-| Artillery | 5 (max 3) | Holds a covered Perch ~105 away; three-shell Salvo along the projected path, each landing as its ground circle fills                       | Open ground: the Plaza and Avenues         | Speed, or get under the buildings               | 3×    |
+| Type      | From Wave | Behaviour                                                                                                                                                                                                 | Punishes                                   | Counter                                         | Score |
+| --------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ----------------------------------------------- | ----- |
+| Tank      | 1         | Out of sight: Chasers close in, Cutters head the Ship off. In sight within 50: circles at a stand-off of about 28, firing Shells at where the Ship is                                                     | Slowing down                               | Keep moving                                     | 1×    |
+| Berserker | 2 (max 6) | No gun. Runs the Ship down faster than any Tank; within 24 it stops and glows for 0.35 s, then lunges straight at where the Ship was                                                                      | Hesitation at close range                  | Sidestep during the wind-up                     | 1.5×  |
+| Sniper    | 3 (max 5) | Holds a long-sightline Perch 60–110 away; a thickening red beam, a scope glint and a closing ground reticle track where the Ship will be 0.6 s ahead; on lock all three flash white, then an instant shot | Straight lines, including long Powerslides | Turn after the lock, break line of sight, Burst | 2.5×  |
+| Artillery | 5 (max 4) | Holds a covered Perch ~105 away; three-shell Salvo along the projected path, each landing as its ground circle fills                                                                                      | Open ground: the Plaza and Avenues         | Speed, or get under the buildings               | 3×    |
 
-Snipers and Artillery die to one Bolt but keep their distance and move to a new Perch when the Ship gets close. Artillery blasts destroy any Hunter caught in them, and the player gets the score. Threats outside the view show as blinking arrows at the screen edge: red for a charging Sniper, orange for an incoming shell.
+From Wave 4, Tank numbers are cut by a quarter and special Hunters fill the gap. While a Sniper is aimed at the Ship, a red vignette deepens at the screen edges, and LOCKED flashes once it locks.
+
+Every type dies to one Bolt. Snipers and Artillery keep their distance and move to a new Perch when the Ship gets close. Artillery blasts destroy any Hunter caught in them, and the player gets the score. Threats outside the view show as blinking arrows at the screen edge: red for a charging Sniper, orange for an incoming shell.
 
 ## The city
 
@@ -72,7 +75,7 @@ The browser only exposes a controller after a button is pressed with the page fo
 
 - A seeded city per Run: Plaza, Avenues, Streets and Alleys, densifying between Waves.
 - Ship with thrust, steering, Powerslide, Burst (3 Charges) and Bolts.
-- Three Hunter types: Tanks (Chaser and Cutter roles), Snipers and Artillery.
+- Four Hunter types: Tanks (Chaser and Cutter roles), Berserkers, Snipers and Artillery.
 - Endless Waves with growing Hunter counts, score with a Wave multiplier, Hull of 3.
 - HUD: score, Wave, Hull, Charges, speed bar marked at Hunter speed. Title, pause and game-over screens.
 
