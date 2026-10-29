@@ -1,13 +1,13 @@
 import * as THREE from 'three';
-import { SHIP_TOP_SPEED } from '../config';
+import { CONFIG, SHIP_TOP_SPEED } from '../config';
 import { clamp, wrapAngle } from '../core/vec2';
-import type { Berserker } from '../sim/hunters';
+import type { Artillery, Berserker } from '../sim/hunters';
 import { isBursting, speedOf } from '../sim/ship';
 import type { Shot } from '../sim/shots';
 import type { SimEvent, World } from '../sim/world';
 import { Afterimages } from './afterimages';
 import { Debris } from './debris';
-import { type HunterModel, createHunterModel, createShipModel } from './models';
+import { type HunterModel, MORTAR_MOUNT, createHunterModel, createShipModel } from './models';
 import { PALETTE } from './palette';
 import { PulsesView } from './pulsesView';
 import { TerrainView } from './terrainView';
@@ -43,6 +43,8 @@ const SHIP_BANK = {
  * speed. Below the ~65% a full-lock turn at full thrust holds, so hard cornering still trails.
  */
 const SHIP_BLUR = { from: 0.5, minStrength: 0.35 };
+/** How far, and for how long, an Artillery mortar kicks back when it fires. */
+const MORTAR_RECOIL = { distance: 0.8, seconds: 0.35 };
 const SPARK = {
   /** Sparks per second at top speed. */
   rate: 140,
@@ -59,8 +61,10 @@ export class GameRenderer {
   private readonly camera = new THREE.PerspectiveCamera(CAMERA.baseFov, 1, 0.1, 600);
   private readonly ship = createShipModel();
   private readonly hunters = new Map<number, HunterModel>();
+  /** Per Artillery piece: last seen cooldown, to spot firing, and seconds of recoil left. */
+  private readonly mortars = new Map<number, { cooldown: number; recoil: number }>();
   private readonly bolts: THREE.InstancedMesh;
-  /** Tank shells drawn as a solid core, a soft halo and a trail streaming behind. */
+  /** Tank shells drawn as a solid core inside a faint halo. */
   private readonly shellLayers: THREE.InstancedMesh[];
   private readonly pulses = new PulsesView();
   private readonly debris = new Debris();
@@ -96,9 +100,8 @@ export class GameRenderer {
 
     this.bolts = shotMesh(new THREE.BoxGeometry(1.6, 0.25, 0.25), PALETTE.bolt);
     this.shellLayers = [
-      shotMesh(new THREE.IcosahedronGeometry(0.75, 0), PALETTE.tankShell),
-      shotMesh(new THREE.IcosahedronGeometry(1.3, 1), PALETTE.tankShell, 0.3),
-      shotMesh(new THREE.BoxGeometry(4, 0.35, 0.35).translate(-2.2, 0, 0), PALETTE.tankShell, 0.45),
+      shotMesh(new THREE.IcosahedronGeometry(0.45, 0), PALETTE.tankShell),
+      shotMesh(new THREE.IcosahedronGeometry(0.8, 1), PALETTE.tankShell, 0.2),
     ];
     this.scene.add(
       this.ship.root,
@@ -224,6 +227,34 @@ export class GameRenderer {
     else this.afterimages.stop(h.id);
   }
 
+  /**
+   * The mortar's mouth glows brighter as it reloads and pulses once ready, so a loaded piece reads
+   * as a threat; it kicks back along its tube when it fires.
+   */
+  private styleArtillery(h: Artillery, model: HunterModel, frameTime: number): void {
+    const { mortar, glow } = model;
+    if (!mortar || !glow) return;
+    const state = this.mortars.get(h.id) ?? { cooldown: h.fireCooldown, recoil: 0 };
+    // Firing resets the cooldown upward; any rise means a Salvo just left.
+    state.recoil =
+      h.fireCooldown > state.cooldown
+        ? MORTAR_RECOIL.seconds
+        : Math.max(0, state.recoil - frameTime);
+    state.cooldown = h.fireCooldown;
+    this.mortars.set(h.id, state);
+
+    const kick = (MORTAR_RECOIL.distance * state.recoil) / MORTAR_RECOIL.seconds;
+    mortar.position.set(
+      -Math.sin(MORTAR_MOUNT.pitch) * kick,
+      MORTAR_MOUNT.y - Math.cos(MORTAR_MOUNT.pitch) * kick,
+      0,
+    );
+    const readiness = clamp(1 - h.fireCooldown / CONFIG.artillery.cooldown, 0, 1);
+    const pulse = h.fireCooldown <= 0 ? 0.25 * Math.sin(this.elapsed * 12) : 0;
+    glow.scale.setScalar(0.3 + readiness + pulse);
+    glow.material.opacity = 0.15 + 0.85 * readiness * readiness;
+  }
+
   /** Direction the camera faces, in simulation radians. */
   get viewYaw(): number {
     return this.cameraYaw;
@@ -319,12 +350,15 @@ export class GameRenderer {
       model.root.rotation.y = -h.heading;
       model.turret.rotation.y = -(h.aim - h.heading);
       if (h.kind === 'berserker') this.styleBerserker(h, model, frameTime);
+      if (h.kind === 'artillery') this.styleArtillery(h, model, frameTime);
     }
     for (const [id, model] of this.hunters) {
       if (alive.has(id)) continue;
       this.afterimages.stop(id);
       this.scene.remove(model.root);
+      model.glow?.material.dispose();
       this.hunters.delete(id);
+      this.mortars.delete(id);
     }
   }
 

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { CONFIG } from '../config';
 import type { Sniper } from '../sim/hunters';
 import type { Impact, SimEvent, World } from '../sim/world';
-import { SNIPER_MUZZLE_HEIGHT } from './models';
+import { sniperMuzzle } from './models';
 import { PALETTE } from './palette';
 
 const TRACER_SECONDS = 0.3;
@@ -34,14 +34,10 @@ export class ThreatsView {
     for (const e of events) {
       if (e.type !== 'sniperFired') continue;
       const beam = createBeam(PALETTE.tracer);
-      placeBeam(
-        beam,
-        new THREE.Vector3(e.from.x, SNIPER_MUZZLE_HEIGHT, e.from.y),
-        new THREE.Vector3(e.to.x, 1, e.to.y),
-        0.6,
-      );
+      const muzzle = sniperMuzzle(e.from, Math.atan2(e.to.y - e.from.y, e.to.x - e.from.x));
+      placeBeam(beam, muzzle, new THREE.Vector3(e.to.x, 1, e.to.y), 0.6);
       const flash = createGlint(PALETTE.laserLocked);
-      flash.position.set(e.from.x, SNIPER_MUZZLE_HEIGHT, e.from.y);
+      flash.position.copy(muzzle);
       flash.scale.setScalar(14);
       this.group.add(beam.group, flash);
       this.tracers.push({ beam, flash, life: TRACER_SECONDS });
@@ -195,7 +191,7 @@ function laserEnds(h: Sniper, world: World): [THREE.Vector3, THREE.Vector3] {
   const dir = { x: dx / len, y: dy / len };
   const range = world.terrain.castRay(h.pos, dir, CONFIG.sniper.maxRange * 1.5);
   return [
-    new THREE.Vector3(h.pos.x, SNIPER_MUZZLE_HEIGHT, h.pos.y),
+    sniperMuzzle(h.pos, Math.atan2(dir.y, dir.x)),
     new THREE.Vector3(h.pos.x + dir.x * range, 1, h.pos.y + dir.y * range),
   ];
 }

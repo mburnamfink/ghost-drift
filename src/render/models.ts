@@ -47,33 +47,79 @@ export interface HunterModel {
   /** Yaws to the Hunter's aim, relative to its hull. */
   turret: THREE.Group;
   body: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
+  /** Artillery only: the mortar, which recoils, and the glow at its mouth that builds while reloading. */
+  mortar?: THREE.Group;
+  glow?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
 }
 
 const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
+const turretMesh = (g: THREE.BufferGeometry) => new THREE.Mesh(g, hunterTurretMaterial);
+const merge = (parts: THREE.BufferGeometry[]) =>
+  mergeGeometries(parts.map((g) => (g.index ? g.toNonIndexed() : g)));
 
-/** Silhouettes differ by type so each threat reads at a glance: wide tank, tall sniper, squat mortar. */
+/** A three-sided cone lying along +X with a ridge on top and a flat belly, like the Ship's hull. */
+const wedge = (radius: number, length: number, height: number) =>
+  new THREE.ConeGeometry(radius, length, 3)
+    .rotateZ(-Math.PI / 2)
+    .rotateX(-Math.PI / 2)
+    .scale(1, height, 1);
+
+/** Artillery mortar: tilt toward +X from vertical, and the height of its pivot on the turret. */
+export const MORTAR_MOUNT = { pitch: 0.6, y: 0.3 };
+
+/** Sniper rifle mount: shoulder height, and the muzzle's offset ahead and to the right of centre. */
+const SNIPER_SHOULDER = 3.3;
+const SNIPER_MUZZLE_AHEAD = 4.6;
+const SNIPER_MUZZLE_RIGHT = 0.65;
+
+/**
+ * Silhouettes differ by type so each threat reads at a glance, all in the Berserker's faceted style:
+ * a low wedge Tank, a spindly Sniper, a squat splayed Artillery piece.
+ */
 const SHAPES: Record<
   HunterKind,
   { body: THREE.BufferGeometry; bodyY: number; turretY: number; parts: () => THREE.Object3D[] }
 > = {
   tank: {
-    body: box(3.4, 1.3, 2.6),
+    body: merge([
+      wedge(2.1, 4.2, 0.5),
+      // Side pods, like treads swept forward.
+      ...[1, -1].map((side) => box(2.6, 0.6, 0.7).translate(-0.5, -0.2, side * 1.35)),
+    ]),
     bodyY: 0.75,
-    turretY: 1.85,
+    turretY: 1.35,
     parts: () => {
-      const barrel = new THREE.Mesh(box(2, 0.3, 0.3), hunterTurretMaterial);
-      barrel.position.x = 1.4;
-      return [new THREE.Mesh(box(1.5, 0.9, 1.5), hunterTurretMaterial), barrel];
+      const barrel = turretMesh(box(1.4, 0.4, 0.4));
+      barrel.position.set(1.2, 0.05, 0);
+      return [turretMesh(wedge(0.85, 1.9, 0.6)), barrel];
     },
   },
   sniper: {
-    body: box(1.6, 2.8, 1.6),
-    bodyY: 1.4,
-    turretY: 3.1,
+    body: merge([
+      // Torso: an inverted four-sided wedge, broad at the shoulders.
+      new THREE.ConeGeometry(0.7, 1.9, 4).rotateX(Math.PI).translate(0, 2.55, 0),
+      new THREE.OctahedronGeometry(0.35).translate(0, 3.75, 0),
+      // Tripod legs, splayed.
+      ...[0, 1, 2].map((i) =>
+        new THREE.ConeGeometry(0.13, 2.4, 4)
+          .translate(0, -1.2, 0)
+          .rotateZ(0.6)
+          .rotateY((i * Math.PI * 2) / 3 + Math.PI / 3)
+          .translate(0, 2.1, 0),
+      ),
+    ]),
+    bodyY: 0,
+    turretY: SNIPER_SHOULDER,
     parts: () => {
-      const barrel = new THREE.Mesh(box(3.6, 0.22, 0.22), hunterTurretMaterial);
-      barrel.position.x = 1.9;
-      return [new THREE.Mesh(box(1, 0.6, 1), hunterTurretMaterial), barrel];
+      const z = SNIPER_MUZZLE_RIGHT;
+      const length = SNIPER_MUZZLE_AHEAD + 0.9;
+      const barrel = turretMesh(box(length, 0.16, 0.16));
+      barrel.position.set(SNIPER_MUZZLE_AHEAD - length / 2, 0, z);
+      const scope = turretMesh(box(1, 0.26, 0.22));
+      scope.position.set(0.6, 0.26, z);
+      const stock = turretMesh(box(1, 0.4, 0.28));
+      stock.position.set(-0.7, -0.1, z);
+      return [barrel, scope, stock];
     },
   },
   berserker: {
@@ -83,18 +129,21 @@ const SHAPES: Record<
     parts: () => [],
   },
   artillery: {
-    body: box(4.2, 1.1, 3.6),
+    body: merge([
+      new THREE.CylinderGeometry(1.7, 2.2, 0.9, 6),
+      // Stabilizer legs planted at the corners.
+      ...[0, 1, 2, 3].map((i) =>
+        new THREE.ConeGeometry(0.4, 2.6, 4)
+          .rotateZ(-Math.PI / 2)
+          .scale(1, 0.6, 1)
+          .rotateZ(-0.35)
+          .translate(1.9, -0.3, 0)
+          .rotateY(Math.PI / 4 + (i * Math.PI) / 2),
+      ),
+    ]),
     bodyY: 0.6,
-    turretY: 1.3,
-    parts: () => {
-      // A fat tube pitched up toward +X, the direction the turret faces.
-      const tube = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.65, 0.75, 2.8, 8).translate(0, 1.2, 0),
-        hunterTurretMaterial,
-      );
-      tube.rotation.z = -0.65;
-      return [new THREE.Mesh(box(2, 0.8, 2), hunterTurretMaterial), tube];
-    },
+    turretY: 1.05,
+    parts: () => [turretMesh(new THREE.CylinderGeometry(0.9, 1.3, 0.7, 6))],
   },
 };
 
@@ -121,8 +170,37 @@ export function createHunterModel(kind: HunterKind): HunterModel {
   if (parts.length > 0) turret.add(...parts);
   const root = new THREE.Group();
   root.add(body, turret);
-  return { root, turret, body };
+  if (kind !== 'artillery') return { root, turret, body };
+
+  // A four-sided tapered mortar pitched up toward +X, with a glow at its mouth.
+  const mortar = new THREE.Group();
+  mortar.rotation.z = -MORTAR_MOUNT.pitch;
+  mortar.position.y = MORTAR_MOUNT.y;
+  const tube = turretMesh(new THREE.CylinderGeometry(0.55, 0.85, 3, 4).translate(0, 1.5, 0));
+  tube.rotation.y = Math.PI / 4;
+  const glow = new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.6),
+    new THREE.MeshBasicMaterial({
+      color: PALETTE.shell,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    }),
+  );
+  glow.position.y = 3;
+  mortar.add(tube, glow);
+  turret.add(mortar);
+  return { root, turret, body, mortar, glow };
 }
 
-/** Where Sniper lasers and tracers start. */
-export const SNIPER_MUZZLE_HEIGHT = SHAPES.sniper.turretY;
+/** Where a Sniper's laser and tracer start: the muzzle of its shoulder rifle, aimed along `angle`. */
+export function sniperMuzzle(pos: { x: number; y: number }, angle: number): THREE.Vector3 {
+  const fx = Math.cos(angle);
+  const fy = Math.sin(angle);
+  // A model's local +Z is the simulation's (-sin, cos): the right-hand side of its facing.
+  return new THREE.Vector3(
+    pos.x + fx * SNIPER_MUZZLE_AHEAD - fy * SNIPER_MUZZLE_RIGHT,
+    SNIPER_SHOULDER,
+    pos.y + fy * SNIPER_MUZZLE_AHEAD + fx * SNIPER_MUZZLE_RIGHT,
+  );
+}
