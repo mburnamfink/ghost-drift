@@ -1,5 +1,6 @@
 import { CONFIG } from '../../config';
 import type { Rng } from '../../core/rng';
+import type { Vec2 } from '../../core/vec2';
 import type { LayoutSpec } from './layouts';
 import { carveFootprint, pickFootprint } from './footprints';
 import type { Arch, CityPlan, Plot, Rect } from './plan';
@@ -33,8 +34,13 @@ export function buildCity(spec: LayoutSpec, rng: Rng, cells: number): CityPlan {
       if (inside[i] && !open[i]) lining[i] = liningAt(spec, x + 0.5, y + 0.5);
     }
   }
+  // Everything is built outward from the spawn, so it must stand on open ground inside the city.
+  spec = { ...spec, spawn: nearestCell(spec.spawn, n, (x, y) => open[at(x, y)] === 1) };
   const buildable = (x: number, y: number) =>
-    inside[at(x, y)] === 1 && open[at(x, y)] === 0 && lining[at(x, y)] === 0;
+    inside[at(x, y)] === 1 &&
+    open[at(x, y)] === 0 &&
+    lining[at(x, y)] === 0 &&
+    (!spec.buildOnly || spec.buildOnly.some((s) => contains(s, x + 0.5, y + 0.5)));
 
   const lots = subdivide(rng, n)
     .map((r) => largestRect(r, buildable))
@@ -60,7 +66,8 @@ export function buildCity(spec: LayoutSpec, rng: Rng, cells: number): CityPlan {
   const plots: Plot[] = [];
   let nextId = 1;
   for (const r of reachable) {
-    if (rng.next() < c.emptyPlotChance) continue;
+    const zone = spec.zone?.(r.x + r.w / 2, r.y + r.h / 2) ?? {};
+    if (rng.next() < (zone.emptyChance ?? c.emptyPlotChance)) continue;
     // Faces open ground across at most a Street.
     let frontage = false;
     const reach = c.street + 1;
@@ -74,12 +81,14 @@ export function buildCity(spec: LayoutSpec, rng: Rng, cells: number): CityPlan {
     plots.push({
       ...r,
       ...(parts ? { parts } : {}),
+      ...(zone.permanent ? { permanent: true } : {}),
       id: nextId++,
       kind: 'building',
       height:
-        c.minBlockHeight +
-        (c.maxBlockHeight - c.minBlockHeight) * (0.5 * size + 0.5 * rng.next()) +
-        c.edgeExtraHeight * nearEdge,
+        (c.minBlockHeight +
+          (c.maxBlockHeight - c.minBlockHeight) * (0.5 * size + 0.5 * rng.next()) +
+          c.edgeExtraHeight * nearEdge) *
+        (zone.heightScale ?? 1),
       priority:
         r.w *
         r.h *
@@ -287,6 +296,21 @@ function largestRect(r: Rect, ok: (x: number, y: number) => boolean): Rect | nul
   return best;
 }
 
+/** The center of the cell nearest `p` that satisfies `ok`, or `p` itself if its cell does. */
+function nearestCell(p: Vec2, cells: number, ok: (x: number, y: number) => boolean): Vec2 {
+  const px = Math.floor(p.x);
+  const py = Math.floor(p.y);
+  if (px >= 0 && py >= 0 && px < cells && py < cells && ok(px, py)) return p;
+  let best: Vec2 = p;
+  let bestD = Infinity;
+  for (let y = 0; y < cells; y++)
+    for (let x = 0; x < cells; x++) {
+      const d = Math.hypot(x + 0.5 - p.x, y + 0.5 - p.y);
+      if (d < bestD && ok(x, y)) [best, bestD] = [{ x: x + 0.5, y: y + 0.5 }, d];
+    }
+  return best;
+}
+
 /** Cells reachable from the spawn through `passable` ones. */
 function floodFrom(
   spec: LayoutSpec,
@@ -378,7 +402,7 @@ function plazaObstacles(
   };
   for (
     let attempt = 0;
-    attempt < 400 && placed.length < CONFIG.city.plazaObstacleCandidates;
+    attempt < 2000 && placed.length < CONFIG.city.plazaObstacleCandidates;
     attempt++
   ) {
     const plaza = spec.plazas[rng.int(spec.plazas.length)];

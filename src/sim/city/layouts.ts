@@ -4,7 +4,15 @@ import type { Vec2 } from '../../core/vec2';
 import type { FootprintWeights } from './footprints';
 import type { Circle, Shape } from './shapes';
 
-export const LAYOUT_NAMES = ['grid', 'circuit', 'districts', 'hub'] as const;
+export const LAYOUT_NAMES = [
+  'grid',
+  'circuit',
+  'districts',
+  'hub',
+  'raceway',
+  'downtown',
+  'towers',
+] as const;
 export type LayoutName = (typeof LAYOUT_NAMES)[number];
 
 /** A layout's recipe for a city, in cell units. The generator fills everything else with Plots. */
@@ -22,6 +30,20 @@ export interface LayoutSpec {
   footprints: FootprintWeights;
   /** Roads whose buildings stand all Run, so the Layout's shape reads from the first Wave. */
   lined: Shape[];
+  /** If set, buildings stand only inside these areas; everywhere else is open ground. */
+  buildOnly?: Shape[];
+  /** Rules for the buildings around a point, in cells; defaults apply where it returns nothing. */
+  zone?: (x: number, y: number) => Zone | undefined;
+}
+
+/** How one part of a city builds, overriding the defaults for Plots there. */
+export interface Zone {
+  /** Multiplies building heights. */
+  heightScale?: number;
+  /** Chance a Plot here stays open ground instead of a building. */
+  emptyChance?: number;
+  /** Buildings here Rise in the first Wave and never Sink. */
+  permanent?: boolean;
 }
 
 /**
@@ -33,6 +55,9 @@ const FOOTPRINTS: Record<LayoutName, FootprintWeights> = {
   circuit: { rect: 3, L: 2, stepped: 3, T: 1 },
   districts: { rect: 2, L: 2, T: 2, U: 2, cross: 2, Z: 1 },
   hub: { rect: 3, L: 2, stepped: 2, T: 1, cross: 1 },
+  raceway: { rect: 4, L: 2, stepped: 2, T: 1 },
+  downtown: { rect: 3, L: 2, T: 2, U: 1, cross: 1 },
+  towers: { rect: 2, cross: 2, L: 2, T: 2, stepped: 1 },
 };
 
 export const LAYOUTS: Record<LayoutName, (rng: Rng, cells: number) => LayoutSpec> = {
@@ -40,6 +65,9 @@ export const LAYOUTS: Record<LayoutName, (rng: Rng, cells: number) => LayoutSpec
   circuit,
   districts,
   hub,
+  raceway,
+  downtown,
+  towers,
 };
 
 const TAU = Math.PI * 2;
@@ -285,5 +313,171 @@ function hub(rng: Rng, cells: number): LayoutSpec {
     boundary: arcBoundary(rng, cells),
     spawn: { x: mid, y: mid },
     spawnHeading: -Math.PI / 2,
+  };
+}
+
+/**
+ * Broad highways to race: a figure-eight at the center inside a sharp-cornered polygon loop, joined
+ * by connectors, with Plazas at the crossing and the corners. Walls line every highway.
+ */
+function raceway(rng: Rng, cells: number): LayoutSpec {
+  const mid = cells / 2;
+  const half = cells / 2;
+  const width = CONFIG.city.avenue + 2;
+  const highways: Shape[] = [];
+  const plazas: Shape[] = [];
+  const boundary: Circle[] = [];
+
+  // Figure-eight: two rings meeting at the center, on a random axis.
+  const axis = rng.range(0, Math.PI);
+  const r8 = half * rng.range(0.22, 0.26);
+  const lobes = [1, -1].map((side) => ({
+    x: mid + Math.cos(axis) * r8 * side,
+    y: mid + Math.sin(axis) * r8 * side,
+  }));
+  for (const c of lobes) highways.push({ kind: 'ring', x: c.x, y: c.y, rx: r8, ry: r8, width });
+  plazas.push({ kind: 'disc', x: mid, y: mid, r: 10 });
+
+  // Sharp-cornered outer loop: a triangle to a hexagon.
+  const sides = 3 + rng.int(4);
+  const radius = half * 0.68;
+  const turn = rng.range(0, TAU);
+  const corners = Array.from({ length: sides }, (_, i) => ({
+    x: mid + Math.cos(turn + (i * TAU) / sides) * radius,
+    y: mid + Math.sin(turn + (i * TAU) / sides) * radius,
+  }));
+  corners.forEach((a, i) => {
+    const b = corners[(i + 1) % sides]!;
+    highways.push({ kind: 'capsule', ax: a.x, ay: a.y, bx: b.x, by: b.y, width });
+    plazas.push({ kind: 'disc', x: a.x, y: a.y, r: 8 });
+    boundary.push(fit({ x: a.x, y: a.y, r: 13 }, cells));
+  });
+
+  // Connectors from each lobe's far side out to the nearest corner.
+  for (const lobe of lobes) {
+    const outward = Math.atan2(lobe.y - mid, lobe.x - mid);
+    const from = { x: lobe.x + Math.cos(outward) * r8, y: lobe.y + Math.sin(outward) * r8 };
+    const to = corners.reduce((best, c) =>
+      Math.hypot(c.x - from.x, c.y - from.y) < Math.hypot(best.x - from.x, best.y - from.y)
+        ? c
+        : best,
+    );
+    highways.push({ kind: 'capsule', ax: from.x, ay: from.y, bx: to.x, by: to.y, width });
+  }
+  boundary.push(fit({ x: mid, y: mid, r: radius + 7 }, cells));
+
+  return {
+    name: 'raceway',
+    footprints: FOOTPRINTS.raceway,
+    open: [...highways, ...plazas],
+    lined: highways,
+    plazas,
+    boundary,
+    spawn: { x: mid, y: mid },
+    spawnHeading: axis + Math.PI / 2,
+  };
+}
+
+/**
+ * The inverse of an open center: a dense downtown of tall buildings that stand all Run, inside a
+ * ring road, with boulevards out through low, sparse suburbs dotted with parks.
+ */
+function downtown(rng: Rng, cells: number): LayoutSpec {
+  const mid = cells / 2;
+  const half = cells / 2;
+  const avenue = CONFIG.city.avenue;
+  const core = half * rng.range(0.34, 0.4);
+  const open: Shape[] = [
+    { kind: 'ring', x: mid, y: mid, rx: core + 3, ry: core + 3, width: avenue },
+  ];
+  const start = rng.range(0, TAU);
+  for (let i = 0; i < 4; i++) {
+    const a = start + (i * TAU) / 4 + rng.range(-0.2, 0.2);
+    open.push({
+      kind: 'capsule',
+      ax: mid + Math.cos(a) * (core + 3),
+      ay: mid + Math.sin(a) * (core + 3),
+      bx: mid + Math.cos(a) * half,
+      by: mid + Math.sin(a) * half,
+      width: avenue,
+    });
+  }
+  const parks: Shape[] = [];
+  for (let attempt = 0; attempt < 200 && parks.length < 4; attempt++) {
+    const a = rng.range(0, TAU);
+    const d = rng.range(core + 12, half * 0.78);
+    const park: Shape = {
+      kind: 'disc',
+      x: mid + Math.cos(a) * d,
+      y: mid + Math.sin(a) * d,
+      r: rng.range(5, 8),
+    };
+    if (parks.some((p) => p.kind === 'disc' && Math.hypot(p.x - park.x, p.y - park.y) < 22)) {
+      continue;
+    }
+    parks.push(park);
+  }
+  const first = parks[0]!;
+  const spawn = first.kind === 'disc' ? { x: first.x, y: first.y } : { x: mid, y: mid + core + 3 };
+  return {
+    name: 'downtown',
+    footprints: FOOTPRINTS.downtown,
+    open: [...open, ...parks],
+    lined: [],
+    plazas: parks,
+    // The parks lie out in the suburbs, so the city must reach around each of them.
+    boundary: [
+      ...arcBoundary(rng, cells),
+      ...parks.flatMap((p) =>
+        p.kind === 'disc' ? [fit({ x: p.x, y: p.y, r: p.r + 8 }, cells)] : [],
+      ),
+    ],
+    spawn,
+    spawnHeading: Math.atan2(mid - spawn.y, mid - spawn.x),
+    zone: (x, y) =>
+      Math.hypot(x - mid, y - mid) < core
+        ? { permanent: true, heightScale: 1.9, emptyChance: 0 }
+        : { heightScale: 0.55, emptyChance: 0.5 },
+  };
+}
+
+/** Open ground with four to eight isolated clumps of tall towers, and a field at the center. */
+function towers(rng: Rng, cells: number): LayoutSpec {
+  const mid = cells / 2;
+  const half = cells / 2;
+  const field: Shape = { kind: 'disc', x: mid, y: mid, r: 11 };
+  const count = 4 + rng.int(5);
+  const clumps: Shape[] = [];
+  const centers: Vec2[] = [];
+  for (let attempt = 0; attempt < 500 && clumps.length < count; attempt++) {
+    const a = rng.range(0, TAU);
+    const d = rng.range(half * 0.38, half * 0.66);
+    const c = { x: mid + Math.cos(a) * d, y: mid + Math.sin(a) * d };
+    if (centers.some((o) => Math.hypot(o.x - c.x, o.y - c.y) < 22)) continue;
+    centers.push(c);
+    const size = 14 + rng.int(7);
+    clumps.push(
+      rng.next() < 0.5
+        ? { kind: 'disc', x: c.x, y: c.y, r: size / 2 + 1 }
+        : {
+            kind: 'rect',
+            x: Math.round(c.x - size / 2),
+            y: Math.round(c.y - size / 2),
+            w: size,
+            h: size,
+          },
+    );
+  }
+  return {
+    name: 'towers',
+    footprints: FOOTPRINTS.towers,
+    open: [field],
+    lined: [],
+    plazas: [field],
+    boundary: arcBoundary(rng, cells),
+    spawn: { x: mid, y: mid },
+    spawnHeading: -Math.PI / 2,
+    buildOnly: clumps,
+    zone: () => ({ heightScale: 2.2, emptyChance: 0.05 }),
   };
 }

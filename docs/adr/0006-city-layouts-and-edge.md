@@ -2,12 +2,17 @@
 
 Supersedes the fixed layout in ADR-0005; its Rise/Sink schedule still applies.
 
-A single fixed layout (Plaza, ring road, eight districts) inside a square wall played the same every Run, and the wall read as an arbitrary barrier. Each Run now picks one of four Layouts at random from the seed (`src/sim/city/`):
+A single fixed layout (Plaza, ring road, eight districts) inside a square wall played the same every Run, and the wall read as an arbitrary barrier. Each Run now picks one of several Layouts at random from the seed (`src/sim/city/`):
 
 - **Grid**: straight Avenues edge to edge around a square central Plaza.
 - **Circuit**: a wide loop around a dense core, with spurs to side Plazas.
 - **Districts**: several Plazas of different sizes joined by Avenues.
 - **Hub**: a central Plaza with radiating Avenues crossed by ring roads.
+- **Raceway**: a walled figure-eight inside a sharp-cornered polygon loop.
+- **Downtown**: a dense permanent core inside a ring road, with sparse suburbs.
+- **Towers**: isolated clumps of tall buildings on open ground.
+
+A recipe may also set `zone` (per-area building height, empty-lot chance and permanence) and `buildOnly` (areas outside which nothing is built). The generator moves a spawn that falls outside the city onto the nearest open ground inside it.
 
 A Layout is only a recipe (`LayoutSpec`): open shapes (rectangles, discs, elliptical rings, thick lines), the Plazas, a boundary made of a union of circles, and a spawn point. One generator turns any recipe into Plots:
 
@@ -30,7 +35,7 @@ The Arena is 96 cells (384 units) across.
 ## Consequences
 
 - Open ground stays connected with every Plot standing; tests check this for every Layout across several seeds.
-- `?map=grid|circuit|districts|hub` forces a Layout. The HUD names the current one.
+- `?map=grid|circuit|districts|hub|raceway|downtown|towers` forces a Layout. The HUD names the current one.
 - The Edge adds a few hundred static Blocks. Each is a separate mesh so occlusion ghosting works on it; merge them if draw calls become a problem.
 - The border does not move during a Run.
 - Edge Blocks are walls (`Block.wall`): a Burst passes through buildings but bounces off the Edge and the Arena bounds, keeping its speed.

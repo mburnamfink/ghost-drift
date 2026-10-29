@@ -47,14 +47,17 @@ Every Hunter is built in the same faceted style, with a silhouette that names it
 
 ## The city
 
-Each Run builds a new seeded city, 96 cells (384 units) across, in one of four Layouts picked at random (ADR-0006):
+Each Run builds a new seeded city, 96 cells (384 units) across, in one of seven Layouts picked at random (ADR-0006):
 
-| Layout    | Shape                                                           | Plays like                       |
-| --------- | --------------------------------------------------------------- | -------------------------------- |
-| Grid      | Five-cell Avenues edge to edge around a square central Plaza    | Long straight speed lanes        |
-| Circuit   | A wide loop around a dense core, with spurs to 3–4 side Plazas  | Lapping, cutting across the core |
-| Districts | 3–5 Plazas of different sizes joined by Avenues, one extra loop | Moving between arenas            |
-| Hub       | Central Plaza, 6–8 radiating Avenues, two ring roads            | Spokes and orbits                |
+| Layout    | Shape                                                                                                                         | Plays like                               |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Grid      | Five-cell Avenues edge to edge around a square central Plaza                                                                  | Long straight speed lanes                |
+| Circuit   | A wide loop around a dense core, with spurs to 3–4 side Plazas                                                                | Lapping, cutting across the core         |
+| Districts | 3–5 Plazas of different sizes joined by Avenues, one extra loop                                                               | Moving between arenas                    |
+| Hub       | Central Plaza, 6–8 radiating Avenues, two ring roads                                                                          | Spokes and orbits                        |
+| Raceway   | A figure-eight inside a sharp-cornered loop (triangle to hexagon), 7-cell walled highways, Plazas at the crossing and corners | Racing laps                              |
+| Downtown  | A dense core of tall permanent buildings inside a ring road; boulevards out to low, half-empty suburbs with parks             | Open outskirts, a fortress in the middle |
+| Towers    | Open ground with 4–8 isolated clumps of tall buildings around a central field                                                 | Cover is scarce; dash between clumps     |
 
 Everywhere else, two-cell Streets and one-cell Alleys split the ground into Plots up to 12 cells on a side. About one Plot in ten stays empty as a pocket park. The city's outline is several overlapping arcs. Beyond it stands the Edge: purple towers that stand all Run. Plots near the Edge rise sooner and stand taller, so the city visibly thickens into it.
 
@@ -66,6 +69,9 @@ Lots at least 4 cells on a side may get a compound footprint instead of a rectan
 | Circuit   | rectangle 3, stepped 3, L 2, T 1          |
 | Districts | rectangle 2, L 2, T 2, U 2, cross 2, Z 1  |
 | Hub       | rectangle 3, L 2, stepped 2, T 1, cross 1 |
+| Raceway   | rectangle 4, L 2, stepped 2, T 1          |
+| Downtown  | rectangle 3, L 2, T 2, U 1, cross 1       |
+| Towers    | rectangle 2, cross 2, L 2, T 2, stepped 1 |
 
 Circuit's loop (7 cells wide) and Hub's spokes (6 wide) are walled on both sides by permanent buildings 2 cells deep, with a 2-cell gate every 10 cells, so the Layout's shape reads from Wave 1. A dead-end bay is a hazard by design: Burst through it. Each city has one Arch: a bridge between two towers across a road, high enough to fly under. Its towers stand for the whole Run.
 
