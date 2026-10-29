@@ -27,7 +27,7 @@ What every kill's score is multiplied by. Each kill made while Powersliding rais
 _Avoid_: Combo, slide combo
 
 **Burst**:
-A short forward surge during which the Ship cannot be hurt and passes through Blocks. Limited Charges.
+A short forward surge during which the Ship cannot be hurt and passes through buildings, bouncing off the Edge like a billiard ball. Limited Charges.
 _Avoid_: Dash, boost, phase
 
 **Charge**:
@@ -112,7 +112,7 @@ A bridge between two towers across a road, high enough to fly under. One per cit
 _Avoid_: Bridge (reads as something to drive over)
 
 **Edge**:
-The towers beyond the city's arced outline, where the city has grown too dense to enter. Never Sinks.
+The towers beyond the city's arced outline, where the city has grown too dense to enter. Never Sinks; a Burst bounces off it.
 _Avoid_: Wall, border
 
 **Plaza**:

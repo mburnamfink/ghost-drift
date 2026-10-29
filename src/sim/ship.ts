@@ -41,6 +41,8 @@ export const speedOf = (ship: Ship): number => length(ship.vel);
 
 export interface ShipStepResult {
   burstStarted: boolean;
+  /** True if a Burst bounced off a wall this step. */
+  bounced: boolean;
   /** Heading the current weapon fired along this step, if it fired. */
   fired: number | null;
 }
@@ -53,7 +55,7 @@ export function stepShip(
   dt: number,
 ): ShipStepResult {
   const cfg = CONFIG.ship;
-  const result: ShipStepResult = { burstStarted: false, fired: null };
+  const result: ShipStepResult = { burstStarted: false, bounced: false, fired: null };
 
   ship.invulnerableTime = Math.max(0, ship.invulnerableTime - dt);
   ship.fireCooldown = Math.max(0, ship.fireCooldown - dt);
@@ -100,11 +102,24 @@ export function stepShip(
   const moved = { x: ship.pos.x + ship.vel.x * dt, y: ship.pos.y + ship.vel.y * dt };
   const hit = resolveCircle(terrain, moved, cfg.radius, bursting);
   ship.pos = hit.pos;
-  if (hit.normal) ship.vel = slideAlong(ship.vel, hit.normal);
+  if (hit.normal && bursting) {
+    // A Burst caroms off walls like a billiard ball, keeping its speed.
+    const into = dot(ship.vel, hit.normal);
+    if (into < 0) {
+      ship.vel = {
+        x: ship.vel.x - 2 * into * hit.normal.x,
+        y: ship.vel.y - 2 * into * hit.normal.y,
+      };
+      ship.heading = Math.atan2(ship.vel.y, ship.vel.x);
+      result.bounced = true;
+    }
+  } else if (hit.normal) {
+    ship.vel = slideAlong(ship.vel, hit.normal);
+  }
 
   if (bursting) {
     ship.burstTime = Math.max(0, ship.burstTime - dt);
-    if (ship.burstTime === 0) endBurst(ship, terrain, forward);
+    if (ship.burstTime === 0) endBurst(ship, terrain, fromAngle(ship.heading));
   }
 
   if (controls.fire && !bursting && ship.fireCooldown === 0) {

@@ -9,19 +9,9 @@ export type FootprintWeights = Partial<Record<Footprint, number>>;
 /** Lots narrower than this on either side stay rectangles: anything else would leave slivers. */
 const MIN_SIDE = 4;
 
-/** Shapes with a dead-end bay or many inside corners, kept off lots that face open ground. */
-const TRAPS: readonly Footprint[] = ['U', 'cross'];
-
-export function pickFootprint(
-  rng: Rng,
-  weights: FootprintWeights,
-  lot: CellRect,
-  facesOpenGround: boolean,
-): Footprint {
+export function pickFootprint(rng: Rng, weights: FootprintWeights, lot: CellRect): Footprint {
   if (lot.w < MIN_SIDE || lot.h < MIN_SIDE) return 'rect';
-  const options = (Object.entries(weights) as [Footprint, number][]).filter(
-    ([shape, weight]) => weight > 0 && !(facesOpenGround && TRAPS.includes(shape)),
-  );
+  const options = (Object.entries(weights) as [Footprint, number][]).filter(([, w]) => w > 0);
   let roll = rng.next() * options.reduce((sum, [, weight]) => sum + weight, 0);
   for (const [shape, weight] of options) {
     roll -= weight;

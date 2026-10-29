@@ -34,6 +34,7 @@ import { type Pulse, homeBolts, pulseReaches, stepPulses } from './weapons';
 export type SimEvent =
   | { type: 'boltFired'; pos: Vec2 }
   | { type: 'pulseFired'; pos: Vec2 }
+  | { type: 'burstBounced'; pos: Vec2 }
   | {
       type: 'hunterDestroyed';
       pos: Vec2;
@@ -163,6 +164,7 @@ export function stepWorld(world: World, controls: Controls, dt: number): void {
   const shipStep = stepShip(world.ship, controls, world.terrain, dt);
   if (shipStep.burstStarted)
     world.events.push({ type: 'burstStarted', pos: { ...world.ship.pos } });
+  if (shipStep.bounced) world.events.push({ type: 'burstBounced', pos: { ...world.ship.pos } });
   if (shipStep.fired !== null) fireWeapon(world, shipStep.fired);
   if (world.lull === 0) decayMultiplier(world, dt);
 

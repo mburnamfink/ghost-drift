@@ -183,6 +183,10 @@ export class GameRenderer {
         case 'terrainChanged':
           this.terrain?.applyChange(e.change);
           break;
+        case 'burstBounced':
+          this.debris.burst(e.pos.x, e.pos.y, PALETTE.spark, 24, 16);
+          this.shake = Math.max(this.shake, 0.6);
+          break;
         case 'burstStarted':
           this.shake = Math.max(this.shake, 0.3);
           break;

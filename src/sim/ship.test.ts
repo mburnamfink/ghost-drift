@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CONFIG, SHIP_TOP_SPEED } from '../config';
 import { type Controls, NO_CONTROLS } from './controls';
 import { canBeHit, createShip, type Ship, speedOf, stepShip } from './ship';
-import { terrainFromRows } from './terrain';
+import { Terrain, terrainFromRows } from './terrain';
 
 const DT = 1 / CONFIG.sim.stepHz;
 const open = terrainFromRows(Array.from({ length: 64 }, () => '.'.repeat(64)));
@@ -83,6 +83,28 @@ describe('Burst', () => {
     run(ship, {}, CONFIG.ship.burstDuration + 0.1, t);
     expect(ship.pos.x).toBeGreaterThan(10 * 4);
     expect(t.isSolidAt(ship.pos)).toBe(false);
+  });
+
+  it('bounces off the Edge like a billiard ball instead of passing through', () => {
+    const wall = { id: 1, x: 10, y: 0, w: 2, h: 16, height: 20, wall: true };
+    const t = new Terrain(16, 4, [wall]);
+    // Heading +x at the wall, 20 units short, at a shallow angle.
+    const ship = createShip({ x: 20, y: 30 }, 0.3);
+    run(ship, { burst: true }, DT, t);
+    for (let time = 0; time < CONFIG.ship.burstDuration; time += DT) {
+      run(ship, {}, DT, t);
+      expect(ship.pos.x).toBeLessThanOrEqual(wall.x * 4 - CONFIG.ship.radius + 1e-6);
+    }
+    expect(Math.cos(ship.heading)).toBeLessThan(0);
+    expect(Math.sin(ship.heading)).toBeCloseTo(Math.sin(0.3), 5);
+  });
+
+  it('bounces off the Arena bounds too', () => {
+    const ship = createShip({ x: 10, y: 128 }, Math.PI);
+    run(ship, { burst: true }, DT);
+    run(ship, {}, CONFIG.ship.burstDuration);
+    expect(ship.pos.x).toBeGreaterThan(CONFIG.ship.radius);
+    expect(Math.cos(ship.heading)).toBeGreaterThan(0.99);
   });
 
   it('exits at top speed', () => {

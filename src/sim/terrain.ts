@@ -16,6 +16,8 @@ export interface Block extends CellRect {
   /** Stable identity, so presentation can follow a Block as it Rises and Sinks. */
   id: number;
   parts?: CellRect[];
+  /** Impassable even to a Burst: the Edge. */
+  wall?: boolean;
   /** Visual height in world units; ignored by the simulation (ADR-0002). */
   height: number;
 }
@@ -32,6 +34,7 @@ export class Terrain {
   readonly worldSize: number;
   private readonly solid: Uint8Array;
   private readonly standing = new Map<number, Block>();
+  private readonly walls: Uint8Array;
   /** Bumped whenever a Block Rises or Sinks, so views can tell when to redraw. */
   version = 0;
 
@@ -42,6 +45,7 @@ export class Terrain {
   ) {
     this.worldSize = cells * cellSize;
     this.solid = new Uint8Array(cells * cells);
+    this.walls = new Uint8Array(cells * cells);
     for (const b of blocks) this.raise(b);
   }
 
@@ -72,7 +76,10 @@ export class Terrain {
     for (const r of partsOf(b)) {
       for (let y = r.y; y < r.y + r.h; y++) {
         for (let x = r.x; x < r.x + r.w; x++)
-          if (this.inBounds(x, y)) this.solid[this.index(x, y)] = value;
+          if (this.inBounds(x, y)) {
+            this.solid[this.index(x, y)] = value;
+            if (b.wall) this.walls[this.index(x, y)] = value;
+          }
       }
     }
   }
@@ -88,6 +95,11 @@ export class Terrain {
   /** Out-of-bounds cells count as solid: they are the Arena wall. */
   isSolid(cx: number, cy: number): boolean {
     return !this.inBounds(cx, cy) || this.solid[this.index(cx, cy)] === 1;
+  }
+
+  /** Cells nothing passes, not even a Burst: the Edge, and everything outside the Arena. */
+  isWall(cx: number, cy: number): boolean {
+    return !this.inBounds(cx, cy) || this.walls[this.index(cx, cy)] === 1;
   }
 
   isBlock(cx: number, cy: number): boolean {

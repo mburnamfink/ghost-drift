@@ -65,7 +65,7 @@ export function buildCity(spec: LayoutSpec, rng: Rng, cells: number): CityPlan {
     const d = edgeDistance[at(r.x + (r.w >> 1), r.y + (r.h >> 1))]!;
     const nearEdge = Math.min(1, Math.max(0, 1 + d / c.edgeBand));
     const size = Math.min(1, (r.w * r.h) / (c.maxPlotCells * c.maxPlotCells));
-    const parts = carveFootprint(rng, r, pickFootprint(rng, spec.footprints, r, frontage));
+    const parts = carveFootprint(rng, r, pickFootprint(rng, spec.footprints, r));
     plots.push({
       ...r,
       ...(parts ? { parts } : {}),
@@ -100,6 +100,7 @@ export function buildCity(spec: LayoutSpec, rng: Rng, cells: number): CityPlan {
       ...r,
       id: nextId++,
       kind: 'edge',
+      wall: true,
       height: Math.min(hi, rng.range(lo, lo + 6) + depth * 0.6),
       priority: 0,
     });

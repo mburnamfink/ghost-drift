@@ -8,8 +8,8 @@ export interface CollisionResult {
 }
 
 /**
- * Pushes a circle out of every solid cell it overlaps. With `ghost` set, Blocks are ignored but the
- * Arena wall still holds, so Burst can never leave the Arena.
+ * Pushes a circle out of every solid cell it overlaps. With `ghost` set, only walls hold (the Edge
+ * and the Arena's bounds), so a Burst passes through buildings but never leaves the city.
  */
 export function resolveCircle(
   terrain: Terrain,
@@ -30,7 +30,7 @@ export function resolveCircle(
     const maxY = terrain.cellOf(y + radius);
     for (let cy = minY; cy <= maxY; cy++) {
       for (let cx = minX; cx <= maxX; cx++) {
-        const solid = ghost ? !terrain.inBounds(cx, cy) : terrain.isSolid(cx, cy);
+        const solid = ghost ? terrain.isWall(cx, cy) : terrain.isSolid(cx, cy);
         if (!solid) continue;
         const closestX = Math.max(cx * size, Math.min(x, (cx + 1) * size));
         const closestY = Math.max(cy * size, Math.min(y, (cy + 1) * size));
