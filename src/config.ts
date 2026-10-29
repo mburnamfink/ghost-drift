@@ -16,8 +16,9 @@ export const CONFIG = {
     detailPeriod: 3,
     /** Block coverage at maximum Density. */
     maxFill: 0.6,
-    minBlockHeight: 2,
-    maxBlockHeight: 9,
+    minBlockHeight: 1.5,
+    /** Kept below the chase camera's height so Blocks never fill the view. */
+    maxBlockHeight: 5.5,
   },
   ship: {
     radius: 1.2,

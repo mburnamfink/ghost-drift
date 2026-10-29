@@ -7,3 +7,139 @@ body {
   color: #d8f6ff;
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 }
+
+#app canvas {
+  display: block;
+}
+
+.hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 6px rgba(55, 232, 255, 0.6);
+}
+
+.hud-label {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-right: 8px;
+}
+
+.hud-top-left {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+}
+
+.hud-score {
+  font-size: 28px;
+}
+
+.hud-wave {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.hud-top-right {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  text-align: right;
+  font-size: 20px;
+}
+
+.hud-speed {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  width: min(420px, 70vw);
+  height: 10px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(216, 246, 255, 0.5);
+}
+
+.hud-speed .hud-label {
+  position: absolute;
+  top: -20px;
+  left: 0;
+}
+
+.hud-speed-fill {
+  height: 100%;
+  background: #37e8ff;
+  transition: background 0.15s;
+}
+
+.hud-speed-fill.danger {
+  background: #ff4a1c;
+}
+
+.hud-speed-marker {
+  position: absolute;
+  top: -4px;
+  width: 2px;
+  height: 18px;
+  background: #ff4a1c;
+}
+
+.hud-banner {
+  position: absolute;
+  top: 22%;
+  width: 100%;
+  text-align: center;
+  font-size: 28px;
+  opacity: 0;
+}
+
+.hud-screen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 7, 13, 0.72);
+  text-align: center;
+}
+
+.hud-screen h1 {
+  font-size: clamp(32px, 7vw, 64px);
+  margin: 0 0 8px;
+  color: #37e8ff;
+}
+
+.hud-screen .tagline,
+.hud-screen .device {
+  opacity: 0.7;
+}
+
+.hud-screen .prompt {
+  font-size: 20px;
+  margin: 24px 0;
+  animation: blink 1.2s steps(2) infinite;
+}
+
+.hud-screen .controls {
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.hud-screen .controls td {
+  padding: 3px 12px;
+}
+
+.hud-screen .controls td:first-child {
+  text-align: right;
+  opacity: 0.7;
+}
+
+.hud-screen .controls td:last-child {
+  text-align: left;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.3;
+  }
+}

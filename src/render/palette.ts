@@ -1,0 +1,15 @@
+/** The strict palette from docs/design.md. Gameplay meaning is carried by hue, so keep it consistent. */
+export const PALETTE = {
+  sky: 0x05070d,
+  ground: 0x0a0f1c,
+  grid: 0x16304a,
+  blockLow: 0x1f2a3d,
+  blockHigh: 0x4a5c78,
+  wall: 0x2a1640,
+  ship: 0x37e8ff,
+  shipBurst: 0xffffff,
+  bolt: 0x9ff6ff,
+  hunter: 0xff4a1c,
+  hunterTurret: 0xb8300f,
+  shell: 0xffa040,
+} as const;
