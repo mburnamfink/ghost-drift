@@ -127,6 +127,67 @@ body {
   color: #37e8ff;
 }
 
+.hud-screen .splash {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hud-screen .title-text {
+  position: absolute;
+  top: 64%;
+  width: 100%;
+}
+
+.hud-screen .title-text .tagline {
+  font-size: clamp(14px, 2vw, 20px);
+  letter-spacing: 0.15em;
+  opacity: 0.9;
+}
+
+.hud-screen .title-controls {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 12px;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+/* A one- or two-line strip of controls along the bottom, clear of the logo and prompt. */
+.hud-screen .title-controls .controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 18px;
+  margin: 0 auto;
+}
+
+.hud-screen .title-controls .controls tbody {
+  display: contents;
+}
+
+.hud-screen .title-controls .controls tr {
+  display: flex;
+  gap: 6px;
+}
+
+.hud-screen .title-controls .controls td {
+  padding: 0;
+}
+
+.hud-screen .title-controls .device {
+  margin: 6px 0 0;
+  font-size: 11px;
+}
+
+.hud-screen .legend {
+  font-size: 24px;
+  color: #ffe36b;
+  letter-spacing: 0.2em;
+}
+
 .hud-screen .tagline,
 .hud-screen .device {
   opacity: 0.7;

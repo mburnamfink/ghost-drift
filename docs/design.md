@@ -2,6 +2,12 @@
 
 Battlezone meets Wipeout. Terms are defined in [CONTEXT.md](../CONTEXT.md); architecture decisions are in [docs/adr](adr/).
 
+## Premise
+
+Arcade tone. You are the Ghost: a lone pilot in an experimental hovertank, the last defender of the city of Arcadia against an invading army. Nobody can confirm the Ghost exists, because nothing can track it. The legend grows with every kill, and a Run ends when the Ghost goes down. Inspired by the folk legend of a lone ace; the city and the army are fictional.
+
+On-screen copy carries the premise: the tagline _"They say one pilot is holding Arcadia alone."_, Wave banners (_HOLD ARCADIA_, _THEY'RE STILL COMING_, _HEAVY METAL INBOUND_), the Multiplier shown as _GHOST ×N_, demo mode badged _UNCONFIRMED FOOTAGE_, and a legend rank on game over by score: Rumour (0), Sighting (20k), The Ghost (100k), Legend (300k), Myth (1M).
+
 ## Pillars
 
 1. **Speed is armor.** A moving Ship is hard to hit; a slow one gets Boxed in. Every system should push the player to keep speed up.

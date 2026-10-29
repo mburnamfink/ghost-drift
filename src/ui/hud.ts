@@ -3,6 +3,7 @@ import type { ScreenThreat } from '../render/renderer';
 import { speedOf } from '../sim/ship';
 import { tankSpeed } from '../sim/waves';
 import type { SimEvent, World } from '../sim/world';
+import { splashSvg } from './splash';
 
 /** Shown when only a few Hunters are left in a live Wave. */
 export interface LastEnemies {
@@ -88,13 +89,19 @@ export class Hud {
 
   /** Marks the screen as the game playing itself. */
   showDemoBadge(): void {
-    this.root.appendChild(el('div', 'hud-demo')).textContent = 'DEMO · AUTOPILOT';
+    this.root.appendChild(el('div', 'hud-demo')).textContent = 'UNCONFIRMED FOOTAGE';
   }
 
   handleEvents(events: readonly SimEvent[]): void {
     for (const e of events) {
       if (e.type === 'waveStarted') {
-        this.showBanner(e.juggernauts > 0 ? `WAVE ${e.wave} · JUGGERNAUT` : `WAVE ${e.wave}`);
+        this.showBanner(
+          e.juggernauts > 0
+            ? `WAVE ${e.wave} · HEAVY METAL INBOUND`
+            : e.wave === 1
+              ? 'WAVE 1 · HOLD ARCADIA'
+              : `WAVE ${e.wave} · THEY'RE STILL COMING`,
+        );
       }
       if (e.type === 'waveCleared') this.showBanner('WAVE CLEARED · BURST RECHARGED');
       if (e.type === 'multiplierLost') this.showBanner(`×${e.value} MULTIPLIER LOST`);
@@ -151,7 +158,7 @@ export class Hud {
     if (value === this.shownMultiplier) return;
     const rose = value > this.shownMultiplier;
     this.shownMultiplier = value;
-    this.multiplierValue.textContent = `×${value}`;
+    this.multiplierValue.textContent = `GHOST ×${value}`;
     // Restart the pop animation on every rise.
     this.multiplier.classList.remove('pop');
     void this.multiplier.offsetWidth;
@@ -226,21 +233,38 @@ function renderScreen(screen: Screen): string {
   switch (screen.kind) {
     case 'title':
       return `
-        <h1>QUANTUM BREACH</h1>
-        <p class="tagline">Speed is armor. Stop and they box you in.</p>
-        <p class="prompt">Press ${confirm} to start</p>
-        ${controlsTable(gamepad)}
-        <p class="device">${device}</p>`;
+        ${splash()}
+        <div class="title-text">
+          <p class="tagline">They say one pilot is holding Arcadia alone.</p>
+          <p class="prompt">Press ${confirm} to start</p>
+        </div>
+        <div class="title-controls">${controlsTable(gamepad)}<p class="device">${device}</p></div>`;
     case 'paused':
       return `<h1>PAUSED</h1><p class="prompt">Press ${gamepad ? 'MENU' : 'ESC'} to resume</p>${controlsTable(gamepad)}`;
     case 'over':
       return `
-        <h1>DESTROYED</h1>
+        <h1>THE GHOST GOES DOWN</h1>
+        <p class="legend">YOUR LEGEND: ${legendRank(screen.score)}</p>
         <p class="stat">Score ${screen.score} · Wave ${screen.wave}</p>
         <p class="stat">Best ${screen.best}</p>
         <p class="prompt">Press ${confirm} to retry</p>`;
   }
 }
+
+/** What the city calls you, by score. Each threshold is the score needed to earn the title. */
+const LEGEND_RANKS: [number, string][] = [
+  [1_000_000, 'MYTH'],
+  [300_000, 'LEGEND'],
+  [100_000, 'THE GHOST'],
+  [20_000, 'SIGHTING'],
+  [0, 'RUMOUR'],
+];
+
+const legendRank = (score: number): string =>
+  LEGEND_RANKS.find(([threshold]) => score >= threshold)![1];
+
+let splashMarkup: string | null = null;
+const splash = (): string => (splashMarkup ??= splashSvg());
 
 function controlsTable(gamepad: boolean): string {
   const rows = gamepad

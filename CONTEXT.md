@@ -1,4 +1,4 @@
-# Quantum Breach
+# Ghost Drift
 
 A fast hover vehicle survives endless waves of slower enemies in a blocky simulated arena. Speed is the player's defense: hunters can only kill a ship that stops moving.
 
@@ -25,6 +25,13 @@ _Avoid_: Drift, strafe mode
 **Multiplier**:
 What every kill's score is multiplied by. Each kill made while Powersliding raises it by one, up to a cap. It falls back to ×1 after a few seconds without a kill; the clock stops between Waves.
 _Avoid_: Combo, slide combo
+
+**Ghost**:
+The player, as the fiction knows them: the lone pilot defending Arcadia whom nothing can track.
+_Avoid_: Hero, player character
+
+**Legend rank**:
+The title a Run earns from its score, shown on game over: Rumour, Sighting, The Ghost, Legend, Myth.
 
 **Burst**:
 A short forward surge during which the Ship cannot be hurt and passes through buildings, bouncing off the Edge like a billiard ball. Limited Charges.

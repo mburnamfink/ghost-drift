@@ -29,6 +29,7 @@ export interface GameOptions {
   demo?: boolean;
 }
 
+/** Keeps the pre-rename key so existing best scores carry over. */
 const BEST_SCORE_KEY = 'quantum-breach.best';
 /** Ignore confirm briefly after death so a held fire/burst button doesn't skip the score screen. */
 const OVER_INPUT_DELAY = 1;
