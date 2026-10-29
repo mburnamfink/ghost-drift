@@ -47,6 +47,8 @@ Each Run builds a new seeded city, 96 cells (384 units) across, in one of four L
 
 Everywhere else, two-cell Streets and one-cell Alleys split the ground into Plots up to 12 cells on a side. About one Plot in ten stays empty as a pocket park. The city's outline is several overlapping arcs. Beyond it stands the Edge: purple towers that stand all Run. Plots near the Edge rise sooner and stand taller, so the city visibly thickens into it.
 
+Buildings are drawn in assorted shapes (plain, tapered, slanted roof, stepped tiers, split into slabs) picked per Block. The shapes never leave the Block's square footprint, which is what collision uses.
+
 | Wave            | Building Plots standing                                       | Plaza obstacles  |
 | --------------- | ------------------------------------------------------------- | ---------------- |
 | 1               | 60%, mostly those facing an Avenue or Plaza, or near the Edge | 3                |

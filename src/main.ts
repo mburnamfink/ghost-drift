@@ -10,7 +10,11 @@ const debug = new Set(params.getAll('debug').flatMap((d) => d.split(',')));
 const app = document.querySelector<HTMLElement>('#app')!;
 
 const map = params.get('map') ?? '';
-const options: GameOptions = { overhead: debug.has('overhead'), firstWave: wave };
+const options: GameOptions = {
+  overhead: debug.has('overhead'),
+  firstWave: wave,
+  plainBlocks: params.get('blocks') === 'plain',
+};
 if (seed !== null && Number.isFinite(seed)) options.seed = seed;
 if (isLayoutName(map)) options.layout = map;
 

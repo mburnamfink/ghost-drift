@@ -22,6 +22,8 @@ export interface GameOptions {
   firstWave?: number;
   /** Force a city layout instead of picking one at random. */
   layout?: LayoutName;
+  /** Draw every Block as a plain box. */
+  plainBlocks?: boolean;
 }
 
 const BEST_SCORE_KEY = 'quantum-breach.best';
@@ -51,7 +53,11 @@ export class Game {
     container: HTMLElement,
     private readonly options: GameOptions = {},
   ) {
-    this.renderer = new GameRenderer(container, options.overhead ?? false);
+    this.renderer = new GameRenderer(
+      container,
+      options.overhead ?? false,
+      !(options.plainBlocks ?? false),
+    );
     this.hud = new Hud(container);
     this.minimap = new Minimap(container);
     this.world = this.newWorld();

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { TerrainChange } from '../sim/city';
 import type { Block, Terrain } from '../sim/terrain';
 import { CONFIG } from '../config';
+import { buildingGeometry } from './buildingShapes';
 import { PALETTE } from './palette';
 
 const WALL_HEIGHT = 14;
@@ -27,6 +28,8 @@ interface Occluder {
   raised: number;
   /** Direction of travel: 1 rising, -1 sinking, 0 still. */
   moving: number;
+  /** True if the geometry belongs to this occluder alone and must be disposed with it. */
+  ownsGeometry: boolean;
 }
 
 const unitBox = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
@@ -49,7 +52,11 @@ export class TerrainView {
   private readonly cellSize: number;
   private readonly maxHeight: number;
 
-  constructor(terrain: Terrain) {
+  /** @param varied Draw Blocks in assorted shapes instead of plain boxes. */
+  constructor(
+    terrain: Terrain,
+    private readonly varied = true,
+  ) {
     const size = terrain.worldSize;
     const half = size / 2;
     this.cellSize = terrain.cellSize;
@@ -142,13 +149,17 @@ export class TerrainView {
           )
         : new THREE.Color().lerpColors(low, high, Math.min(1, b.height / this.maxHeight));
     // A small inset keeps neighbouring faces from z-fighting with the grid lines.
+    const w = b.w * cell - 0.1;
+    const d = b.h * cell - 0.1;
     const o = this.addOccluder(
       (b.x + b.w / 2) * cell,
       (b.y + b.h / 2) * cell,
-      b.w * cell - 0.1,
+      w,
       b.height,
-      b.h * cell - 0.1,
+      d,
       color,
+      false,
+      buildingGeometry(w, b.height, d, b.id * 7919 + 13, this.varied),
     );
     o.raised = raised;
     o.mesh.position.y = o.edges.position.y = (raised - 1) * b.height;
@@ -162,6 +173,10 @@ export class TerrainView {
     this.blocks.delete(id);
     this.occluders.splice(this.occluders.indexOf(o), 1);
     this.group.remove(o.mesh, o.edges);
+    if (o.ownsGeometry) {
+      o.mesh.geometry.dispose();
+      o.edges.geometry.dispose();
+    }
     o.mesh.material.dispose();
     o.edges.material.dispose();
   }
@@ -210,6 +225,8 @@ export class TerrainView {
     d: number,
     color: THREE.Color,
     emissive = false,
+    /** Full-size geometry; if omitted, a unit box is scaled to w × h × d. */
+    geometry?: THREE.BufferGeometry,
   ): Occluder {
     const material = new THREE.MeshStandardMaterial({
       color,
@@ -219,18 +236,26 @@ export class TerrainView {
       transparent: true,
       ...(emissive ? { emissive: color, emissiveIntensity: 0.6 } : {}),
     });
-    const mesh = new THREE.Mesh(unitBox, material);
+    const mesh = new THREE.Mesh(geometry ?? unitBox, material);
     const edges = new THREE.LineSegments(
-      unitEdges,
+      geometry ? new THREE.EdgesGeometry(geometry) : unitEdges,
       new THREE.LineBasicMaterial({ color: PALETTE.ghostEdge, transparent: true, opacity: 0 }),
     );
     edges.visible = false;
     for (const obj of [mesh, edges]) {
       obj.position.set(x, 0, z);
-      obj.scale.set(w, h, d);
+      if (!geometry) obj.scale.set(w, h, d);
     }
     this.group.add(mesh, edges);
-    const occluder = { mesh, edges, ghost: 0, height: h, raised: 1, moving: 0 };
+    const occluder = {
+      mesh,
+      edges,
+      ghost: 0,
+      height: h,
+      raised: 1,
+      moving: 0,
+      ownsGeometry: geometry !== undefined,
+    };
     this.occluders.push(occluder);
     return occluder;
   }

@@ -74,10 +74,14 @@ export class GameRenderer {
   private shake = 0;
   private elapsed = 0;
 
-  /** @param overhead Fixed top-down view of the whole Arena, for inspecting layouts. */
+  /**
+   * @param overhead Fixed top-down view of the whole Arena, for inspecting layouts.
+   * @param variedBlocks Draw Blocks in assorted shapes instead of plain boxes.
+   */
   constructor(
     container: HTMLElement,
     private readonly overhead = false,
+    private readonly variedBlocks = true,
   ) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -116,7 +120,7 @@ export class GameRenderer {
       this.scene.remove(this.terrain.group);
       this.terrain.dispose();
     }
-    this.terrain = new TerrainView(world.terrain);
+    this.terrain = new TerrainView(world.terrain, this.variedBlocks);
     this.scene.add(this.terrain.group);
     for (const model of this.hunters.values()) this.scene.remove(model.root);
     this.hunters.clear();
