@@ -134,7 +134,7 @@ export class GameRenderer {
       this.scene.remove(this.terrain.group);
       this.terrain.dispose();
     }
-    this.terrain = new TerrainView(world.terrain, this.variedBlocks);
+    this.terrain = new TerrainView(world.terrain, this.variedBlocks, world.city?.arch ?? null);
     this.scene.add(this.terrain.group);
     for (const model of this.hunters.values()) this.scene.remove(model.root);
     this.hunters.clear();

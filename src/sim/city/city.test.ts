@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CONFIG } from '../../config';
 import { Rng } from '../../core/rng';
-import { Terrain } from '../terrain';
+import { Terrain, partsOf } from '../terrain';
 import { type CityPlan, LAYOUT_NAMES, densityForWave, generateCity, planChange } from '.';
 
 const CELLS = CONFIG.arena.cells;
@@ -60,8 +60,9 @@ describe.each(LAYOUT_NAMES)('generateCity: %s', (layout) => {
     for (const plan of plans) {
       const t = new Terrain(CELLS, CONFIG.arena.cellSize);
       for (const p of plan.plots) {
-        for (let y = p.y; y < p.y + p.h; y++)
-          for (let x = p.x; x < p.x + p.w; x++) expect(t.isBlock(x, y)).toBe(false);
+        for (const r of partsOf(p))
+          for (let y = r.y; y < r.y + r.h; y++)
+            for (let x = r.x; x < r.x + r.w; x++) expect(t.isBlock(x, y)).toBe(false);
         t.raise(p);
       }
       expect(openCellsConnected(t, plan.spawn)).toBe(true);
@@ -88,6 +89,51 @@ describe.each(LAYOUT_NAMES)('generateCity: %s', (layout) => {
       expect(count('building')).toBeGreaterThan(30);
       expect(count('plaza')).toBeGreaterThanOrEqual(CONFIG.city.plazaObstaclesAtStart);
     }
+  });
+});
+
+describe.each(LAYOUT_NAMES)('Arch: %s', (layout) => {
+  const plans = [1, 2, 3, 4, 5, 6].map((s) => generateCity(new Rng(s), layout));
+
+  it('joins two rectangular towers over a road left clear with every Plot standing', () => {
+    expect(plans.filter((p) => p.arch).length).toBeGreaterThanOrEqual(5);
+    for (const plan of plans) {
+      const arch = plan.arch;
+      if (!arch) continue;
+      const towers = plan.plots.filter((p) => p.id === arch.a || p.id === arch.b);
+      expect(towers).toHaveLength(2);
+      for (const t of towers) {
+        expect(t.kind).toBe('building');
+        expect(t.parts).toBeUndefined();
+      }
+      const t = new Terrain(CELLS, CONFIG.arena.cellSize, plan.plots);
+      const { span } = arch;
+      for (let y = span.y; y < span.y + span.h; y++)
+        for (let x = span.x; x < span.x + span.w; x++) expect(t.isSolid(x, y)).toBe(false);
+    }
+  });
+
+  it('keeps its towers standing from the first Wave on', () => {
+    const plan = plans.find((p) => p.arch)!;
+    const { a, b } = plan.arch!;
+    simulate(plan, 25, new Rng(4), (t) => {
+      expect(t.hasBlock(a)).toBe(true);
+      expect(t.hasBlock(b)).toBe(true);
+    });
+  });
+});
+
+describe('Building footprints', () => {
+  const shaped = (layout: (typeof LAYOUT_NAMES)[number]) => {
+    const buildings = [1, 2, 3].flatMap((s) =>
+      generateCity(new Rng(s), layout).plots.filter((p) => p.kind === 'building'),
+    );
+    return buildings.filter((p) => p.parts).length / buildings.length;
+  };
+
+  it('shapes some buildings in every Layout, and Districts more than Grid', () => {
+    for (const layout of LAYOUT_NAMES) expect(shaped(layout)).toBeGreaterThan(0.15);
+    expect(shaped('districts')).toBeGreaterThan(shaped('grid'));
   });
 });
 

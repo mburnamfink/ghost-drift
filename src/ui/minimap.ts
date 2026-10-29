@@ -1,6 +1,7 @@
 import type { HunterKind } from '../sim/hunters';
 import type { Plot } from '../sim/city';
 import type { World } from '../sim/world';
+import { partsOf } from '../sim/terrain';
 import { PALETTE } from '../render/palette';
 
 /** Diameter on screen, in CSS pixels. */
@@ -118,7 +119,7 @@ export class Minimap {
     ctx.clearRect(1, 1, t.cells - 2, t.cells - 2);
     for (const b of t.blocks) {
       ctx.fillStyle = (b as Partial<Plot>).kind === 'edge' ? css(PALETTE.edge) : '#4a6a96';
-      ctx.fillRect(b.x, b.y, b.w, b.h);
+      for (const r of partsOf(b)) ctx.fillRect(r.x, r.y, r.w, r.h);
     }
   }
 }

@@ -1,6 +1,7 @@
 import { CONFIG } from '../../config';
 import type { Rng } from '../../core/rng';
 import type { Vec2 } from '../../core/vec2';
+import type { FootprintWeights } from './footprints';
 import type { Circle, Shape } from './shapes';
 
 export const LAYOUT_NAMES = ['grid', 'circuit', 'districts', 'hub'] as const;
@@ -17,7 +18,20 @@ export interface LayoutSpec {
   boundary: Circle[];
   spawn: Vec2;
   spawnHeading: number;
+  /** How often each building outline appears. */
+  footprints: FootprintWeights;
 }
+
+/**
+ * Grid keeps clean walls along its speed lanes; Circuit and Hub favour chamfers that read as curves;
+ * Districts is a cramped old town of bays and crosses.
+ */
+const FOOTPRINTS: Record<LayoutName, FootprintWeights> = {
+  grid: { rect: 5, L: 3, T: 1, Z: 1 },
+  circuit: { rect: 3, L: 2, stepped: 3, T: 1 },
+  districts: { rect: 2, L: 2, T: 2, U: 2, cross: 2, Z: 1 },
+  hub: { rect: 3, L: 2, stepped: 2, T: 1, cross: 1 },
+};
 
 export const LAYOUTS: Record<LayoutName, (rng: Rng, cells: number) => LayoutSpec> = {
   grid,
@@ -83,6 +97,7 @@ function grid(rng: Rng, cells: number): LayoutSpec {
   for (const y of lines()) open.push({ kind: 'rect', x: 0, y, w: cells, h: avenue });
   return {
     name: 'grid',
+    footprints: FOOTPRINTS.grid,
     open,
     plazas: [plaza],
     boundary: arcBoundary(rng, cells),
@@ -141,6 +156,7 @@ function circuit(rng: Rng, cells: number): LayoutSpec {
   }
   return {
     name: 'circuit',
+    footprints: FOOTPRINTS.circuit,
     open,
     plazas,
     boundary,
@@ -220,6 +236,7 @@ function districts(rng: Rng, cells: number): LayoutSpec {
 
   return {
     name: 'districts',
+    footprints: FOOTPRINTS.districts,
     open,
     plazas,
     boundary,
@@ -254,6 +271,7 @@ function hub(rng: Rng, cells: number): LayoutSpec {
   }
   return {
     name: 'hub',
+    footprints: FOOTPRINTS.hub,
     open,
     plazas: [plaza],
     boundary: arcBoundary(rng, cells),

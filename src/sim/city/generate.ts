@@ -1,7 +1,9 @@
 import { CONFIG } from '../../config';
 import type { Rng } from '../../core/rng';
 import type { LayoutSpec } from './layouts';
-import type { CityPlan, Plot, Rect } from './plan';
+import { carveFootprint, pickFootprint } from './footprints';
+import type { Arch, CityPlan, Plot, Rect } from './plan';
+import { partsOf } from '../terrain';
 import { type Shape, contains, unionDistance } from './shapes';
 
 /**
@@ -63,8 +65,10 @@ export function buildCity(spec: LayoutSpec, rng: Rng, cells: number): CityPlan {
     const d = edgeDistance[at(r.x + (r.w >> 1), r.y + (r.h >> 1))]!;
     const nearEdge = Math.min(1, Math.max(0, 1 + d / c.edgeBand));
     const size = Math.min(1, (r.w * r.h) / (c.maxPlotCells * c.maxPlotCells));
+    const parts = carveFootprint(rng, r, pickFootprint(rng, spec.footprints, r, frontage));
     plots.push({
       ...r,
+      ...(parts ? { parts } : {}),
       id: nextId++,
       kind: 'building',
       height:
@@ -79,6 +83,15 @@ export function buildCity(spec: LayoutSpec, rng: Rng, cells: number): CityPlan {
         (1 + c.edgePriority * nearEdge),
     });
   }
+
+  keepRoadsConnected(plots, spec, n, (x, y) => edge[at(x, y)] === 1);
+  const arch = pickArch(
+    rng,
+    plots,
+    n,
+    (x, y) => inside[at(x, y)] === 1 && edge[at(x, y)] === 0,
+    (x, y) => open[at(x, y)] === 1,
+  );
 
   for (const r of coverWithRects(edge, n, (x, y) => (edgeDistance[at(x, y)]! < 6 ? 4 : 10))) {
     const depth = Math.max(0, edgeDistance[at(r.x + (r.w >> 1), r.y + (r.h >> 1))]!);
@@ -103,7 +116,92 @@ export function buildCity(spec: LayoutSpec, rng: Rng, cells: number): CityPlan {
     });
   }
 
-  return { layout: spec.name, plots, spawn: spec.spawn, spawnHeading: spec.spawnHeading };
+  return {
+    layout: spec.name,
+    plots,
+    arch,
+    spawn: spec.spawn,
+    spawnHeading: spec.spawnHeading,
+  };
+}
+
+/**
+ * Restores to a full rectangle any shaped building whose cut-out would be sealed off: a corner cut
+ * against the Edge or another wall can enclose a pocket the roads never reach.
+ */
+function keepRoadsConnected(
+  buildings: Plot[],
+  spec: LayoutSpec,
+  cells: number,
+  isEdge: (x: number, y: number) => boolean,
+): void {
+  const solid = new Uint8Array(cells * cells);
+  for (const p of buildings)
+    for (const r of partsOf(p)) forCells(r, (x, y) => (solid[y * cells + x] = 1));
+  const reached = floodFrom(spec, cells, (x, y) => !isEdge(x, y) && solid[y * cells + x] === 0);
+  for (const p of buildings) {
+    if (!p.parts) continue;
+    let sealed = false;
+    forCells(p, (x, y) => (sealed ||= solid[y * cells + x] === 0 && reached[y * cells + x] === 0));
+    if (sealed) delete p.parts;
+  }
+}
+
+/**
+ * Picks the best pair of buildings facing each other across a clear road for the city's one Arch,
+ * favouring wide spans and spans over Avenues and Plazas. Both become full-height rectangular towers.
+ */
+function pickArch(
+  rng: Rng,
+  buildings: Plot[],
+  cells: number,
+  ground: (x: number, y: number) => boolean,
+  open: (x: number, y: number) => boolean,
+): Arch | null {
+  const cfg = CONFIG.city.arch;
+  const occupied = new Uint8Array(cells * cells);
+  for (const p of buildings) forCells(p, (x, y) => (occupied[y * cells + x] = 1));
+
+  let best: { arch: Omit<Arch, 'top'>; score: number } | null = null;
+  const consider = (a: Plot, b: Plot, axis: 'x' | 'y') => {
+    const [aEnd, bStart] = axis === 'x' ? [a.x + a.w, b.x] : [a.y + a.h, b.y];
+    const gap = bStart - aEnd;
+    if (gap < cfg.minGap || gap > cfg.maxGap) return;
+    const [lo, hi] =
+      axis === 'x'
+        ? [Math.max(a.y, b.y), Math.min(a.y + a.h, b.y + b.h)]
+        : [Math.max(a.x, b.x), Math.min(a.x + a.w, b.x + b.w)];
+    if (hi - lo < cfg.minOverlap) return;
+    const width = Math.min(cfg.maxWidth, hi - lo);
+    const from = lo + Math.floor((hi - lo - width) / 2);
+    const span =
+      axis === 'x'
+        ? { x: aEnd, y: from, w: gap, h: width }
+        : { x: from, y: aEnd, w: width, h: gap };
+    let clear = true;
+    let overOpen = false;
+    forCells(span, (x, y) => {
+      clear &&= ground(x, y) && occupied[y * cells + x] === 0;
+      overOpen ||= open(x, y);
+    });
+    if (!clear) return;
+    const score = gap + (overOpen ? 4 : 0) + rng.next() * 2;
+    if (!best || score > best.score) best = { arch: { a: a.id, b: b.id, axis, span }, score };
+  };
+  for (const a of buildings)
+    for (const b of buildings) {
+      if (a === b) continue;
+      consider(a, b, 'x');
+      consider(a, b, 'y');
+    }
+  if (!best) return null;
+  const { arch } = best as { arch: Omit<Arch, 'top'> };
+  const towers = buildings.filter((p) => p.id === arch.a || p.id === arch.b);
+  for (const t of towers) {
+    delete t.parts;
+    t.height = Math.max(t.height, cfg.towerHeight);
+  }
+  return { ...arch, top: Math.min(...towers.map((t) => t.height)) * 0.75 };
 }
 
 /** Cuts the Arena into Plot-sized rectangles separated by Streets, then Alleys. */

@@ -1,7 +1,7 @@
 import { CONFIG } from '../../config';
 import type { Rng } from '../../core/rng';
 import type { Vec2 } from '../../core/vec2';
-import type { Block } from '../terrain';
+import type { Block, CellRect } from '../terrain';
 import type { LayoutName } from './layouts';
 
 export interface Rect {
@@ -21,10 +21,27 @@ export interface Plot extends Block {
   priority: number;
 }
 
+/**
+ * A bridge between two towers facing each other across a road, high enough to fly under. Scenery
+ * only: nothing in the simulation collides with it. Its towers stand for the whole Run.
+ */
+export interface Arch {
+  /** Ids of the two building Plots it joins: `a` is west of `b` (axis x) or north of it (axis y). */
+  a: number;
+  b: number;
+  axis: 'x' | 'y';
+  /** The road cells between the two facing walls that it spans. */
+  span: CellRect;
+  /** Height of its top, in world units. */
+  top: number;
+}
+
 /** Every Plot in one Run's city, fixed at the start of the Run. */
 export interface CityPlan {
   layout: LayoutName;
   plots: Plot[];
+  /** At most one per city, and none if no pair of towers suits. */
+  arch: Arch | null;
   /** Where the Ship starts, in cells. */
   spawn: Vec2;
   spawnHeading: number;
@@ -62,9 +79,10 @@ export function planChange(
   const c = CONFIG.city;
   const buildings = plan.plots.filter((p) => p.kind === 'building');
   const up = buildings.filter((p) => standing(p.id));
+  const landmarks = new Set(plan.arch ? [plan.arch.a, plan.arch.b] : []);
   const sink: Plot[] = [];
   if (wave >= c.churnFromWave) {
-    const pool = [...up];
+    const pool = up.filter((p) => !landmarks.has(p.id));
     for (let i = 0; i < c.churnPerWave && pool.length > 0; i++) {
       sink.push(pool.splice(rng.int(pool.length), 1)[0]!);
     }
@@ -87,6 +105,8 @@ export function planChange(
     .filter((p) => !standing(p.id))
     .slice(0, Math.max(0, plazaObstaclesForWave(wave) - plazaUp));
 
-  const edge = plan.plots.filter((p) => p.kind === 'edge' && !standing(p.id));
-  return { rise: [...edge, ...rise, ...plazaRise], sink };
+  const permanent = plan.plots.filter(
+    (p) => (p.kind === 'edge' || landmarks.has(p.id)) && !standing(p.id) && !rise.includes(p),
+  );
+  return { rise: [...permanent, ...rise, ...plazaRise], sink };
 }

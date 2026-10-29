@@ -36,10 +36,12 @@ export function buildingGeometry(
   d: number,
   seed: number,
   varied: boolean,
+  /** Only styles that keep one solid mass: for the wings of a compound building. */
+  simpleOnly = false,
 ): THREE.BufferGeometry {
   const rng = new Rng(seed);
   const base = { x0: -w / 2, z0: -d / 2, x1: w / 2, z1: d / 2 };
-  const style = varied ? pickStyle(rng, Math.min(w, d)) : 'box';
+  const style = varied ? pickStyle(rng, simpleOnly ? 0 : Math.min(w, d)) : 'box';
   switch (style) {
     case 'box':
       return prism(base, 0, base, [h, h, h, h]);
@@ -158,4 +160,33 @@ function prism(
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(tris.flat(), 3));
   geometry.computeVertexNormals();
   return geometry;
+}
+
+/**
+ * Geometry for a compound building: each part is a wing of its own height and simple style, merged
+ * into one piece centred on the bounding rectangle. Sizes are in world units; `inset` shrinks each
+ * wing so neighbouring faces never z-fight.
+ */
+export function compoundGeometry(
+  parts: readonly { x: number; z: number; w: number; d: number }[],
+  h: number,
+  seed: number,
+  varied: boolean,
+  inset: number,
+): THREE.BufferGeometry {
+  const rng = new Rng(seed);
+  const tallest = rng.int(parts.length);
+  return mergeGeometries(
+    parts.map((p, i) => {
+      const height = !varied || i === tallest ? h : h * rng.range(0.6, 1);
+      return buildingGeometry(
+        p.w - inset,
+        height,
+        p.d - inset,
+        seed + i + 1,
+        varied,
+        true,
+      ).translate(p.x, 0, p.z);
+    }),
+  );
 }

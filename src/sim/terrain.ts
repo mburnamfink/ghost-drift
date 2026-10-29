@@ -1,17 +1,27 @@
 import { CONFIG } from '../config';
 import type { Vec2 } from '../core/vec2';
 
-/** A solid rectangular structure covering whole cells. Position and size are in cells. */
-export interface Block {
-  /** Stable identity, so presentation can follow a Block as it Rises and Sinks. */
-  id: number;
+export interface CellRect {
   x: number;
   y: number;
   w: number;
   h: number;
+}
+
+/**
+ * A solid structure covering whole cells. Position and size, in cells, are its bounding rectangle;
+ * a compound Block (an L, a T…) also lists the non-overlapping rectangles it is made of.
+ */
+export interface Block extends CellRect {
+  /** Stable identity, so presentation can follow a Block as it Rises and Sinks. */
+  id: number;
+  parts?: CellRect[];
   /** Visual height in world units; ignored by the simulation (ADR-0002). */
   height: number;
 }
+
+/** The rectangles a Block covers: its parts if compound, else itself. */
+export const partsOf = (b: Block): readonly CellRect[] => b.parts ?? [b];
 
 /**
  * The Arena floor plan: a square grid of open cells and Blocks (ADR-0003). Blocks Rise and Sink
@@ -59,9 +69,11 @@ export class Terrain {
 
   private fill(b: Block, value: 0 | 1): void {
     this.version++;
-    for (let y = b.y; y < b.y + b.h; y++) {
-      for (let x = b.x; x < b.x + b.w; x++)
-        if (this.inBounds(x, y)) this.solid[this.index(x, y)] = value;
+    for (const r of partsOf(b)) {
+      for (let y = r.y; y < r.y + r.h; y++) {
+        for (let x = r.x; x < r.x + r.w; x++)
+          if (this.inBounds(x, y)) this.solid[this.index(x, y)] = value;
+      }
     }
   }
 

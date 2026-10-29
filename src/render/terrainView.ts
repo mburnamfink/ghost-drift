@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import type { TerrainChange } from '../sim/city';
-import type { Block, Terrain } from '../sim/terrain';
+import type { Arch, TerrainChange } from '../sim/city';
+import { type Block, type CellRect, type Terrain, partsOf } from '../sim/terrain';
 import { CONFIG } from '../config';
-import { buildingGeometry } from './buildingShapes';
+import { buildingGeometry, compoundGeometry } from './buildingShapes';
 import { PALETTE } from './palette';
 
 const WALL_HEIGHT = 14;
@@ -32,6 +32,11 @@ interface Occluder {
   ownsGeometry: boolean;
 }
 
+/** Depth of the deck above the crown of an Arch, in world units. */
+const ARCH_DECK = 1.6;
+/** How far an Arch's ends sink into its towers, so no seam shows. */
+const ARCH_EMBED = 0.4;
+
 const unitBox = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
 const unitEdges = new THREE.EdgesGeometry(unitBox);
 
@@ -52,10 +57,16 @@ export class TerrainView {
   private readonly cellSize: number;
   private readonly maxHeight: number;
 
-  /** @param varied Draw Blocks in assorted shapes instead of plain boxes. */
+  private arch: { occluder: Occluder; a: number; b: number } | null = null;
+
+  /**
+   * @param varied Draw Blocks in assorted shapes instead of plain boxes.
+   * @param arch The city's Arch, drawn between its towers and sliding with them.
+   */
   constructor(
     terrain: Terrain,
     private readonly varied = true,
+    arch: Arch | null = null,
   ) {
     const size = terrain.worldSize;
     const half = size / 2;
@@ -80,6 +91,38 @@ export class TerrainView {
     this.addOccluder(-t / 2, half, t, WALL_HEIGHT, size, wall, true);
     this.addOccluder(size + t / 2, half, t, WALL_HEIGHT, size, wall, true);
     this.group.add(this.telegraphs);
+    if (arch) this.addArch(arch);
+  }
+
+  private addArch(arch: Arch): void {
+    const cell = this.cellSize;
+    const { span, top } = arch;
+    const along = (arch.axis === 'x' ? span.w : span.h) * cell + ARCH_EMBED * 2;
+    const across = (arch.axis === 'x' ? span.h : span.w) * cell;
+    // Side profile: a deck on top, a half-ellipse cut from below, springing at half height.
+    const spring = top * 0.5;
+    const shape = new THREE.Shape();
+    shape.moveTo(-along / 2, spring);
+    shape.lineTo(-along / 2, top);
+    shape.lineTo(along / 2, top);
+    shape.lineTo(along / 2, spring);
+    shape.absellipse(0, spring, along / 2, top - ARCH_DECK - spring, 0, Math.PI, false);
+    const geometry = new THREE.ExtrudeGeometry(shape, { depth: across, bevelEnabled: false })
+      .translate(0, 0, -across / 2)
+      .toNonIndexed();
+    if (arch.axis === 'y') geometry.rotateY(-Math.PI / 2);
+    geometry.computeVertexNormals();
+    const occluder = this.addOccluder(
+      (span.x + span.w / 2) * cell,
+      (span.y + span.h / 2) * cell,
+      along,
+      top,
+      across,
+      new THREE.Color(PALETTE.blockHigh).multiplyScalar(1.25),
+      false,
+      geometry,
+    );
+    this.arch = { occluder, a: arch.a, b: arch.b };
   }
 
   /** Starts the slide for Blocks that just Rose or Sank in the simulation. */
@@ -107,6 +150,13 @@ export class TerrainView {
       if (o.raised === 0 && o.moving < 0) this.removeBlock(id);
     }
 
+    if (this.arch) {
+      // Stands only as high as the lower of its two towers.
+      const { occluder, a, b } = this.arch;
+      const raised = Math.min(this.blocks.get(a)?.raised ?? 0, this.blocks.get(b)?.raised ?? 0);
+      occluder.mesh.position.y = occluder.edges.position.y = (raised - 1) * occluder.height;
+    }
+
     if (pending !== this.telegraphFor) this.buildTelegraphs(pending);
     const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(this.time * TELEGRAPH_PULSE * Math.PI * 2));
     this.telegraphs.traverse((obj) => {
@@ -122,12 +172,14 @@ export class TerrainView {
     }
     if (!pending) return;
     // Rising Plots get a floor outline; Sinking Blocks get a full outline so they read as going away.
-    for (const p of pending.rise) this.telegraphs.add(this.outline(p, 0.15, PALETTE.riseWarning));
+    for (const p of pending.rise)
+      for (const r of partsOf(p)) this.telegraphs.add(this.outline(r, 0.15, PALETTE.riseWarning));
     for (const p of pending.sink)
-      this.telegraphs.add(this.outline(p, p.height, PALETTE.sinkWarning));
+      for (const r of partsOf(p))
+        this.telegraphs.add(this.outline(r, p.height, PALETTE.sinkWarning));
   }
 
-  private outline(b: Block, height: number, color: number): THREE.LineSegments {
+  private outline(b: CellRect, height: number, color: number): THREE.LineSegments {
     const cell = this.cellSize;
     const lines = new THREE.LineSegments(
       unitEdges,
@@ -151,16 +203,24 @@ export class TerrainView {
     // A small inset keeps neighbouring faces from z-fighting with the grid lines.
     const w = b.w * cell - 0.1;
     const d = b.h * cell - 0.1;
-    const o = this.addOccluder(
-      (b.x + b.w / 2) * cell,
-      (b.y + b.h / 2) * cell,
-      w,
-      b.height,
-      d,
-      color,
-      false,
-      buildingGeometry(w, b.height, d, b.id * 7919 + 13, this.varied),
-    );
+    const seed = b.id * 7919 + 13;
+    const cx = (b.x + b.w / 2) * cell;
+    const cz = (b.y + b.h / 2) * cell;
+    const geometry = b.parts
+      ? compoundGeometry(
+          b.parts.map((p) => ({
+            x: (p.x + p.w / 2) * cell - cx,
+            z: (p.y + p.h / 2) * cell - cz,
+            w: p.w * cell,
+            d: p.h * cell,
+          })),
+          b.height,
+          seed,
+          this.varied,
+          0.1,
+        )
+      : buildingGeometry(w, b.height, d, seed, this.varied);
+    const o = this.addOccluder(cx, cz, w, b.height, d, color, false, geometry);
     o.raised = raised;
     o.mesh.position.y = o.edges.position.y = (raised - 1) * b.height;
     this.blocks.set(b.id, o);

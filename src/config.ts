@@ -42,6 +42,8 @@ export const CONFIG = {
     edgeBand: 10,
     edgePriority: 3,
     edgeExtraHeight: 5,
+    /** One Arch per city spans a road this many cells wide, between towers raised to `towerHeight`. */
+    arch: { minGap: 2, maxGap: 7, minOverlap: 2, maxWidth: 3, towerHeight: 18 },
     /** Edge Block heights: nearest the city at the low end, taller further out. */
     edgeHeight: [16, 32],
     /** From this Wave on, this many standing Blocks Sink each Wave so routes keep changing. */

@@ -104,6 +104,13 @@ The fraction of building Plots with a standing Block. Rises Wave by Wave to a ce
 The plan a Run's city follows: Grid, Circuit, Districts or Hub. Picked at random each Run.
 _Avoid_: Map, level
 
+**Footprint**:
+The outline a building covers: a rectangle, or a compound shape such as an L, T, U, cross, Z or stepped corner.
+
+**Arch**:
+A bridge between two towers across a road, high enough to fly under. One per city at most. Its towers never Sink.
+_Avoid_: Bridge (reads as something to drive over)
+
 **Edge**:
 The towers beyond the city's arced outline, where the city has grown too dense to enter. Never Sinks.
 _Avoid_: Wall, border
