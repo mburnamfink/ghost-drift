@@ -11,7 +11,7 @@ npm run dev
 
 Open the printed URL in Chrome or Firefox. Plug in an Xbox controller and press any button so the browser detects it, or use the keyboard. Controls are listed in [docs/design.md](docs/design.md#controls).
 
-Add `?seed=1234` to the URL to replay the same Arena and Hunter behavior every Run.
+Add `?seed=1234` to the URL to replay the same Arena and Hunter behavior every Run. If the controller does nothing, add `?debug=pad` to see every device the browser reports, which one the game picked, and its live buttons and axes.
 
 ## Scripts
 
