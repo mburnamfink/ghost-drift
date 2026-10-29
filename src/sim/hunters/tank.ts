@@ -1,7 +1,7 @@
 import { CONFIG } from '../../config';
 import type { Rng } from '../../core/rng';
-import { type Vec2, clamp, distance } from '../../core/vec2';
-import { moveHunter, steerHunter } from './movement';
+import { type Vec2, distance } from '../../core/vec2';
+import { moveHunter, orbitHunter } from './movement';
 import type { HuntContext, HunterAction, Tank, TankRole } from './types';
 
 export function createTank(id: number, role: TankRole, pos: Vec2, rng: Rng): Tank {
@@ -28,16 +28,9 @@ export function stepTank(h: Tank, ctx: HuntContext, dt: number): HunterAction | 
   const shipPos = ctx.ship.pos;
   const toShip = distance(h.pos, shipPos);
   const sees = toShip < cfg.engageRange && ctx.terrain.hasLineOfSight(h.pos, shipPos);
-  if (sees && toShip > 1e-6) {
-    const out = { x: (h.pos.x - shipPos.x) / toShip, y: (h.pos.y - shipPos.y) / toShip };
-    // Positive when too far out: pull inward. Negative when too close: push outward.
-    const inward = clamp((toShip - cfg.standoff) / cfg.standoffBand, -1, 1) * 1.5;
-    const dir = {
-      x: -out.y * h.orbitDir - out.x * inward,
-      y: out.x * h.orbitDir - out.y * inward,
-    };
-    const len = Math.hypot(dir.x, dir.y);
-    steerHunter(h, { x: dir.x / len, y: dir.y / len }, ctx.tankSpeed, cfg.radius, ctx, dt);
+  if (sees) {
+    const { standoff, standoffBand, radius } = cfg;
+    orbitHunter(h, shipPos, h.orbitDir, standoff, standoffBand, ctx.tankSpeed, radius, ctx, dt);
   } else {
     const cutting = h.role === 'cutter' && toShip > cfg.cutterCommitDistance;
     moveHunter(

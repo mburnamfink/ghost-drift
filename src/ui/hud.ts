@@ -84,7 +84,9 @@ export class Hud {
 
   handleEvents(events: readonly SimEvent[]): void {
     for (const e of events) {
-      if (e.type === 'waveStarted') this.showBanner(`WAVE ${e.wave}`);
+      if (e.type === 'waveStarted') {
+        this.showBanner(e.juggernauts > 0 ? `WAVE ${e.wave} · JUGGERNAUT` : `WAVE ${e.wave}`);
+      }
       if (e.type === 'waveCleared') this.showBanner('WAVE CLEARED · BURST RECHARGED');
       if (e.type === 'slideComboEnded' && e.kills >= 2) {
         this.showBanner(`SLIDE ×${e.kills} · +${e.points.toLocaleString()}`);

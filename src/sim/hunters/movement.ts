@@ -117,3 +117,27 @@ export function choosePerch(
   }
   return best;
 }
+
+/**
+ * Circles `center` at `standoff`, in direction `orbitDir`, pulling in when farther out than the
+ * band and pushing out when closer.
+ */
+export function orbitHunter(
+  h: Hunter,
+  center: Vec2,
+  orbitDir: 1 | -1,
+  standoff: number,
+  band: number,
+  speed: number,
+  radius: number,
+  ctx: HuntContext,
+  dt: number,
+): void {
+  const d = distance(h.pos, center);
+  if (d < 1e-6) return;
+  const out = { x: (h.pos.x - center.x) / d, y: (h.pos.y - center.y) / d };
+  // Positive when too far out: pull inward. Negative when too close: push outward.
+  const inward = Math.max(-1, Math.min(1, (d - standoff) / band)) * 1.5;
+  const dir = { x: -out.y * orbitDir - out.x * inward, y: out.x * orbitDir - out.y * inward };
+  steerHunter(h, normalize(dir), speed, radius, ctx, dt);
+}

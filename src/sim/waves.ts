@@ -8,6 +8,7 @@ export interface WaveMix {
   berserkers: number;
   snipers: number;
   artillery: number;
+  juggernauts: number;
 }
 
 /** Count for a special type: one when it first appears, then one more every `every` Waves, capped. */
@@ -23,11 +24,19 @@ export function waveMix(wave: number): WaveMix {
     berserkers: ramp(wave, c.berserkerFromWave, 2, c.maxBerserkers),
     snipers: ramp(wave, c.sniperFromWave, 1.5, c.maxSnipers),
     artillery: ramp(wave, c.artilleryFromWave, 2, c.maxArtillery),
+    juggernauts: juggernautsFor(wave),
   };
 }
 
+/** Juggernauts come in their own Waves, every few Waves, with a second joining later on. */
+function juggernautsFor(wave: number): number {
+  const { juggernautFromWave: from, juggernautEvery: every, maxJuggernauts } = CONFIG.waves;
+  if (wave < from || (wave - from) % every !== 0) return 0;
+  return Math.min(maxJuggernauts, 1 + Math.floor((wave - from) / (every * 3)));
+}
+
 export const waveTotal = (mix: WaveMix): number =>
-  mix.tanks + mix.berserkers + mix.snipers + mix.artillery;
+  mix.tanks + mix.berserkers + mix.snipers + mix.artillery + mix.juggernauts;
 
 export const tankSpeed = (wave: number): number =>
   Math.min(CONFIG.tank.maxSpeed, CONFIG.tank.baseSpeed + CONFIG.tank.speedPerWave * (wave - 1));

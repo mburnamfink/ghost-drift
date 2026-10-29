@@ -173,6 +173,24 @@ export const CONFIG = {
     repickInterval: 10,
     scoreMultiplier: 3,
   },
+  /** Armoured mini-boss. Bolts do 1 damage; Pulses and Artillery blasts do more. */
+  juggernaut: {
+    radius: 3,
+    speed: 11,
+    hp: 20,
+    pulseDamage: 5,
+    blastDamage: 8,
+    standoff: 20,
+    standoffBand: 6,
+    /** Turret traverse in radians per second; circling faster than this outruns its aim. */
+    turretTurnRate: 1.2,
+    fireRange: 50,
+    windup: 0.7,
+    cooldown: 2.8,
+    /** A Spray: `count` Shells fanned evenly across `spread` radians. */
+    spray: { count: 5, spread: 0.9, speed: 24, life: 2.6, radius: 0.75 },
+    scoreMultiplier: 8,
+  },
   shell: {
     speed: 32,
     life: 3,
@@ -199,6 +217,10 @@ export const CONFIG = {
     sniperFromWave: 3,
     maxSnipers: 5,
     artilleryFromWave: 5,
+    /** A Juggernaut Wave every `juggernautEvery` Waves from this one; a second from 3 cycles later. */
+    juggernautFromWave: 4,
+    juggernautEvery: 3,
+    maxJuggernauts: 2,
     maxArtillery: 4,
   },
 } as const;

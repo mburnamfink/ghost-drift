@@ -16,6 +16,7 @@ const HUNTER_COLORS: Record<HunterKind, string> = {
   berserker: css(PALETTE.berserkerBlur),
   sniper: css(PALETTE.laser),
   artillery: css(PALETTE.shell),
+  juggernaut: css(PALETTE.tankShell),
 };
 
 /**
@@ -85,7 +86,7 @@ export class Minimap {
         p = { x: half + ((p.x - half) * rim) / off, y: half + ((p.y - half) * rim) / off };
       ctx.fillStyle = HUNTER_COLORS[h.kind];
       ctx.beginPath();
-      ctx.arc(p.x, p.y, DOT * dpr, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, DOT * dpr * (h.kind === 'juggernaut' ? 1.8 : 1), 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.restore();

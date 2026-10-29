@@ -6,13 +6,22 @@ export interface Shot {
   pos: Vec2;
   vel: Vec2;
   life: number;
+  /** Hit radius, if not the default for its kind of shot. */
+  radius?: number;
 }
 
-export function createShot(from: Vec2, angle: number, speed: number, life: number): Shot {
+export function createShot(
+  from: Vec2,
+  angle: number,
+  speed: number,
+  life: number,
+  radius?: number,
+): Shot {
   return {
     pos: { ...from },
     vel: { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
     life,
+    ...(radius === undefined ? {} : { radius }),
   };
 }
 

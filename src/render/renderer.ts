@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG, SHIP_TOP_SPEED } from '../config';
 import { clamp, wrapAngle } from '../core/vec2';
-import type { Artillery, Berserker } from '../sim/hunters';
+import type { Artillery, Berserker, Juggernaut } from '../sim/hunters';
 import { isBursting, speedOf } from '../sim/ship';
 import type { Shot } from '../sim/shots';
 import type { SimEvent, World } from '../sim/world';
@@ -43,6 +43,8 @@ const SHIP_BANK = {
  * speed. Below the ~65% a full-lock turn at full thrust holds, so hard cornering still trails.
  */
 const SHIP_BLUR = { from: 0.5, minStrength: 0.35 };
+const HIT_FLASH_SECONDS = 0.1;
+const HEALTH_BAR_HEIGHT = 7;
 /** How far, and for how long, an Artillery mortar kicks back when it fires. */
 const MORTAR_RECOIL = { distance: 0.8, seconds: 0.35 };
 const SPARK = {
@@ -66,6 +68,10 @@ export class GameRenderer {
   private readonly bolts: THREE.InstancedMesh;
   /** Tank shells drawn as a solid core inside a faint halo. */
   private readonly shellLayers: THREE.InstancedMesh[];
+  /** Juggernaut Spray Shells: the same look, larger. */
+  private readonly sprayLayers: THREE.InstancedMesh[];
+  /** Seconds of hit flash left, per Juggernaut. */
+  private readonly hitFlash = new Map<number, number>();
   private readonly pulses = new PulsesView();
   private readonly debris = new Debris();
   private readonly afterimages = new Afterimages();
@@ -103,10 +109,15 @@ export class GameRenderer {
       shotMesh(new THREE.IcosahedronGeometry(0.45, 0), PALETTE.tankShell),
       shotMesh(new THREE.IcosahedronGeometry(0.8, 1), PALETTE.tankShell, 0.2),
     ];
+    this.sprayLayers = [
+      shotMesh(new THREE.IcosahedronGeometry(0.75, 0), PALETTE.tankShell),
+      shotMesh(new THREE.IcosahedronGeometry(1.2, 1), PALETTE.tankShell, 0.2),
+    ];
     this.scene.add(
       this.ship.root,
       this.bolts,
       ...this.shellLayers,
+      ...this.sprayLayers,
       this.pulses.group,
       this.debris.mesh,
       this.threats.group,
@@ -138,9 +149,15 @@ export class GameRenderer {
     this.threats.handleEvents(events);
     for (const e of events) {
       switch (e.type) {
-        case 'hunterDestroyed':
-          this.debris.burst(e.pos.x, e.pos.y, PALETTE.hunter, 28, 18);
-          this.shake = Math.max(this.shake, 0.35);
+        case 'hunterDestroyed': {
+          const big = e.kind === 'juggernaut';
+          this.debris.burst(e.pos.x, e.pos.y, PALETTE.hunter, big ? 90 : 28, big ? 26 : 18);
+          this.shake = Math.max(this.shake, big ? 1 : 0.35);
+          break;
+        }
+        case 'hunterHit':
+          this.debris.burst(e.pos.x, e.pos.y, PALETTE.spark, 6, 10);
+          this.hitFlash.set(e.id, HIT_FLASH_SECONDS);
           break;
         case 'shipHit':
           this.debris.burst(e.pos.x, e.pos.y, PALETTE.ship, 12, 10);
@@ -181,7 +198,10 @@ export class GameRenderer {
     this.syncHunters(world, frameTime);
     syncShots(this.bolts, world.bolts, this.dummy, true);
     this.pulses.update(world.pulses);
-    for (const layer of this.shellLayers) syncShots(layer, world.shells, this.dummy, true);
+    const shells = world.shells.filter((s) => s.radius === undefined);
+    const sprays = world.shells.filter((s) => s.radius !== undefined);
+    for (const layer of this.shellLayers) syncShots(layer, shells, this.dummy, true);
+    for (const layer of this.sprayLayers) syncShots(layer, sprays, this.dummy, true);
     this.debris.update(frameTime);
     this.afterimages.update(frameTime);
     this.threats.update(world, frameTime);
@@ -253,6 +273,29 @@ export class GameRenderer {
     const pulse = h.fireCooldown <= 0 ? 0.25 * Math.sin(this.elapsed * 12) : 0;
     glow.scale.setScalar(0.3 + readiness + pulse);
     glow.material.opacity = 0.15 + 0.85 * readiness * readiness;
+  }
+
+  /** Barrel tips glow through the Spray wind-up; a hit flashes the hull; a bar shows armour left. */
+  private styleJuggernaut(h: Juggernaut, model: HunterModel, frameTime: number): void {
+    const cfg = CONFIG.juggernaut;
+    const charge = h.windup > 0 ? 1 - h.windup / cfg.windup : 0;
+    for (const muzzle of model.muzzles ?? []) {
+      muzzle.visible = charge > 0;
+      muzzle.scale.setScalar(0.4 + 1.2 * charge + 0.15 * Math.sin(this.elapsed * 40));
+    }
+
+    const flash = Math.max(0, (this.hitFlash.get(h.id) ?? 0) - frameTime);
+    this.hitFlash.set(h.id, flash);
+    const material = model.body.material;
+    material.emissive.setHex(flash > 0 ? 0xffffff : PALETTE.hunter);
+    material.emissiveIntensity = flash > 0 ? 0.8 : 0.25;
+
+    const bar = model.healthBar;
+    if (!bar) return;
+    if (!bar.group.parent) this.scene.add(bar.group);
+    bar.group.position.set(h.pos.x, HEALTH_BAR_HEIGHT, h.pos.y);
+    bar.group.quaternion.copy(this.camera.quaternion);
+    bar.fill.scale.x = Math.max(0.001, h.hp / cfg.hp);
   }
 
   /** Direction the camera faces, in simulation radians. */
@@ -351,12 +394,17 @@ export class GameRenderer {
       model.turret.rotation.y = -(h.aim - h.heading);
       if (h.kind === 'berserker') this.styleBerserker(h, model, frameTime);
       if (h.kind === 'artillery') this.styleArtillery(h, model, frameTime);
+      if (h.kind === 'juggernaut') this.styleJuggernaut(h, model, frameTime);
     }
     for (const [id, model] of this.hunters) {
       if (alive.has(id)) continue;
       this.afterimages.stop(id);
       this.scene.remove(model.root);
       model.glow?.material.dispose();
+      model.muzzles?.[0]?.material.dispose();
+      if (model.healthBar) this.scene.remove(model.healthBar.group);
+      if (model.kind === 'berserker' || model.kind === 'juggernaut') model.body.material.dispose();
+      this.hitFlash.delete(id);
       this.hunters.delete(id);
       this.mortars.delete(id);
     }

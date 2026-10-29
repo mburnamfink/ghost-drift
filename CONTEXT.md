@@ -63,11 +63,22 @@ A Hunter that holds a Perch with long sightlines and fires an instant shot at wh
 **Artillery**:
 A Hunter that holds a covered Perch far away and fires Salvos at a Ship under open sky.
 
+**Juggernaut**:
+The armoured mini-boss. Takes many hits, circles close, and fires Sprays from a slow-turning turret. Arrives in its own Waves.
+_Avoid_: Boss, heavy tank
+
+**Armour**:
+The damage a Juggernaut can still take. Every other Hunter dies to any hit.
+_Avoid_: HP, health
+
+**Spray**:
+A Juggernaut's attack: a fan of large Shells fired together after its barrels glow.
+
 **Perch**:
 The firing position a Sniper or Artillery holds instead of chasing. Abandoned when the Ship comes close.
 
 **Salvo**:
-Three Artillery shells landing in sequence along the Ship's projected path, each marked by a closing circle on the ground. A blast destroys Hunters as well as hurting the Ship.
+Three Artillery shells landing in sequence along the Ship's projected path, each marked by a closing circle on the ground. A blast destroys Hunters, or damages a Juggernaut's Armour, as well as hurting the Ship.
 
 **Open sky**:
 No Block within a couple of cells. Artillery fires only at a Ship under open sky, since tall Blocks block the arc.

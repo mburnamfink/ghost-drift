@@ -2,12 +2,14 @@ import { CONFIG } from '../../config';
 import { stepArtillery } from './artillery';
 import { stepBerserker } from './berserker';
 import { stepSniper } from './sniper';
+import { stepJuggernaut } from './juggernaut';
 import { stepTank } from './tank';
 import type { Hunter, HuntContext, HunterAction, HunterKind } from './types';
 
 export { createArtillery } from './artillery';
 export { createBerserker, endLunge } from './berserker';
 export { createSniper } from './sniper';
+export { createJuggernaut } from './juggernaut';
 export { createTank } from './tank';
 export type * from './types';
 
@@ -21,6 +23,8 @@ export function stepHunter(h: Hunter, ctx: HuntContext, dt: number): HunterActio
       return stepSniper(h, ctx, dt);
     case 'artillery':
       return stepArtillery(h, ctx, dt);
+    case 'juggernaut':
+      return stepJuggernaut(h, ctx, dt);
   }
 }
 

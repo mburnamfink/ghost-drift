@@ -18,6 +18,8 @@ export interface Pulse {
   vel: Vec2;
   heading: number;
   age: number;
+  /** Hunters this Pulse has already damaged; each takes one hit per Pulse. */
+  hit: number[];
 }
 
 export const pulseRadius = (p: Pulse): number =>

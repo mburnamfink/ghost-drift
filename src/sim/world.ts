@@ -9,6 +9,7 @@ import {
   type HunterKind,
   createArtillery,
   createBerserker,
+  createJuggernaut,
   createSniper,
   createTank,
   endLunge,
@@ -47,7 +48,8 @@ export type SimEvent =
   | { type: 'shipHit'; pos: Vec2 }
   | { type: 'shipDestroyed'; pos: Vec2 }
   | { type: 'burstStarted'; pos: Vec2 }
-  | { type: 'waveStarted'; wave: number }
+  | { type: 'waveStarted'; wave: number; juggernauts: number }
+  | { type: 'hunterHit'; pos: Vec2; id: number }
   | { type: 'waveCleared'; wave: number }
   | { type: 'terrainChanged'; change: TerrainChange };
 
@@ -182,7 +184,13 @@ export function stepWorld(world: World, controls: Controls, dt: number): void {
 function fireWeapon(world: World, angle: number): void {
   const { ship } = world;
   if (ship.weapon === 'shotgun') {
-    world.pulses.push({ origin: { ...ship.pos }, vel: { ...ship.vel }, heading: angle, age: 0 });
+    world.pulses.push({
+      origin: { ...ship.pos },
+      vel: { ...ship.vel },
+      heading: angle,
+      age: 0,
+      hit: [],
+    });
     world.events.push({ type: 'pulseFired', pos: { ...ship.pos } });
     return;
   }
@@ -241,6 +249,16 @@ function performAction(world: World, h: Hunter, action: HunterAction): void {
     case 'snipe':
       resolveSnipe(world, h.pos, action.dir);
       break;
+    case 'spray': {
+      const { speed, life, radius } = CONFIG.juggernaut.spray;
+      for (const angle of action.angles) {
+        const muzzle = fromAngle(angle, CONFIG.juggernaut.radius + 0.8);
+        world.shells.push(
+          createShot({ x: h.pos.x + muzzle.x, y: h.pos.y + muzzle.y }, angle, speed, life, radius),
+        );
+      }
+      break;
+    }
     case 'salvo': {
       const cfg = CONFIG.artillery;
       action.targets.forEach((pos, i) => {
@@ -286,7 +304,9 @@ function stepImpacts(world: World, dt: number): void {
     }
     for (let j = world.hunters.length - 1; j >= 0; j--) {
       const h = world.hunters[j]!;
-      if (distance(h.pos, impact.pos) < blast + hunterRadius(h.kind)) destroyHunter(world, j);
+      if (distance(h.pos, impact.pos) < blast + hunterRadius(h.kind)) {
+        damageHunter(world, j, CONFIG.juggernaut.blastDamage);
+      }
     }
   }
 }
@@ -299,7 +319,7 @@ function resolveBoltHits(world: World): void {
     );
     if (i < 0) continue;
     world.bolts.splice(b, 1);
-    destroyHunter(world, i);
+    damageHunter(world, i, 1);
   }
 }
 
@@ -307,9 +327,26 @@ function resolvePulseHits(world: World): void {
   for (const p of world.pulses) {
     for (let i = world.hunters.length - 1; i >= 0; i--) {
       const h = world.hunters[i]!;
-      if (pulseReaches(p, h.pos, hunterRadius(h.kind), world.terrain)) destroyHunter(world, i);
+      if (p.hit.includes(h.id)) continue;
+      if (!pulseReaches(p, h.pos, hunterRadius(h.kind), world.terrain)) continue;
+      p.hit.push(h.id);
+      damageHunter(world, i, CONFIG.juggernaut.pulseDamage);
     }
   }
+}
+
+/** Only Juggernauts are armoured; `amount` matters to nothing else, which dies to any hit. */
+function damageHunter(world: World, index: number, amount: number): void {
+  const h = world.hunters[index];
+  if (!h) return;
+  if (h.kind === 'juggernaut') {
+    h.hp -= amount;
+    if (h.hp > 0) {
+      world.events.push({ type: 'hunterHit', pos: { ...h.pos }, id: h.id });
+      return;
+    }
+  }
+  destroyHunter(world, index);
 }
 
 /**
@@ -352,10 +389,10 @@ function endSlideCombo(world: World): void {
 /** Shells and Hunter bodies hurt the Ship; Hunter bodies also physically block it unless bursting. */
 function resolveShipContacts(world: World): void {
   const ship = world.ship;
-  const shellReach = CONFIG.ship.radius + CONFIG.shell.radius;
   for (let s = world.shells.length - 1; s >= 0; s--) {
     const shell = world.shells[s]!;
-    if (Math.hypot(shell.pos.x - ship.pos.x, shell.pos.y - ship.pos.y) >= shellReach) continue;
+    const reach = CONFIG.ship.radius + (shell.radius ?? CONFIG.shell.radius);
+    if (Math.hypot(shell.pos.x - ship.pos.x, shell.pos.y - ship.pos.y) >= reach) continue;
     if (!canBeHit(ship)) continue;
     world.shells.splice(s, 1);
     damageShip(world);
@@ -440,12 +477,14 @@ function startWave(world: World): void {
   const mix = waveMix(world.wave);
   const { terrain, rng } = world;
   const points = spawnPoints(terrain, world.ship.pos, waveTotal(mix), rng);
-  const specials = mix.snipers + mix.artillery + mix.berserkers;
+  const specials = mix.juggernauts + mix.snipers + mix.artillery + mix.berserkers;
   points.forEach((p, i) => {
     const id = world.nextId++;
-    if (i < mix.snipers) {
+    if (i < mix.juggernauts) {
+      world.hunters.push(createJuggernaut(id, p, rng));
+    } else if (i < mix.juggernauts + mix.snipers) {
       world.hunters.push(createSniper(id, p, terrain, rng));
-    } else if (i < mix.snipers + mix.artillery) {
+    } else if (i < mix.juggernauts + mix.snipers + mix.artillery) {
       world.hunters.push(createArtillery(id, p, terrain, rng));
     } else if (i < specials) {
       world.hunters.push(createBerserker(id, p, rng));
@@ -459,5 +498,5 @@ function startWave(world: World): void {
   });
   world.waveStrength = world.hunters.length;
   world.fieldTimer = 0;
-  world.events.push({ type: 'waveStarted', wave: world.wave });
+  world.events.push({ type: 'waveStarted', wave: world.wave, juggernauts: mix.juggernauts });
 }

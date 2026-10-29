@@ -43,6 +43,7 @@ const hunterTurretMaterial = new THREE.MeshStandardMaterial({
 });
 
 export interface HunterModel {
+  kind: HunterKind;
   root: THREE.Group;
   /** Yaws to the Hunter's aim, relative to its hull. */
   turret: THREE.Group;
@@ -50,6 +51,10 @@ export interface HunterModel {
   /** Artillery only: the mortar, which recoils, and the glow at its mouth that builds while reloading. */
   mortar?: THREE.Group;
   glow?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
+  /** Juggernaut only: glows at its three barrel tips, sharing one material, lit during the wind-up. */
+  muzzles?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>[];
+  /** Juggernaut only: a bar of remaining armour, placed above it and turned to face the camera. */
+  healthBar?: { group: THREE.Group; fill: THREE.Mesh };
 }
 
 const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
@@ -63,6 +68,11 @@ const wedge = (radius: number, length: number, height: number) =>
     .rotateZ(-Math.PI / 2)
     .rotateX(-Math.PI / 2)
     .scale(1, height, 1);
+
+/** Yaw of each Juggernaut barrel from the turret's facing, splayed to suggest the Spray. */
+const JUGGERNAUT_BARRELS = [-0.3, 0, 0.3];
+/** Each barrel pivots this far ahead of the turret's centre and is this long. */
+const JUGGERNAUT_BARREL = { pivot: 1, length: 2.4 };
 
 /** Artillery mortar: tilt toward +X from vertical, and the height of its pivot on the turret. */
 export const MORTAR_MOUNT = { pitch: 0.6, y: 0.3 };
@@ -128,6 +138,31 @@ const SHAPES: Record<
     turretY: 1.2,
     parts: () => [],
   },
+  juggernaut: {
+    body: merge([
+      new THREE.CylinderGeometry(2.6, 3.1, 1.5, 6),
+      // A plough of armour at the front.
+      wedge(2.3, 2.6, 0.7).translate(2.3, -0.1, 0),
+    ]),
+    bodyY: 0.85,
+    turretY: 1.9,
+    parts: () => {
+      const plates = [1, -1].map((side) => {
+        const plate = turretMesh(box(4.6, 1.3, 0.5));
+        plate.position.set(-0.2, -0.95, side * 3);
+        plate.rotation.x = side * 0.25;
+        return plate;
+      });
+      const barrels = JUGGERNAUT_BARRELS.map((angle) => {
+        const { pivot, length } = JUGGERNAUT_BARREL;
+        const barrel = turretMesh(box(length, 0.5, 0.5).translate(length / 2, 0, 0));
+        barrel.position.x = pivot;
+        barrel.rotation.y = -angle;
+        return barrel;
+      });
+      return [turretMesh(new THREE.CylinderGeometry(1.5, 1.9, 1, 6)), ...barrels, ...plates];
+    },
+  },
   artillery: {
     body: merge([
       new THREE.CylinderGeometry(1.7, 2.2, 0.9, 6),
@@ -160,8 +195,9 @@ function spearhead(): THREE.BufferGeometry {
 
 export function createHunterModel(kind: HunterKind): HunterModel {
   const shape = SHAPES[kind];
-  // Berserkers glow while winding up, so each needs its own material.
-  const material = kind === 'berserker' ? hunterBodyMaterial.clone() : hunterBodyMaterial;
+  // Berserkers glow while winding up and Juggernauts flash when hit, so each needs its own material.
+  const material =
+    kind === 'berserker' || kind === 'juggernaut' ? hunterBodyMaterial.clone() : hunterBodyMaterial;
   const body = new THREE.Mesh(shape.body, material);
   body.position.y = shape.bodyY;
   const turret = new THREE.Group();
@@ -170,7 +206,8 @@ export function createHunterModel(kind: HunterKind): HunterModel {
   if (parts.length > 0) turret.add(...parts);
   const root = new THREE.Group();
   root.add(body, turret);
-  if (kind !== 'artillery') return { root, turret, body };
+  if (kind === 'juggernaut') return { kind, root, turret, body, ...juggernautExtras(turret) };
+  if (kind !== 'artillery') return { kind, root, turret, body };
 
   // A four-sided tapered mortar pitched up toward +X, with a glow at its mouth.
   const mortar = new THREE.Group();
@@ -190,7 +227,39 @@ export function createHunterModel(kind: HunterKind): HunterModel {
   glow.position.y = 3;
   mortar.add(tube, glow);
   turret.add(mortar);
-  return { root, turret, body, mortar, glow };
+  return { kind, root, turret, body, mortar, glow };
+}
+
+function juggernautExtras(turret: THREE.Group): Pick<HunterModel, 'muzzles' | 'healthBar'> {
+  const glow = new THREE.MeshBasicMaterial({
+    color: PALETTE.tankShell,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const muzzles = JUGGERNAUT_BARRELS.map((angle) => {
+    const muzzle = new THREE.Mesh(new THREE.OctahedronGeometry(0.55), glow);
+    const { pivot, length } = JUGGERNAUT_BARREL;
+    muzzle.position.set(pivot + Math.cos(angle) * length, 0, Math.sin(angle) * length);
+    muzzle.visible = false;
+    turret.add(muzzle);
+    return muzzle;
+  });
+
+  const group = new THREE.Group();
+  const overlay = (color: number, opacity: number) =>
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthTest: false });
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 0.6), overlay(0x000000, 0.6));
+  // Anchored at its left end so scaling x shrinks it toward the left.
+  const fill = new THREE.Mesh(
+    new THREE.PlaneGeometry(5, 0.4).translate(2.5, 0, 0),
+    overlay(PALETTE.shell, 0.95),
+  );
+  fill.position.set(-2.5, 0, 0.01);
+  group.add(back, fill);
+  group.renderOrder = 10;
+  for (const child of group.children) child.renderOrder = 10;
+  return { muzzles, healthBar: { group, fill } };
 }
 
 /** Where a Sniper's laser and tracer start: the muzzle of its shoulder rifle, aimed along `angle`. */
