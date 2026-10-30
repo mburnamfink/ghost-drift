@@ -14,8 +14,8 @@ export const CONFIG = {
   city: {
     /** Road widths in cells. */
     avenue: 5,
-    street: 2,
-    alley: 1,
+    street: 3,
+    alley: 2,
     /** Areas longer than this on a side are split by Streets, smaller ones by Alleys. */
     streetAbove: 28,
     /** Plots are split until both sides are at most this many cells. */
@@ -30,9 +30,9 @@ export const CONFIG = {
     plazaObstacleCandidates: 10,
     plazaObstacleHeight: [3, 5],
     /** Fraction of building plots standing in Wave 1, the growth per Wave, and the ceiling. */
-    startDensity: 0.6,
-    densityPerWave: 0.04,
-    maxDensity: 0.9,
+    startDensity: 0.45,
+    densityPerWave: 0.03,
+    maxDensity: 0.7,
     /** Priority multiplier for Plots facing an Avenue or a Plaza. */
     frontagePriority: 8,
     /**
@@ -43,8 +43,8 @@ export const CONFIG = {
     edgePriority: 3,
     edgeExtraHeight: 5,
     /**
-     * Lined roads (Circuit's loop, Hub's spokes) are walled on both sides by permanent buildings
-     * `depth` cells deep, broken by a `gate` cells wide every `gateSpacing` cells.
+     * Lined roads (Circuit's loop, Hub's spokes, Raceway's highways) are walled on both sides by
+     * permanent buildings `depth` cells deep, broken by a `gate` cells wide every `gateSpacing` cells.
      */
     lining: { depth: 2, gateSpacing: 10, gate: 2, height: [10, 16] },
     /** One Arch per city spans a road this many cells wide, between towers raised to `towerHeight`. */
@@ -91,11 +91,17 @@ export const CONFIG = {
   },
   /** Slow Pulses that sweep a short, wide arc and destroy every exposed Hunter in it. */
   shotgun: {
-    interval: 0.5,
+    interval: 0.6,
     range: 18,
+    /** Each shot also sweeps an arc off either side of the line of travel, out to this range. */
+    sideRange: 10,
     /** Seconds for a Pulse to reach full range. */
     duration: 0.22,
+    /** Seconds a Pulse then holds at full range, riding with the Ship. */
+    hold: 0.3,
     halfAngle: 0.6,
+    /** Speed a Pulse shoves a Hunter it hits but does not destroy. */
+    knockback: 18,
   },
   /** Behavior shared by every Hunter type. */
   hunters: {
@@ -196,6 +202,8 @@ export const CONFIG = {
     cooldown: 2.8,
     /** A Spray: `count` Shells fanned evenly across `spread` radians. */
     spray: { count: 5, spread: 0.9, speed: 24, life: 2.6, radius: 0.75 },
+    /** Spawns only on open ground at least this many cells from any Block, where it can be circled. */
+    spawnClearance: 5,
     scoreMultiplier: 8,
   },
   shell: {
@@ -204,12 +212,31 @@ export const CONFIG = {
     radius: 0.5,
   },
   /**
-   * Every kill scores times the Multiplier. Kills while Powersliding raise it by one, up to `max`;
-   * it falls back to 1 after `timeout` seconds without a kill. The clock stops between Waves.
+   * Every kill scores times the Multiplier, which is one more than its heat, with no cap. Each kill
+   * the player makes adds heat for its style; Artillery blasts add none. Heat burns off at
+   * `drain + drainPerHeat * heat` per second while a Wave is live, so high Multipliers fade fastest.
    */
   multiplier: {
-    max: 10,
-    timeout: 6,
+    killHeat: 0.25,
+    /** Shot fired with the nose at least `driftAngle` off the line of travel, at `driftSpeed` of top speed. */
+    driftHeat: 1,
+    driftAngle: (35 * Math.PI) / 180,
+    driftSpeed: 0.5,
+    /** Shot fired with the momentum meter full. */
+    speedHeat: 1,
+    /** Momentum fills over `momentumFill` seconds at `fastSpeed` of top speed or more, and empties
+     * in `momentumDrain` seconds below `slowSpeed`. A hit empties it at once. */
+    fastSpeed: 0.85,
+    slowSpeed: 0.6,
+    momentumFill: 3,
+    momentumDrain: 0.5,
+    /** A kill within `chainWindow` seconds of the last extends the chain, adding `chainHeat` per
+     * link beyond the first, counting at most `chainLinks` links. */
+    chainWindow: 1,
+    chainHeat: 0.25,
+    chainLinks: 4,
+    drain: 0.15,
+    drainPerHeat: 0.035,
   },
   waves: {
     firstCount: 3,

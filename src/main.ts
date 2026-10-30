@@ -15,6 +15,7 @@ const options: GameOptions = {
   firstWave: wave,
   plainBlocks: params.get('blocks') === 'plain',
   demo: params.has('demo'),
+  attract: params.has('attract'),
 };
 if (seed !== null && Number.isFinite(seed)) options.seed = seed;
 if (isLayoutName(map)) options.layout = map;

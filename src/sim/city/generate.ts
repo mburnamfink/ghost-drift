@@ -42,7 +42,7 @@ export function buildCity(spec: LayoutSpec, rng: Rng, cells: number): CityPlan {
     lining[at(x, y)] === 0 &&
     (!spec.buildOnly || spec.buildOnly.some((s) => contains(s, x + 0.5, y + 0.5)));
 
-  const lots = subdivide(rng, n)
+  const lots = (spec.lots ?? subdivide(rng, n))
     .map((r) => largestRect(r, buildable))
     .filter(
       (r): r is Rect =>
@@ -246,7 +246,8 @@ function pickArch(
  * through it, 0 for neither. Gates come at regular intervals so the streets behind stay reachable.
  */
 function liningAt(spec: LayoutSpec, px: number, py: number): number {
-  const { depth, gateSpacing, gate } = CONFIG.city.lining;
+  const { depth } = CONFIG.city.lining;
+  const { gateSpacing, gate } = { ...CONFIG.city.lining, ...spec.liningGates };
   for (const s of spec.lined) {
     const pos = roadPosition(s, px, py);
     if (!pos || !('width' in s)) continue;
@@ -257,23 +258,24 @@ function liningAt(spec: LayoutSpec, px: number, py: number): number {
   return 0;
 }
 
-/** Splits a lot into pieces at most `max` cells on a side, separated by one-cell Alleys. */
+/** Splits a lot into pieces at most `max` cells on a side, separated by Alleys. */
 function splitLot(r: Rect, max: number, rng: Rng): Rect[] {
   const min = 2;
-  const canX = r.w > max && r.w >= 2 * min + 1;
-  const canY = r.h > max && r.h >= 2 * min + 1;
+  const gap = CONFIG.city.alley;
+  const canX = r.w > max && r.w >= 2 * min + gap;
+  const canY = r.h > max && r.h >= 2 * min + gap;
   if (!canX && !canY) return [r];
   const alongX = canX && (r.w >= r.h || !canY);
   const length = alongX ? r.w : r.h;
-  const at = min + rng.int(length - 1 - 2 * min + 1);
+  const at = min + rng.int(length - gap - 2 * min + 1);
   const [a, b]: Rect[] = alongX
     ? [
         { ...r, w: at },
-        { ...r, x: r.x + at + 1, w: r.w - at - 1 },
+        { ...r, x: r.x + at + gap, w: r.w - at - gap },
       ]
     : [
         { ...r, h: at },
-        { ...r, y: r.y + at + 1, h: r.h - at - 1 },
+        { ...r, y: r.y + at + gap, h: r.h - at - gap },
       ];
   return [...splitLot(a!, max, rng), ...splitLot(b!, max, rng)];
 }

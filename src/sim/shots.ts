@@ -1,4 +1,5 @@
 import type { Vec2 } from '../core/vec2';
+import type { ShotStyle } from './multiplier';
 import type { Terrain } from './terrain';
 
 /** A Bolt or a Shell in flight. Which one is decided by the list it lives in. */
@@ -8,6 +9,8 @@ export interface Shot {
   life: number;
   /** Hit radius, if not the default for its kind of shot. */
   radius?: number;
+  /** How the Ship was flying when it fired this Bolt; Hunter shots have none. */
+  style?: ShotStyle;
 }
 
 export function createShot(

@@ -2,6 +2,7 @@ import { CONFIG } from '../../config';
 import type { Rng } from '../../core/rng';
 import type { Vec2 } from '../../core/vec2';
 import type { FootprintWeights } from './footprints';
+import type { Rect } from './plan';
 import { type Circle, type Shape, unionDistance } from './shapes';
 
 export const LAYOUT_NAMES = [
@@ -14,6 +15,8 @@ export const LAYOUT_NAMES = [
   'towers',
 ] as const;
 export type LayoutName = (typeof LAYOUT_NAMES)[number];
+/** Every city that can be generated: the Layouts, plus ones kept only for scripted Runs. */
+export type CityLayoutName = LayoutName | 'showcaseHub';
 
 /** A layout's recipe for a city, in cell units. The generator fills everything else with Plots. */
 export interface LayoutSpec {
@@ -30,6 +33,10 @@ export interface LayoutSpec {
   footprints: FootprintWeights;
   /** Roads whose buildings stand all Run, so the Layout's shape reads from the first Wave. */
   lined: Shape[];
+  /** Overrides how often, and how wide, gates break the walls along lined roads. */
+  liningGates?: { gateSpacing: number; gate: number };
+  /** Replaces the default cut of the Arena into lots by Streets and Alleys. */
+  lots?: Rect[];
   /** If set, buildings stand only inside these areas; everywhere else is open ground. */
   buildOnly?: Shape[];
   /** Rules for the buildings around a point, in cells; defaults apply where it returns nothing. */
@@ -51,11 +58,11 @@ export interface Zone {
 }
 
 /**
- * Grid keeps clean walls along its speed lanes; Circuit and Hub favor chamfers that read as curves;
+ * Grid is square towers and blocks; Circuit and Hub favor chamfers that read as curves;
  * Districts is a cramped old town of bays and crosses.
  */
 const FOOTPRINTS: Record<LayoutName, FootprintWeights> = {
-  grid: { rect: 5, L: 3, T: 1, Z: 1 },
+  grid: { rect: 8, L: 1, U: 1 },
   circuit: { rect: 3, L: 2, stepped: 3, T: 1 },
   districts: { rect: 2, L: 2, T: 2, U: 2, cross: 2, Z: 1 },
   hub: { rect: 3, L: 2, stepped: 2, T: 1, cross: 1 },
@@ -64,7 +71,7 @@ const FOOTPRINTS: Record<LayoutName, FootprintWeights> = {
   towers: { rect: 2, cross: 2, L: 2, T: 2, stepped: 1 },
 };
 
-export const LAYOUTS: Record<LayoutName, (rng: Rng, cells: number) => LayoutSpec> = {
+export const LAYOUTS: Record<CityLayoutName, (rng: Rng, cells: number) => LayoutSpec> = {
   grid,
   circuit,
   districts,
@@ -72,6 +79,7 @@ export const LAYOUTS: Record<LayoutName, (rng: Rng, cells: number) => LayoutSpec
   raceway,
   downtown,
   towers,
+  showcaseHub,
 };
 
 const TAU = Math.PI * 2;
@@ -100,44 +108,112 @@ function arcBoundary(rng: Rng, cells: number): Circle[] {
   return circles.map((c) => fit(c, cells));
 }
 
-/** Avenues running edge to edge in both directions around a square central Plaza. */
+/**
+ * A regular lattice of square blocks, Streets between them and an Avenue every few blocks, around a
+ * square central Plaza with a few parks. Most blocks hold four square buildings; some hold one tall
+ * tower, alone or set back on its block. Buildings grow taller toward the center.
+ */
 function grid(rng: Rng, cells: number): LayoutSpec {
   const mid = cells / 2;
-  const avenue = CONFIG.city.avenue;
-  const plazaHalf = Math.round(cells * 0.12);
+  const half = cells / 2;
+  const { avenue, street, alley } = CONFIG.city;
+  const block = 10 + 2 * rng.int(2);
+  const avenueEvery = 2 + rng.int(2);
+
+  /** Block starts along one axis, a block centered on the Arena, and where its Avenues run. */
+  const axis = () => {
+    const phase = rng.int(avenueEvery);
+    const road = (k: number) => (((k + phase) % avenueEvery) + avenueEvery) % avenueEvery === 0;
+    const blocks = [mid - block / 2];
+    const avenues: number[] = [];
+    for (let k = 0, at = mid + block / 2; at < cells - 1; k++) {
+      if (road(k)) avenues.push(at);
+      at += road(k) ? avenue : street;
+      blocks.push(at);
+      at += block;
+    }
+    for (let k = -1, at = mid - block / 2; at > 1; k--) {
+      at -= road(k) ? avenue : street;
+      if (road(k)) avenues.push(at);
+      at -= block;
+      blocks.unshift(at);
+    }
+    return { blocks, avenues };
+  };
+  const columns = axis();
+  const rows = axis();
+
   const plaza: Shape = {
     kind: 'rect',
-    x: mid - plazaHalf,
-    y: mid - plazaHalf,
-    w: plazaHalf * 2,
-    h: plazaHalf * 2,
-  };
-  const lines = (): number[] => {
-    const out = [mid - plazaHalf - avenue, mid + plazaHalf];
-    for (let at = mid - plazaHalf - avenue; ;) {
-      at -= avenue + 13 + rng.int(9);
-      if (at < 2) break;
-      out.push(at);
-    }
-    for (let at = mid + plazaHalf; ;) {
-      at += avenue + 13 + rng.int(9);
-      if (at > cells - avenue - 2) break;
-      out.push(at);
-    }
-    return out;
+    x: mid - block / 2 - street,
+    y: mid - block / 2 - street,
+    w: block + 2 * street,
+    h: block + 2 * street,
   };
   const open: Shape[] = [plaza];
-  for (const x of lines()) open.push({ kind: 'rect', x, y: 0, w: avenue, h: cells });
-  for (const y of lines()) open.push({ kind: 'rect', x: 0, y, w: cells, h: avenue });
+  for (const x of columns.avenues) open.push({ kind: 'rect', x, y: 0, w: avenue, h: cells });
+  for (const y of rows.avenues) open.push({ kind: 'rect', x: 0, y, w: cells, h: avenue });
+
+  const center = (bx: number, by: number) => Math.hypot(bx + block / 2 - mid, by + block / 2 - mid);
+  const blocks = rows.blocks.flatMap((by) => columns.blocks.map((bx) => ({ bx, by })));
+  const parkable = blocks.filter(({ bx, by }) => {
+    const d = center(bx, by);
+    return d > block * 1.2 && d < half * 0.6;
+  });
+  const parks: Shape[] = [];
+  for (let i = 2 + rng.int(2); i > 0 && parkable.length > 0; i--) {
+    const [{ bx, by }] = parkable.splice(rng.int(parkable.length), 1) as [(typeof blocks)[number]];
+    parks.push({ kind: 'rect', x: bx, y: by, w: block, h: block });
+  }
+  open.push(...parks);
+
+  const lots: Rect[] = [];
+  const quad = (block - alley) / 2;
+  for (const { bx, by } of blocks) {
+    if (center(bx, by) < 1 || parks.some((p) => p.kind === 'rect' && p.x === bx && p.y === by))
+      continue;
+    const roll = rng.next();
+    if (roll < 0.12) {
+      lots.push({ x: bx, y: by, w: block, h: block });
+    } else if (roll < 0.22) {
+      lots.push({ x: bx + 2, y: by + 2, w: block - 4, h: block - 4 });
+    } else {
+      for (const [dx, dy] of [
+        [0, 0],
+        [1, 0],
+        [0, 1],
+        [1, 1],
+      ] as const)
+        lots.push({ x: bx + dx * (quad + alley), y: by + dy * (quad + alley), w: quad, h: quad });
+    }
+  }
+
   return {
     name: 'grid',
     footprints: FOOTPRINTS.grid,
     lined: [],
+    lots: lots.map((r) => clip(r, cells)).filter((r) => r.w > 0 && r.h > 0),
     open,
-    plazas: [plaza],
+    plazas: [plaza, ...parks],
     boundary: arcBoundary(rng, cells),
     spawn: { x: mid, y: mid },
     spawnHeading: -Math.PI / 2,
+    zone: (x, y) => ({
+      emptyChance: 0.04,
+      heightScale: 0.8 + 1.4 * Math.max(0, 1 - Math.hypot(x - mid, y - mid) / (half * 0.8)),
+    }),
+  };
+}
+
+/** Clips a rectangle to the cells inside the Arena wall. */
+function clip(r: Rect, cells: number): Rect {
+  const x = Math.max(1, r.x);
+  const y = Math.max(1, r.y);
+  return {
+    x,
+    y,
+    w: Math.min(cells - 1, r.x + r.w) - x,
+    h: Math.min(cells - 1, r.y + r.h) - y,
   };
 }
 
@@ -280,11 +356,92 @@ function districts(rng: Rng, cells: number): LayoutSpec {
     boundary,
     spawn: { x: centers[0]!.x, y: centers[0]!.y },
     spawnHeading: -Math.PI / 2,
+    // Smaller buildings, so the old town reads as clusters to thread rather than long walls.
+    zone: () => ({ maxPlotCells: 7 }),
   };
 }
 
-/** A central Plaza with Avenues radiating out, crossed by ring roads. */
+/**
+ * A central Plaza with walled Avenues radiating out to Plazas of their own, crossed by two ring roads
+ * broken into arcs. Spokes vary in angle and length, so the city's outline is a lopsided star.
+ */
 function hub(rng: Rng, cells: number): LayoutSpec {
+  const mid = cells / 2;
+  const half = cells / 2;
+  const avenue = CONFIG.city.avenue;
+  const plaza: Shape = { kind: 'disc', x: mid, y: mid, r: rng.range(9, 11) };
+  const open: Shape[] = [plaza];
+  const plazas: Shape[] = [plaza];
+  const spokes: Shape[] = [];
+  const boundary: Circle[] = [fit({ x: mid, y: mid, r: half * 0.42 }, cells)];
+  /** Keeps the city around a road, not just its ends. */
+  const follow = (x: number, y: number) => boundary.push(fit({ x, y, r: 10 }, cells));
+
+  const count = 5 + rng.int(3);
+  const start = rng.range(0, TAU);
+  for (let i = 0; i < count; i++) {
+    const a = start + ((i + rng.range(-0.3, 0.3)) * TAU) / count;
+    const r = rng.range(5, 8);
+    const margin = r + 3;
+    const length = half * rng.range(0.55, 0.85);
+    const x = Math.min(cells - margin, Math.max(margin, mid + Math.cos(a) * length));
+    const y = Math.min(cells - margin, Math.max(margin, mid + Math.sin(a) * length));
+    const end: Shape = { kind: 'disc', x, y, r };
+    spokes.push({ kind: 'capsule', ax: mid, ay: mid, bx: x, by: y, width: avenue + 1 });
+    open.push(end);
+    plazas.push(end);
+    boundary.push(fit({ x, y, r: r + 8 }, cells));
+    const reach = Math.hypot(x - mid, y - mid);
+    for (let t = 0; t < reach; t += 8)
+      follow(mid + ((x - mid) * t) / reach, mid + ((y - mid) * t) / reach);
+  }
+
+  for (const f of [0.36, 0.62]) {
+    const radius = half * f;
+    const arcs = 2 + rng.int(2);
+    const offset = rng.range(0, TAU);
+    for (let j = 0; j < arcs; j++) {
+      const gap = rng.range(0.5, 1.1);
+      const from = offset + (j * TAU) / arcs + gap / 2;
+      const sweep = TAU / arcs - gap;
+      open.push({
+        kind: 'ring',
+        x: mid,
+        y: mid,
+        rx: radius,
+        ry: radius,
+        width: avenue,
+        from,
+        sweep,
+      });
+      for (let t = 0; t <= sweep * radius; t += 8)
+        follow(
+          mid + Math.cos(from + t / radius) * radius,
+          mid + Math.sin(from + t / radius) * radius,
+        );
+    }
+  }
+
+  return {
+    name: 'hub',
+    footprints: FOOTPRINTS.hub,
+    lined: spokes,
+    // Wide, frequent gates: the spokes read as walled, but the ship can peel off them at speed.
+    liningGates: { gateSpacing: 8, gate: 3 },
+    open: [...spokes, ...open],
+    plazas,
+    boundary,
+    spawn: { x: mid, y: mid },
+    spawnHeading: -Math.PI / 2,
+  };
+}
+
+/**
+ * Hub as it stood when the attract loop's Showcase was scripted on it: a central Plaza, 6–8 evenly
+ * spaced walled spokes and two full ring roads. The script depends on every cell of this city, so it
+ * stays frozen while Hub itself changes.
+ */
+function showcaseHub(rng: Rng, cells: number): LayoutSpec {
   const mid = cells / 2;
   const half = cells / 2;
   const avenue = CONFIG.city.avenue;
@@ -375,6 +532,8 @@ function raceway(rng: Rng, cells: number): LayoutSpec {
     footprints: FOOTPRINTS.raceway,
     open: [...highways, ...plazas],
     lined: highways,
+    // Short wall segments with wide gaps: the highways stay readable but can be left at speed.
+    liningGates: { gateSpacing: 7, gate: 3 },
     plazas,
     boundary,
     spawn: { x: mid, y: mid },
@@ -383,9 +542,10 @@ function raceway(rng: Rng, cells: number): LayoutSpec {
 }
 
 /**
- * A dense downtown of skyscrapers centered on the city's outline, so half of it merges into the
- * Edge and the open suburbs wrap around the rest in a U. A ring road skirts it, boulevards run out
- * through low, half-empty suburbs, and parks dot the open ground.
+ * A dense downtown of skyscrapers standing anywhere from the city's center out to its outline, where
+ * part of it merges into the Edge and the open suburbs wrap around the rest in a U. A ring road
+ * skirts it, two streets cross it, boulevards run out through low, half-empty suburbs, and parks
+ * dot the open ground.
  */
 function downtown(rng: Rng, cells: number): LayoutSpec {
   const mid = cells / 2;
@@ -393,23 +553,37 @@ function downtown(rng: Rng, cells: number): LayoutSpec {
   const avenue = CONFIG.city.avenue;
   const outline = arcBoundary(rng, cells);
 
-  // Walk out from the center to where the outline is, on a random bearing: downtown centers there.
+  // Walk out from the center to where the outline is, on a random bearing: downtown centers somewhere
+  // along the way.
   const bearing = rng.range(0, TAU);
   const dx = Math.cos(bearing);
   const dy = Math.sin(bearing);
   let reach = 0;
   while (reach < half && unionDistance(outline, mid + dx * reach, mid + dy * reach) < 0) reach++;
-  const cx = mid + dx * reach;
-  const cy = mid + dy * reach;
-  const core = half * rng.range(0.42, 0.5);
+  const along = reach * rng.next();
+  const cx = mid + dx * along;
+  const cy = mid + dy * along;
+  const core = half * rng.range(0.36, 0.44);
+  const ring = core + 3;
 
-  const open: Shape[] = [{ kind: 'ring', x: cx, y: cy, rx: core + 3, ry: core + 3, width: avenue }];
+  const open: Shape[] = [{ kind: 'ring', x: cx, y: cy, rx: ring, ry: ring, width: avenue }];
+  const cross = rng.range(0, TAU);
+  for (const a of [cross, cross + Math.PI / 2 + rng.range(-0.3, 0.3)]) {
+    open.push({
+      kind: 'capsule',
+      ax: cx - Math.cos(a) * ring,
+      ay: cy - Math.sin(a) * ring,
+      bx: cx + Math.cos(a) * ring,
+      by: cy + Math.sin(a) * ring,
+      width: CONFIG.city.street + 1,
+    });
+  }
   for (const turn of [-0.7, 0, 0.7]) {
     const a = bearing + Math.PI + turn;
     open.push({
       kind: 'capsule',
-      ax: cx + Math.cos(a) * (core + 3),
-      ay: cy + Math.sin(a) * (core + 3),
+      ax: cx + Math.cos(a) * ring,
+      ay: cy + Math.sin(a) * ring,
       bx: cx + Math.cos(a) * (core + half * 1.4),
       by: cy + Math.sin(a) * (core + half * 1.4),
       width: avenue,
@@ -421,8 +595,8 @@ function downtown(rng: Rng, cells: number): LayoutSpec {
     const r = rng.range(6, 9);
     const x = rng.range(0, cells);
     const y = rng.range(0, cells);
-    if (Math.hypot(x - cx, y - cy) < core + 12) continue;
-    if (unionDistance(outline, x, y) > -(r + 4)) continue;
+    if (Math.hypot(x - cx, y - cy) < ring + 6) continue;
+    if (unionDistance(outline, x, y) > -(r + 3)) continue;
     if (parks.some((p) => p.kind === 'disc' && Math.hypot(p.x - x, p.y - y) < 19)) continue;
     parks.push({ kind: 'disc', x, y, r });
   }
@@ -440,7 +614,7 @@ function downtown(rng: Rng, cells: number): LayoutSpec {
   const spawn =
     spawnPark?.kind === 'disc'
       ? { x: spawnPark.x, y: spawnPark.y }
-      : { x: mid - dx * 20, y: mid - dy * 20 };
+      : { x: cx - dx * ring, y: cy - dy * ring };
 
   return {
     name: 'downtown',

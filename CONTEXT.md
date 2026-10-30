@@ -23,8 +23,11 @@ A held maneuver in which the Ship keeps traveling in a straight line, slowly los
 _Avoid_: Drift, strafe mode
 
 **Multiplier**:
-What every kill's score is multiplied by. Each kill made while Powersliding raises it by one, up to a cap. It falls back to ×1 after a few seconds without a kill; the clock stops between Waves.
+What every kill's score is multiplied by: one more than its **Heat**, with no cap. Every kill the player makes adds Heat, more for each **Style** it shows; Artillery friendly fire adds none. Heat burns off all the time, faster the hotter it runs, and holds between Waves.
 _Avoid_: Combo, slide combo
+
+**Style**:
+Why a kill heats the Multiplier: **Drift** (the shot left with the nose well off the line of travel, at speed), **Speed** (the shot left with top speed held for a few seconds) and **Chain** (the kill came within a second of the last). Drift and Speed are judged when the shot is fired, not when it lands.
 
 **Ghost**:
 The player, as the fiction knows them: the lone pilot defending Arcadia whom nothing can track.
@@ -112,7 +115,7 @@ _Avoid_: Wall (reserved for the Arena edge), obstacle, tile
 The fraction of building Plots with a standing Block, not counting permanent ones (road walls, Arch towers). Rises Wave by Wave to a ceiling.
 
 **Layout**:
-The plan a Run's city follows: Grid, Circuit, Districts or Hub. Picked at random each Run.
+The plan a Run's city follows: Grid, Circuit, Districts, Hub, Raceway, Downtown or Towers. Picked at random each Run.
 _Avoid_: Map, level
 
 **Footprint**:
@@ -134,7 +137,7 @@ _Avoid_: Arena (the whole play space)
 A wide road a Layout carves through the city, such as a speed lane, loop or spoke. Never blocked.
 
 **Street**:
-A narrower road inside a district. **Alleys** are the narrowest, one cell wide.
+A narrower road inside a district. **Alleys** are the narrowest, two cells wide.
 _Avoid_: Corridor, lane
 
 **Plot**:
@@ -165,7 +168,7 @@ The Ship's short-range gun. Fires Pulses.
 A Cannon shot. Bends slightly toward a Hunter near its line of flight.
 
 **Pulse**:
-A Shotgun shot: an arc that sweeps outward from the Ship and destroys every Hunter it reaches.
+An arc that sweeps outward from the Ship, rides along with it for a moment, and destroys every Hunter that enters it. Each Shotgun shot fires a long Pulse along the nose and a short one off each side of the line of travel.
 _Avoid_: Blast (Artillery's word), wave (a Wave is a round of Hunters)
 
 **Shell**:

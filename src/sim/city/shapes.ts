@@ -2,8 +2,20 @@
 export type Shape =
   | { kind: 'rect'; x: number; y: number; w: number; h: number }
   | { kind: 'disc'; x: number; y: number; r: number }
-  /** An elliptical band `width` wide whose center line has radii `rx` and `ry`. */
-  | { kind: 'ring'; x: number; y: number; rx: number; ry: number; width: number }
+  /**
+   * An elliptical band `width` wide whose center line has radii `rx` and `ry`. With `sweep`, only the
+   * arc running `sweep` radians counterclockwise from angle `from`, with square ends.
+   */
+  | {
+      kind: 'ring';
+      x: number;
+      y: number;
+      rx: number;
+      ry: number;
+      width: number;
+      from?: number;
+      sweep?: number;
+    }
   /** A straight road from (ax, ay) to (bx, by) with round ends, `width` wide. */
   | { kind: 'capsule'; ax: number; ay: number; bx: number; by: number; width: number };
 
@@ -20,6 +32,7 @@ export function contains(s: Shape, px: number, py: number): boolean {
     case 'disc':
       return Math.hypot(px - s.x, py - s.y) <= s.r;
     case 'ring': {
+      if (!onArc(s, px, py)) return false;
       const rho = Math.hypot((px - s.x) / s.rx, (py - s.y) / s.ry);
       // Approximate distance from the ellipse; exact enough for road widths of a few cells.
       return Math.abs(rho - 1) * ((s.rx + s.ry) / 2) <= s.width / 2;
@@ -51,6 +64,7 @@ export function roadPosition(
 ): { along: number; offset: number } | null {
   switch (s.kind) {
     case 'ring': {
+      if (!onArc(s, px, py)) return null;
       const mean = (s.rx + s.ry) / 2;
       const angle = Math.atan2((py - s.y) / s.ry, (px - s.x) / s.rx);
       const rho = Math.hypot((px - s.x) / s.rx, (py - s.y) / s.ry);
@@ -67,4 +81,13 @@ export function roadPosition(
     default:
       return null;
   }
+}
+
+type Ring = Extract<Shape, { kind: 'ring' }>;
+
+function onArc(s: Ring, px: number, py: number): boolean {
+  if (s.sweep === undefined) return true;
+  const angle = Math.atan2((py - s.y) / s.ry, (px - s.x) / s.rx);
+  const tau = Math.PI * 2;
+  return (((angle - (s.from ?? 0)) % tau) + tau) % tau <= s.sweep;
 }

@@ -52,6 +52,44 @@ describe('Shotgun', () => {
     for (const h of spared) expect(world.hunters).toContain(h);
   });
 
+  it('also sweeps a shorter arc off each side, hitting each Hunter once', () => {
+    const world = liveWorld();
+    world.ship.weapon = 'shotgun';
+    const side = CONFIG.shotgun.sideRange;
+    const near = [placeTank(world, 1, 0, side * 0.7), placeTank(world, 2, 0, -side * 0.7)];
+    const far = [placeTank(world, 3, 0, side + 6), placeTank(world, 4, 0, -side - 6)];
+    stepWorld(world, { ...NO_CONTROLS, fire: true }, DT);
+    run(world, CONFIG.shotgun.duration);
+    for (const h of near) expect(world.hunters).not.toContain(h);
+    for (const h of far) expect(world.hunters).toContain(h);
+  });
+
+  it('holds at full range so a Hunter driven into the arc after the sweep is still caught', () => {
+    const world = liveWorld();
+    world.ship.weapon = 'shotgun';
+    world.ship.vel = { x: 40, y: 0 };
+    // Beyond the arc's reach until the Ship has carried it well forward.
+    const ahead = placeTank(world, 1, CONFIG.shotgun.range + 14, 0);
+    stepWorld(world, { ...NO_CONTROLS, thrust: 1, fire: true }, DT);
+    run(world, CONFIG.shotgun.duration, { ...NO_CONTROLS, thrust: 1 });
+    expect(world.hunters).toContain(ahead);
+    run(world, CONFIG.shotgun.hold, { ...NO_CONTROLS, thrust: 1 });
+    expect(world.hunters).not.toContain(ahead);
+  });
+
+  it('aims its side arcs square to the line of travel, not the nose', () => {
+    const world = liveWorld();
+    world.ship.weapon = 'shotgun';
+    // Sliding east with the nose turned north: the sides face north and south of the travel line.
+    world.ship.vel = { x: 35, y: 0 };
+    world.ship.heading = -Math.PI / 2;
+    const passed = placeTank(world, 1, 8, CONFIG.shotgun.sideRange * 0.6);
+    const slide = { ...NO_CONTROLS, slide: true };
+    stepWorld(world, { ...slide, fire: true }, DT);
+    run(world, CONFIG.shotgun.duration + CONFIG.shotgun.hold, slide);
+    expect(world.hunters).not.toContain(passed);
+  });
+
   it('is stopped by Blocks', () => {
     const rows = Array.from({ length: 64 }, () => '.'.repeat(64));
     // The Ship spawns at the center (128, 128); column 34 is 8 units ahead.

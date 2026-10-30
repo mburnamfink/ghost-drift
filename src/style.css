@@ -138,15 +138,21 @@ body {
   display: none;
 }
 
-/* The title shows the live scene behind it, shaded only enough to keep the text legible. */
+/*
+ * The title shows a frame of the attract loop's showcase Run, shaded only enough to keep the logo
+ * and menu legible. It is cropped so the action sits between the two at 16:9. Wider screens lose
+ * sky rather than the Ship, hence the bottom anchor; narrower ones keep the Juggernaut on the left.
+ */
 .hud-screen[data-kind='title'] {
-  background: linear-gradient(
-    to bottom,
-    rgba(5, 7, 13, 0.55),
-    rgba(5, 7, 13, 0) 40%,
-    rgba(5, 7, 13, 0) 75%,
-    rgba(5, 7, 13, 0.75)
-  );
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(5, 7, 13, 0.7),
+      rgba(5, 7, 13, 0) 42%,
+      rgba(5, 7, 13, 0) 62%,
+      rgba(5, 7, 13, 0.88)
+    ),
+    url('./assets/splash.jpg') 25% 100% / cover #05070d;
 }
 
 .hud-screen .logo {
@@ -223,10 +229,12 @@ body {
   color: #37e8ff;
 }
 
-/* Custom and help pages replace the logo with a panel over a darkened scene. */
+/* Custom and help pages replace the logo with a panel over the darkened splash. */
 .hud-screen[data-page='custom'],
 .hud-screen[data-page='help'] {
-  background: rgba(5, 7, 13, 0.82);
+  background:
+    linear-gradient(rgba(5, 7, 13, 0.82), rgba(5, 7, 13, 0.82)),
+    url('./assets/splash.jpg') 25% 100% / cover #05070d;
 }
 
 .hud-screen .title-panel {
@@ -477,16 +485,56 @@ body {
   animation: combo-pop 0.25s ease-out;
 }
 
+/* The heat left in the current Multiplier step, draining toward the step below. */
 .hud-multiplier-clock {
-  width: 90px;
-  height: 4px;
+  width: 140px;
+  height: 5px;
   margin: 4px auto 0;
-  background: rgba(255, 227, 107, 0.2);
+  background: rgba(255, 138, 60, 0.18);
 }
 
 .hud-multiplier-fill {
   height: 100%;
-  background: #ffe36b;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
+/* Why each kill heated the meter, rising and fading above it. */
+.hud-callouts {
+  position: absolute;
+  bottom: 130px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.hud-callout {
+  font-size: 15px;
+  letter-spacing: 0.2em;
+  color: #ffe36b;
+  animation: callout 1.1s ease-out forwards;
+}
+
+.hud-callout.friendly {
+  color: #9aa6b8;
+  text-shadow: none;
+}
+
+@keyframes callout {
+  from {
+    opacity: 1;
+    transform: translateY(6px);
+  }
+  70% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
 }
 
 @keyframes combo-pop {
@@ -523,4 +571,63 @@ body {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+/* Attract loop roll call: labels sit beside the renderer's column of Hunter models. */
+.hud[data-screen='roster'] > :not(.hud-screen) {
+  display: none;
+}
+
+.hud-screen[data-kind='roster'] {
+  background: none;
+}
+
+.hud-screen .roster-heading {
+  position: absolute;
+  top: 6%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.hud-screen .roster-heading .heading {
+  width: min(70vw, 620px);
+}
+
+.hud-screen .roster-row {
+  position: absolute;
+  left: 46%;
+  width: min(36vw, 460px);
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  transform: translateY(-50%);
+  font-size: clamp(18px, 2.6vw, 30px);
+  letter-spacing: 0.2em;
+  opacity: 0;
+  animation: roster-in 0.3s ease-out forwards;
+}
+
+.hud-screen .roster-row .name {
+  color: #ff8a5c;
+}
+
+/* A dotted leader runs from the name to the points, as on an arcade roll call. */
+.hud-screen .roster-row .leader {
+  flex: 1;
+  border-bottom: 3px dotted rgba(216, 246, 255, 0.45);
+}
+
+.hud-screen .roster-row .points {
+  color: #ffe36b;
+}
+
+@keyframes roster-in {
+  from {
+    opacity: 0;
+    transform: translate(-24px, -50%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, -50%);
+  }
 }

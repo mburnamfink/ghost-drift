@@ -13,16 +13,17 @@ npm run dev
 
 Open the printed URL in Chrome or Firefox. Plug in an Xbox controller and press any button so the browser detects it, or use the keyboard. Controls are listed in [docs/design.md](docs/design.md#controls).
 
-Add `?seed=1234` to the URL to replay the same Arena and Hunter behavior every Run. Add `?wave=5` to start a Run at a later Wave, with the city grown to match, to try later Hunter types quickly. Add `?map=grid` (or `circuit`, `districts`, `hub`, `raceway`, `downtown`, `towers`) to force a city Layout instead of a random one. Add `?demo` to start straight into the demo, as DEMO on the main menu does: an autopilot flies real Runs and restarts after each death, and any button returns to the menu. Add `?blocks=plain` to draw every building as a plain box. Add `?debug=overhead` for a top-down view of the whole city, useful when tuning layouts. If the controller does nothing, add `?debug=pad` to see every device the browser reports, which one the game picked, and its live buttons and axes.
+Add `?seed=1234` to the URL to replay the same Arena and Hunter behavior every Run. Add `?wave=5` to start a Run at a later Wave, with the city grown to match, to try later Hunter types quickly. Add `?map=grid` (or `circuit`, `districts`, `hub`, `raceway`, `downtown`, `towers`) to force a city Layout instead of a random one. Add `?attract` to open on the attract loop: the scripted showcase Run, the roll call of Hunters, then high scores. Add `?demo` to start straight into the demo, as DEMO on the main menu does: an autopilot flies real Runs and restarts after each death, and any button returns to the menu. Add `?blocks=plain` to draw every building as a plain box. Add `?debug=overhead` for a top-down view of the whole city, useful when tuning layouts. If the controller does nothing, add `?debug=pad` to see every device the browser reports, which one the game picked, and its live buttons and axes.
 
 ## Scripts
 
-| Script           | Does                                             |
-| ---------------- | ------------------------------------------------ |
-| `npm run dev`    | Dev server with hot reload                       |
-| `npm run build`  | Typecheck and build to `dist/`                   |
-| `npm run check`  | Typecheck, lint, formatting check and unit tests |
-| `npm run format` | Format with Prettier                             |
+| Script                    | Does                                                                                               |
+| ------------------------- | -------------------------------------------------------------------------------------------------- |
+| `npm run dev`             | Dev server with hot reload                                                                         |
+| `npm run build`           | Typecheck and build to `dist/`                                                                     |
+| `npm run check`           | Typecheck, lint, formatting check and unit tests                                                   |
+| `npm run format`          | Format with Prettier                                                                               |
+| `npm run showcase:search` | Draft the attract loop's showcase script against the simulation (see `scripts/showcase-search.ts`) |
 
 Formatting is Prettier's job, never by hand. A pre-commit hook formats and lints staged files (installed by `npm install`), CI fails on unformatted code, and `.vscode/` turns on format-on-save. Wrap hand-aligned data, such as a lookup table, in `// prettier-ignore`.
 

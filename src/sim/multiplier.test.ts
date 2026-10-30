@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { CONFIG } from '../config';
+import { CONFIG, SHIP_TOP_SPEED } from '../config';
 import { Rng } from '../core/rng';
 import { NO_CONTROLS } from './controls';
 import { createTank } from './hunters';
+import { type KillCredit, multiplierValue, stepMomentum } from './multiplier';
+import { createShip } from './ship';
+import { createShot } from './shots';
 import { terrainFromRows } from './terrain';
 import { type World, createWorld, stepWorld } from './world';
 
 const DT = 1 / CONFIG.sim.stepHz;
 const BASE = CONFIG.waves.killScore;
+const cfg = CONFIG.multiplier;
 
 function liveWorld(): World {
   const world = createWorld(1, terrainFromRows(Array.from({ length: 64 }, () => '.'.repeat(64))));
@@ -18,73 +22,149 @@ function liveWorld(): World {
   return world;
 }
 
-/** Puts quiet Tanks in a line straight ahead of the Ship, beyond engagement range. */
-function tanksAhead(world: World, distances: number[]) {
+/** Puts a quiet Tank `distance` from the Ship along `angle`. */
+function tankAt(world: World, distance: number, angle = 0, id = 300) {
   const { x, y } = world.ship.pos;
-  world.hunters.push(
-    ...distances.map((dx, i) => {
-      const tank = createTank(300 + i, 'chaser', { x: x + dx, y }, new Rng(i));
-      tank.fireCooldown = 99;
-      return tank;
-    }),
+  const tank = createTank(
+    id,
+    'chaser',
+    { x: x + Math.cos(angle) * distance, y: y + Math.sin(angle) * distance },
+    new Rng(id),
   );
+  tank.fireCooldown = 99;
+  world.hunters.push(tank);
+  return tank;
 }
 
-function shootAll(world: World, slide: boolean) {
-  const controls = { ...NO_CONTROLS, fire: true, slide };
-  for (let t = 0; t < 3 && world.hunters.length > 0; t += DT) stepWorld(world, controls, DT);
+function run(world: World, seconds: number, controls = NO_CONTROLS) {
+  for (let t = 0; t < seconds && world.hunters.length > 0; t += DT) stepWorld(world, controls, DT);
 }
 
-const killMultipliers = (world: World) =>
-  world.events.flatMap((e) => (e.type === 'hunterDestroyed' ? [e.multiplier] : []));
+const kills = (world: World) =>
+  world.events.flatMap((e) => (e.type === 'hunterDestroyed' ? [e] : []));
+const credits = (world: World): (KillCredit | null)[] => kills(world).map((k) => k.credit);
 
-describe('Multiplier', () => {
-  it('rises with each Powerslide kill, each kill scoring at the Multiplier before it', () => {
+/** Travelling east at most of top speed, with the nose swung `degrees` off the line of travel. */
+function drifting(world: World, degrees: number, speed = SHIP_TOP_SPEED * 0.9) {
+  world.ship.vel = { x: speed, y: 0 };
+  world.ship.heading = (degrees * Math.PI) / 180;
+}
+
+describe('Multiplier heat', () => {
+  it('heats a little for any kill, scoring it at the Multiplier before it', () => {
     const world = liveWorld();
-    world.ship.vel = { x: 30, y: 0 };
-    tanksAhead(world, [55, 70, 85]);
-    shootAll(world, true);
-    expect(killMultipliers(world)).toEqual([1, 2, 3]);
-    expect(world.score).toBe(BASE * (1 + 2 + 3));
-    expect(world.multiplier.value).toBe(4);
+    world.multiplier.heat = 2.5;
+    tankAt(world, 40);
+    run(world, 2, { ...NO_CONTROLS, fire: true });
+    const [kill] = kills(world);
+    expect(kill!.multiplier).toBe(3);
+    expect(world.score).toBe(BASE * 3);
+    expect(kill!.credit).toEqual({ tags: [], chain: 1, heat: cfg.killHeat });
   });
 
-  it('is kept but not raised by kills made without sliding', () => {
+  it('heats for DRIFT when the shot left with the nose well off the line of travel, at speed', () => {
     const world = liveWorld();
-    world.multiplier = { value: 3, timer: 1 };
-    tanksAhead(world, [40]);
-    shootAll(world, false);
-    expect(killMultipliers(world)).toEqual([3]);
-    expect(world.multiplier.value).toBe(3);
-    expect(world.multiplier.timer).toBeGreaterThan(CONFIG.multiplier.timeout - 1);
+    drifting(world, -50);
+    tankAt(world, 40, world.ship.heading);
+    run(world, 2, { ...NO_CONTROLS, slide: true, fire: true });
+    expect(credits(world)[0]!.tags).toContain('drift');
   });
 
-  it('falls back to 1 after too long without a kill', () => {
+  it('gives nothing for tapping slide with the nose still on the line of travel', () => {
     const world = liveWorld();
-    world.multiplier = { value: 5, timer: CONFIG.multiplier.timeout };
-    // Keeps the Wave live, so the clock runs.
-    tanksAhead(world, [110]);
-    for (let t = 0; t < CONFIG.multiplier.timeout - 0.1; t += DT) stepWorld(world, NO_CONTROLS, DT);
-    expect(world.multiplier.value).toBe(5);
-    for (let t = 0; t < 0.2; t += DT) stepWorld(world, NO_CONTROLS, DT);
-    expect(world.multiplier.value).toBe(1);
-    expect(world.events).toContainEqual({ type: 'multiplierLost', value: 5 });
+    drifting(world, 0);
+    tankAt(world, 40);
+    run(world, 2, { ...NO_CONTROLS, slide: true, fire: true });
+    expect(credits(world)[0]!.tags).not.toContain('drift');
   });
 
-  it('holds its clock between Waves', () => {
+  it('gives nothing for spinning the nose round while sliding slowly', () => {
     const world = liveWorld();
-    world.lull = 99;
-    world.multiplier = { value: 4, timer: 1 };
-    for (let t = 0; t < 3; t += DT) stepWorld(world, NO_CONTROLS, DT);
-    expect(world.multiplier).toEqual({ value: 4, timer: 1 });
+    drifting(world, -50, SHIP_TOP_SPEED * cfg.driftSpeed * 0.6);
+    tankAt(world, 40, world.ship.heading);
+    run(world, 2, { ...NO_CONTROLS, slide: true, fire: true });
+    expect(credits(world)[0]!.tags).not.toContain('drift');
   });
 
-  it('stops rising at its cap', () => {
+  it('judges a shot by how it was fired, not by a slide started before it lands', () => {
     const world = liveWorld();
-    world.ship.vel = { x: 30, y: 0 };
-    world.multiplier = { value: CONFIG.multiplier.max, timer: 1 };
-    tanksAhead(world, [55]);
-    shootAll(world, true);
-    expect(world.multiplier.value).toBe(CONFIG.multiplier.max);
+    drifting(world, 0);
+    tankAt(world, 100);
+    stepWorld(world, { ...NO_CONTROLS, fire: true }, DT);
+    run(world, 2, { ...NO_CONTROLS, slide: true, steer: -1 });
+    expect(world.ship.sliding).toBe(true);
+    expect(credits(world)[0]!.tags).not.toContain('drift');
+  });
+
+  it('heats for SPEED once top speed has been held long enough', () => {
+    const ship = createShip({ x: 0, y: 0 }, 0);
+    const world = liveWorld();
+    const m = world.multiplier;
+    ship.vel = { x: SHIP_TOP_SPEED, y: 0 };
+    for (let t = 0; t < cfg.momentumFill * 0.9; t += DT) stepMomentum(m, ship, DT);
+    expect(m.momentum).toBeLessThan(1);
+    for (let t = 0; t < cfg.momentumFill * 0.2; t += DT) stepMomentum(m, ship, DT);
+    expect(m.momentum).toBe(1);
+    tankAt(world, 40);
+    run(world, 2, { ...NO_CONTROLS, fire: true });
+    expect(credits(world)[0]!.tags).toContain('speed');
+  });
+
+  it('loses its momentum when the Ship slows or is hit', () => {
+    const ship = createShip({ x: 0, y: 0 }, 0);
+    const world = liveWorld();
+    world.multiplier.momentum = 1;
+    stepMomentum(world.multiplier, ship, cfg.momentumDrain);
+    expect(world.multiplier.momentum).toBe(0);
+
+    world.multiplier.momentum = 1;
+    world.ship.invulnerableTime = 0;
+    world.shells.push(createShot(world.ship.pos, 0, 0, 1));
+    stepWorld(world, NO_CONTROLS, DT);
+    expect(world.multiplier.momentum).toBe(0);
+  });
+
+  it('chains kills made close together, a Shotgun blast through a pack included', () => {
+    const world = liveWorld();
+    world.ship.weapon = 'shotgun';
+    [8, 11, 14].forEach((d, i) => tankAt(world, d, 0.1 * (i - 1), 300 + i));
+    run(world, 1, { ...NO_CONTROLS, fire: true });
+    expect(credits(world).map((c) => c!.chain)).toEqual([1, 2, 3]);
+    expect(credits(world)[2]!.tags).toContain('chain');
+    expect(world.multiplier.heat).toBeCloseTo(3 * cfg.killHeat + 3 * cfg.chainHeat, 1);
+  });
+
+  it('scores Artillery friendly fire without heating or chaining', () => {
+    const world = liveWorld();
+    world.multiplier.heat = 4.5;
+    const tank = tankAt(world, 60);
+    world.impacts.push({ from: tank.pos, pos: { ...tank.pos }, time: DT / 2, flight: 1 });
+    stepWorld(world, NO_CONTROLS, DT);
+    expect(credits(world)).toEqual([null]);
+    expect(world.score).toBe(BASE * 5);
+    expect(world.multiplier.heat).toBeLessThan(4.5);
+    expect(world.multiplier.chain).toBe(0);
+  });
+
+  it('burns off faster the hotter it runs, and holds between Waves', () => {
+    const lost = (heat: number, lull: number) => {
+      const world = liveWorld();
+      world.lull = lull;
+      tankAt(world, 110);
+      world.multiplier.heat = heat;
+      for (let t = 0; t < 1; t += DT) stepWorld(world, NO_CONTROLS, DT);
+      return heat - world.multiplier.heat;
+    };
+    expect(lost(18, 0)).toBeGreaterThan(lost(3, 0) * 2);
+    expect(lost(10, 99)).toBe(0);
+  });
+
+  it('has no cap', () => {
+    const world = liveWorld();
+    world.multiplier.heat = 40.5;
+    drifting(world, -50);
+    tankAt(world, 40, world.ship.heading);
+    run(world, 2, { ...NO_CONTROLS, slide: true, fire: true });
+    expect(multiplierValue(world.multiplier)).toBeGreaterThan(41);
   });
 });

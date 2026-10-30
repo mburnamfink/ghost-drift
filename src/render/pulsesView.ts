@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { CONFIG } from '../config';
-import { type Pulse, pulseRadius } from '../sim/weapons';
+import { type Pulse, pulseLifetime, pulseRadius } from '../sim/weapons';
 import { PALETTE } from './palette';
 
 const HEIGHT = 0.8;
 /** Band thickness as a fraction of the Pulse's radius. */
 const BAND = 0.35;
 
-/** Draws each Shotgun Pulse as a flat, glowing arc band that expands and fades. */
+/** Draws each Shotgun Pulse as a flat, glowing arc band that expands, holds, then fades out. */
 export class PulsesView {
   readonly group = new THREE.Group();
   private readonly pool: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>[] = [];
@@ -42,7 +42,7 @@ export class PulsesView {
       mesh.position.set(p.origin.x, HEIGHT, p.origin.y);
       mesh.rotation.y = -p.heading;
       mesh.scale.setScalar(Math.max(0.5, pulseRadius(p)));
-      mesh.material.opacity = 1 - 0.7 * (p.age / CONFIG.shotgun.duration);
+      mesh.material.opacity = 1 - 0.85 * (p.age / pulseLifetime()) ** 2;
     });
   }
 }

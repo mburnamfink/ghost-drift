@@ -2,9 +2,11 @@ import { CONFIG, SHIP_TOP_SPEED } from '../config';
 import type { ScreenThreat } from '../render/renderer';
 import { speedOf } from '../sim/ship';
 import { tankSpeed } from '../sim/waves';
+import { type KillCredit, multiplierValue } from '../sim/multiplier';
 import type { SimEvent, World } from '../sim/world';
 import { LEGENDS, LEGEND_SECONDS, PREMISE, legendRank } from './copy';
 import { headingSvg, initialsSvg, splashSvg } from './splash';
+import { ROSTER, ROSTER_LAYOUT, ROSTER_STEP } from '../render/rosterScene';
 import type { ScoreEntry } from '../scores/highScores';
 import type { MenuView } from './menu';
 
@@ -25,6 +27,8 @@ export type Screen =
       /** The attract loop is showing the high-score table instead of the menu. */
       attract: boolean;
     }
+  /** The attract loop's roll call of Hunters, drawn by the renderer; the HUD adds the labels. */
+  | { kind: 'roster' }
   | { kind: 'paused'; pad: string | null }
   | {
       kind: 'over';
@@ -61,7 +65,8 @@ export class Hud {
   private readonly vignette: HTMLElement;
   private readonly multiplier: HTMLElement;
   private readonly multiplierValue: HTMLElement;
-  private readonly multiplierClock: HTMLElement;
+  private readonly multiplierFill: HTMLElement;
+  private readonly callouts: HTMLElement;
   private readonly remaining: HTMLElement;
   private readonly remainingArrow: HTMLElement;
   private shownMultiplier = 1;
@@ -85,6 +90,7 @@ export class Hud {
       <div class="hud-speed"><div class="hud-speed-fill"></div><div class="hud-speed-marker"></div><span class="hud-label">SPEED</span></div>
       <div class="hud-banner"></div>
       <div class="hud-vignette"></div>
+      <div class="hud-callouts"></div>
       <div class="hud-multiplier"><div class="hud-multiplier-value"></div><div class="hud-multiplier-clock"><div class="hud-multiplier-fill"></div></div></div>
       <div class="hud-remaining"></div>
       <div class="hud-remaining-arrow">
@@ -108,7 +114,8 @@ export class Hud {
     this.vignette = q('.hud-vignette');
     this.multiplier = q('.hud-multiplier');
     this.multiplierValue = q('.hud-multiplier-value');
-    this.multiplierClock = q('.hud-multiplier-fill');
+    this.multiplierFill = q('.hud-multiplier-fill');
+    this.callouts = q('.hud-callouts');
     this.remaining = q('.hud-remaining');
     this.remainingArrow = q('.hud-remaining-arrow');
     this.locked = q('.hud-locked');
@@ -135,7 +142,7 @@ export class Hud {
         );
       }
       if (e.type === 'waveCleared') this.showBanner('WAVE CLEARED · BURST RECHARGED');
-      if (e.type === 'multiplierLost') this.showBanner(`×${e.value} MULTIPLIER LOST`);
+      if (e.type === 'hunterDestroyed') this.showCallout(e.credit);
     }
   }
 
@@ -157,6 +164,9 @@ export class Hud {
     this.hull.textContent = pips(ship.hull, CONFIG.ship.hull, '■', '□');
     this.charges.textContent = pips(ship.charges, CONFIG.ship.burstCharges, '◆', '◇');
     this.weapon.textContent = ship.weapon.toUpperCase();
+    // The Shotgun's readout dims while it reloads, like the hull's glow.
+    const reloading = ship.weapon === 'shotgun' && ship.fireCooldown > 0;
+    this.weapon.style.opacity = reloading ? '0.4' : '';
 
     const speed = Math.min(1, speedOf(ship) / SHIP_TOP_SPEED);
     const danger = tankSpeed(Math.max(1, world.wave)) / SHIP_TOP_SPEED;
@@ -203,20 +213,28 @@ export class Hud {
     line.classList.add('fade-in');
   }
 
-  /** The Multiplier above the speed bar, with a clock draining toward its reset; pops on each rise. */
+  /**
+   * The Multiplier above the speed bar, over a bar of the heat left in the current step: it drains
+   * as heat burns off and, once empty, the number drops to the one below with the bar full again.
+   * The number pops on each rise, and both run hotter in color as the Multiplier climbs.
+   */
   private updateMultiplier(world: World, playing: boolean): void {
-    const { value, timer } = world.multiplier;
-    const shown = playing && value > 1;
+    const { heat } = world.multiplier;
+    const value = multiplierValue(world.multiplier);
+    const shown = playing && heat > 0;
     this.multiplier.style.display = shown ? '' : 'none';
     if (!shown) {
       this.shownMultiplier = 1;
       return;
     }
-    this.multiplierClock.style.width = `${(timer / CONFIG.multiplier.timeout) * 100}%`;
+    const color = heatColor(value);
+    this.multiplierFill.style.width = `${(heat - Math.floor(heat)) * 100}%`;
+    this.multiplierFill.style.color = color;
+    this.multiplierValue.style.color = color;
+    this.multiplierValue.textContent = `GHOST ×${value}`;
     if (value === this.shownMultiplier) return;
     const rose = value > this.shownMultiplier;
     this.shownMultiplier = value;
-    this.multiplierValue.textContent = `GHOST ×${value}`;
     // Restart the pop animation on every rise.
     this.multiplier.classList.remove('pop');
     void this.multiplier.offsetWidth;
@@ -275,14 +293,41 @@ export class Hud {
     });
   }
 
+  /** Says why a kill heated the Multiplier, rising and fading above the meter. */
+  private showCallout(credit: KillCredit | null): void {
+    const line = el('div', credit ? 'hud-callout' : 'hud-callout friendly');
+    line.textContent = credit ? calloutText(credit) : 'FRIENDLY FIRE';
+    line.addEventListener('animationend', () => line.remove());
+    this.callouts.prepend(line);
+    while (this.callouts.children.length > MAX_CALLOUTS) this.callouts.lastElementChild!.remove();
+  }
+
   private showBanner(text: string): void {
     this.banner.textContent = text;
     this.bannerTime = BANNER_SECONDS;
   }
 }
 
+/** Kill callouts shown at once; older ones are dropped. */
+const MAX_CALLOUTS = 4;
+
+const calloutText = ({ tags, chain }: KillCredit): string =>
+  tags.length === 0
+    ? 'KILL'
+    : tags.map((t) => (t === 'chain' ? `CHAIN ×${chain}` : t.toUpperCase())).join(' · ');
+
+/** The Multiplier at which its color reaches white-hot; it climbs no further in color past it. */
+const WHITE_HOT = 20;
+
+/** Hunter orange at ×2, warming to white-hot yellow at `WHITE_HOT`. */
+function heatColor(multiplier: number): string {
+  const t = Math.min(1, Math.max(0, (multiplier - 2) / (WHITE_HOT - 2)));
+  return `hsl(${18 + 40 * t} 100% ${55 + 22 * t}%)`;
+}
+
 function renderScreen(screen: Screen): string {
   if (screen.kind === 'none') return '';
+  if (screen.kind === 'roster') return rosterScreen();
   const gamepad = screen.pad !== null;
   const confirm = gamepad ? 'A' : 'ENTER';
   const device = gamepad
@@ -321,6 +366,16 @@ function renderScreen(screen: Screen): string {
         <p class="menu-option">${gamepad ? 'B' : 'BACKSPACE'} · Main menu</p>`;
     }
   }
+}
+
+/** Names and points beside the renderer's column of Hunters, each appearing with its model. */
+function rosterScreen(): string {
+  const rows = ROSTER.map(({ name, points }, i) => {
+    const top = (ROSTER_LAYOUT.top + i * ROSTER_LAYOUT.spacing) * 100;
+    const delay = i * ROSTER_STEP + 0.15;
+    return `<div class="roster-row" style="top: ${top}%; animation-delay: ${delay}s"><span class="name">${name}</span><span class="leader"></span><span class="points">${points} PTS</span></div>`;
+  }).join('');
+  return `<div class="roster-heading">${headingSvg('The Hunters', 'warm')}</div>${rows}`;
 }
 
 /** The title screen: the main menu over the live scene, or the custom-game or help page. */

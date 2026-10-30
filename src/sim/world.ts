@@ -4,6 +4,17 @@ import { type Vec2, clamp, distance, fromAngle } from '../core/vec2';
 import type { Controls } from './controls';
 import { FlowField } from './flowfield';
 import {
+  type KillCredit,
+  type Multiplier,
+  type ShotStyle,
+  creditKill,
+  drainHeat,
+  multiplierValue,
+  newMultiplier,
+  shotStyle,
+  stepMomentum,
+} from './multiplier';
+import {
   type Hunter,
   type HunterAction,
   type HunterKind,
@@ -20,20 +31,22 @@ import {
 import { type Ship, canBeHit, createShip, isBursting, stepShip } from './ship';
 import { type Shot, createShot, stepShots } from './shots';
 import {
+  type CityLayoutName,
   type CityPlan,
-  type LayoutName,
   type TerrainChange,
   generateCity,
   planChange,
 } from './city';
 import { Terrain } from './terrain';
 import { type EnemyDensity, spawnPoints, tankSpeed, waveMix, waveTotal } from './waves';
-import { type Pulse, homeBolts, pulseReaches, stepPulses } from './weapons';
+import { type Pulse, homeBolts, pulseReaches, shotgunBlast, stepPulses } from './weapons';
 
 /** Things that happened during a step, for presentation layers to react to. Never read by the sim. */
 export type SimEvent =
   | { type: 'boltFired'; pos: Vec2 }
   | { type: 'pulseFired'; pos: Vec2 }
+  /** A Pulse reached a Hunter; `angle` is the direction from the Ship to it. */
+  | { type: 'pulseHit'; pos: Vec2; angle: number }
   | { type: 'burstBounced'; pos: Vec2 }
   | {
       type: 'hunterDestroyed';
@@ -42,8 +55,9 @@ export type SimEvent =
       points: number;
       /** The Multiplier this kill scored at. */
       multiplier: number;
+      /** Null for a kill the player didn't make, which heats nothing: an Artillery blast. */
+      credit: KillCredit | null;
     }
-  | { type: 'multiplierLost'; value: number }
   | { type: 'sniperFired'; from: Vec2; to: Vec2 }
   | { type: 'salvoFired'; from: Vec2 }
   | { type: 'impact'; pos: Vec2 }
@@ -63,13 +77,6 @@ export interface Impact {
   time: number;
   /** Total flight time, for drawing the arc and the closing warning circle. */
   flight: number;
-}
-
-/** Score multiplier: raised by Powerslide kills, kept alive by any kill. */
-export interface Multiplier {
-  value: number;
-  /** Seconds until it falls back to 1 without another kill. */
-  timer: number;
 }
 
 export interface World {
@@ -117,7 +124,7 @@ export function createWorld(
   seed: number,
   terrain?: Terrain,
   firstWave = 1,
-  layout?: LayoutName,
+  layout?: CityLayoutName,
   density: EnemyDensity = {},
 ): World {
   const rng = new Rng(seed);
@@ -147,7 +154,7 @@ export function createWorld(
     impacts: [],
     waveStrength: 0,
     density,
-    multiplier: { value: 1, timer: 0 },
+    multiplier: newMultiplier(),
     wave: firstWave - 1,
     lull: 1.5,
     score: 0,
@@ -171,7 +178,8 @@ export function stepWorld(world: World, controls: Controls, dt: number): void {
     world.events.push({ type: 'burstStarted', pos: { ...world.ship.pos } });
   if (shipStep.bounced) world.events.push({ type: 'burstBounced', pos: { ...world.ship.pos } });
   if (shipStep.fired !== null) fireWeapon(world, shipStep.fired);
-  if (world.lull === 0) decayMultiplier(world, dt);
+  stepMomentum(world.multiplier, world.ship, dt);
+  if (world.lull === 0) drainHeat(world.multiplier, dt);
 
   refreshFlowFields(world, dt);
   stepHunters(world, dt);
@@ -181,7 +189,7 @@ export function stepWorld(world: World, controls: Controls, dt: number): void {
     dt,
   );
   stepShots(world.bolts, world.terrain, dt);
-  stepPulses(world.pulses, dt);
+  stepPulses(world.pulses, world.ship, dt);
   stepShots(world.shells, world.terrain, dt);
   stepImpacts(world, dt);
   resolveBoltHits(world);
@@ -193,19 +201,16 @@ export function stepWorld(world: World, controls: Controls, dt: number): void {
 function fireWeapon(world: World, angle: number): void {
   const { ship } = world;
   if (ship.weapon === 'shotgun') {
-    world.pulses.push({
-      origin: { ...ship.pos },
-      vel: { ...ship.vel },
-      heading: angle,
-      age: 0,
-      hit: [],
-    });
+    world.pulses.push(...shotgunBlast(ship, shotStyle(ship, world.multiplier)));
     world.events.push({ type: 'pulseFired', pos: { ...ship.pos } });
     return;
   }
   const muzzle = fromAngle(angle, CONFIG.ship.radius + 0.6);
   const pos = { x: ship.pos.x + muzzle.x, y: ship.pos.y + muzzle.y };
-  world.bolts.push(createShot(pos, angle, CONFIG.cannon.speed, CONFIG.cannon.life));
+  world.bolts.push({
+    ...createShot(pos, angle, CONFIG.cannon.speed, CONFIG.cannon.life),
+    style: shotStyle(ship, world.multiplier),
+  });
   world.events.push({ type: 'boltFired', pos });
 }
 
@@ -314,7 +319,7 @@ function stepImpacts(world: World, dt: number): void {
     for (let j = world.hunters.length - 1; j >= 0; j--) {
       const h = world.hunters[j]!;
       if (distance(h.pos, impact.pos) < blast + hunterRadius(h.kind)) {
-        damageHunter(world, j, CONFIG.juggernaut.blastDamage);
+        damageHunter(world, j, CONFIG.juggernaut.blastDamage, null);
       }
     }
   }
@@ -328,7 +333,7 @@ function resolveBoltHits(world: World): void {
     );
     if (i < 0) continue;
     world.bolts.splice(b, 1);
-    damageHunter(world, i, 1);
+    damageHunter(world, i, 1, bolt.style ?? null);
   }
 }
 
@@ -339,13 +344,23 @@ function resolvePulseHits(world: World): void {
       if (p.hit.includes(h.id)) continue;
       if (!pulseReaches(p, h.pos, hunterRadius(h.kind), world.terrain)) continue;
       p.hit.push(h.id);
-      damageHunter(world, i, CONFIG.juggernaut.pulseDamage);
+      const angle = Math.atan2(h.pos.y - p.origin.y, h.pos.x - p.origin.x);
+      world.events.push({ type: 'pulseHit', pos: { ...h.pos }, angle });
+      const { knockback } = CONFIG.shotgun;
+      h.vel = {
+        x: h.vel.x + Math.cos(angle) * knockback,
+        y: h.vel.y + Math.sin(angle) * knockback,
+      };
+      damageHunter(world, i, CONFIG.juggernaut.pulseDamage, p.style);
     }
   }
 }
 
-/** Only Juggernauts are armored; `amount` matters to nothing else, which dies to any hit. */
-function damageHunter(world: World, index: number, amount: number): void {
+/**
+ * Only Juggernauts are armored; `amount` matters to nothing else, which dies to any hit. `style` is
+ * how the player's shot was fired, or null for damage the player didn't deal.
+ */
+function damageHunter(world: World, index: number, amount: number, style: ShotStyle | null): void {
   const h = world.hunters[index];
   if (!h) return;
   if (h.kind === 'juggernaut') {
@@ -355,22 +370,22 @@ function damageHunter(world: World, index: number, amount: number): void {
       return;
     }
   }
-  destroyHunter(world, index);
+  destroyHunter(world, index, style);
 }
 
 /**
- * Removes a Hunter and credits the player, whatever destroyed it, at the current Multiplier. Any
- * kill restarts the Multiplier's clock; a kill while Powersliding then raises it.
+ * Removes a Hunter and scores it at the Multiplier before this kill, whatever destroyed it. Only
+ * the player's own kills heat the Multiplier.
  */
-function destroyHunter(world: World, index: number): void {
+function destroyHunter(world: World, index: number, style: ShotStyle | null): void {
   const [dead] = world.hunters.splice(index, 1);
   if (!dead) return;
-  const multiplier = world.multiplier;
+  const multiplier = multiplierValue(world.multiplier);
   const points = Math.round(
     CONFIG.waves.killScore *
       hunterScoreMultiplier(dead.kind) *
       Math.max(1, world.wave) *
-      multiplier.value,
+      multiplier,
   );
   world.score += points;
   world.events.push({
@@ -378,21 +393,9 @@ function destroyHunter(world: World, index: number): void {
     pos: { ...dead.pos },
     kind: dead.kind,
     points,
-    multiplier: multiplier.value,
+    multiplier,
+    credit: style ? creditKill(world.multiplier, style, world.time) : null,
   });
-  multiplier.timer = CONFIG.multiplier.timeout;
-  if (world.ship.sliding) {
-    multiplier.value = Math.min(CONFIG.multiplier.max, multiplier.value + 1);
-  }
-}
-
-function decayMultiplier(world: World, dt: number): void {
-  const multiplier = world.multiplier;
-  if (multiplier.value === 1) return;
-  multiplier.timer -= dt;
-  if (multiplier.timer > 0) return;
-  world.events.push({ type: 'multiplierLost', value: multiplier.value });
-  world.multiplier = { value: 1, timer: 0 };
 }
 
 /** Shells and Hunter bodies hurt the Ship; Hunter bodies also physically block it unless bursting. */
@@ -426,6 +429,7 @@ function resolveShipContacts(world: World): void {
 
 function damageShip(world: World): void {
   const ship = world.ship;
+  world.multiplier.momentum = 0;
   ship.hull--;
   ship.invulnerableTime = CONFIG.ship.hitInvulnerability;
   world.events.push({ type: 'shipHit', pos: { ...ship.pos } });
@@ -485,7 +489,7 @@ function startWave(world: World): void {
   world.wave++;
   const mix = waveMix(world.wave, world.density);
   const { terrain, rng } = world;
-  const points = spawnPoints(terrain, world.ship.pos, waveTotal(mix), rng);
+  const points = spawnPoints(terrain, world.ship.pos, waveTotal(mix), rng, mix.juggernauts);
   const specials = mix.juggernauts + mix.snipers + mix.artillery + mix.berserkers;
   points.forEach((p, i) => {
     const id = world.nextId++;

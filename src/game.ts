@@ -10,6 +10,8 @@ import type { LayoutName } from './sim/city';
 import { Hud, type LastEnemies, type Screen } from './ui/hud';
 import { Minimap } from './ui/minimap';
 import { Autopilot } from './ai/autopilot';
+import { ShowcasePilot, createShowcaseWorld, showcaseDuration } from './ai/showcase';
+import { ROSTER_SECONDS } from './render/rosterScene';
 import { GAME_OVER_MESSAGES } from './ui/copy';
 import { insertScore, loadScores, rankFor, saveScores } from './scores/highScores';
 import { InitialsEntry } from './scores/initials';
@@ -17,7 +19,10 @@ import { type CustomSettings, Menu, densityOf, isStandard } from './ui/menu';
 import type { EnemyDensity } from './sim/waves';
 import { distance } from './core/vec2';
 
-type Phase = 'title' | 'playing' | 'paused' | 'over';
+type Phase = 'title' | 'attract' | 'playing' | 'paused' | 'over';
+
+/** What the attract loop is showing: a scripted Run, the roll call of Hunters, then high scores. */
+type AttractStage = 'showcase' | 'roster' | 'scores';
 
 /** Debug overrides, all optional; set from URL parameters. */
 export interface GameOptions {
@@ -32,6 +37,8 @@ export interface GameOptions {
   plainBlocks?: boolean;
   /** The game plays itself, restarting after each death. Only pause is read from the player. */
   demo?: boolean;
+  /** Open on the attract loop instead of the main menu. */
+  attract?: boolean;
 }
 
 /** Ignore confirm briefly after death so a held fire/burst button doesn't skip the score screen. */
@@ -43,6 +50,8 @@ const OVER_INPUT_DELAY = 1;
 const LAST_ENEMIES_SHOWN = 3;
 /** Seconds the score screen shows in demo mode before the next Run starts. */
 const DEMO_RESTART = 4;
+/** Seconds the whole game freezes when a Shotgun Pulse connects, so the hit lands with weight. */
+const HITSTOP = 0.045;
 
 /** Owns the phase state machine and wires input, simulation, rendering and HUD together. */
 export class Game {
@@ -56,6 +65,7 @@ export class Game {
   private readonly menu = new Menu();
   /** Seconds since the last menu input, for the attract loop. */
   private titleIdle = 0;
+  private attract: { stage: AttractStage; time: number; pilot: ShowcasePilot } | null = null;
   /** How the current Run was set up, so Retry plays it again. */
   private run: RunSettings;
   private world: World;
@@ -68,6 +78,8 @@ export class Game {
   /** Where the last finished Run landed in the table, to highlight it. */
   private entryRank: number | null = null;
   private lastFrame = 0;
+  /** Seconds of hit-stop left; the simulation and effects hold still until it runs out. */
+  private hitstop = 0;
 
   constructor(
     container: HTMLElement,
@@ -83,6 +95,7 @@ export class Game {
     this.run = this.standardRun();
     this.world = this.newWorld();
     if (options.demo) this.startDemo();
+    else if (options.attract) this.startAttract();
     document.addEventListener('visibilitychange', () => {
       if (document.hidden && this.phase === 'playing') this.phase = 'paused';
     });
@@ -101,15 +114,26 @@ export class Game {
     const input = mergeInputs(this.keyboard.poll(), this.gamepad.poll());
 
     const wasPlaying = this.phase === 'playing';
+    const stageBefore = this.attract?.stage;
     this.updatePhase(input, frameTime);
+    const frozen = Math.min(this.hitstop, frameTime);
+    this.hitstop -= frozen;
+    const simTime = frameTime - frozen;
+    const attract = this.phase === 'attract' ? this.attract : null;
+    if (attract?.stage === 'showcase') {
+      // The script reads the World every step, so the Run plays out the same at any frame rate.
+      this.loop.advance(simTime, (dt) =>
+        stepWorld(this.world, attract.pilot.controls(this.world), dt),
+      );
+    }
     if (this.phase === 'playing' || this.phase === 'over') {
       // A both confirms and Bursts, so the press that starts a Run must not also spend a Charge.
       const runInput = this.autopilot
-        ? this.autopilot.controls(this.world, frameTime)
+        ? this.autopilot.controls(this.world, simTime)
         : wasPlaying
           ? input
           : { ...input, burst: false };
-      this.loop.advance(frameTime, (dt, first) => {
+      this.loop.advance(simTime, (dt, first) => {
         const controls = this.phase === 'playing' ? runInput : NO_CONTROLS;
         // Edge-triggered actions apply once per frame, not once per step.
         stepWorld(this.world, first ? controls : { ...controls, burst: false, swap: false }, dt);
@@ -117,11 +141,15 @@ export class Game {
     }
     if (this.world.over && this.phase === 'playing') this.enterOver();
 
+    if (this.world.events.some((e) => e.type === 'pulseHit')) this.hitstop = HITSTOP;
     this.renderer.handleEvents(this.world.events);
     this.hud.handleEvents(this.world.events);
     this.world.events.length = 0;
-    if (this.phase === 'title') this.renderer.renderTitle(frameTime);
-    else this.renderer.render(this.world, this.phase === 'paused' ? 0 : frameTime);
+    // The title, and the high scores in the attract loop, are HUD screens over the splash art.
+    const splash = this.phase === 'title' || attract?.stage === 'scores';
+    if (attract?.stage === 'roster')
+      this.renderer.renderRoster(frameTime, stageBefore !== 'roster');
+    else if (!splash) this.renderer.render(this.world, this.phase === 'paused' ? 0 : simTime);
     this.hud.update(
       this.world,
       this.screen(),
@@ -135,17 +163,25 @@ export class Game {
   }
 
   private updatePhase(input: FrameInput, frameTime: number): void {
+    const touched =
+      input.confirm || input.back || input.pause || Object.values(input.nav).some((p) => p);
     switch (this.phase) {
       case 'title': {
-        const touched =
-          input.confirm || input.back || Object.values(input.nav).some((pushed) => pushed);
         this.titleIdle = touched ? 0 : this.titleIdle + frameTime;
+        if (this.titleIdle > ATTRACT_IDLE && this.menu.view().page === 'main') {
+          this.startAttract();
+          break;
+        }
         const action = this.menu.apply(input);
         if (action?.type === 'play') this.startRun(this.standardRun());
         if (action?.type === 'custom') this.startRun(customRun(action.settings));
         if (action?.type === 'demo') this.startDemo();
         break;
       }
+      case 'attract':
+        if (touched) this.quitToTitle();
+        else this.advanceAttract(frameTime);
+        break;
       case 'playing':
         // Like an arcade attract mode, any button ends the demo.
         if (this.autopilot && (input.confirm || input.back || input.pause)) this.quitToTitle();
@@ -201,8 +237,43 @@ export class Game {
     };
   }
 
-  /** Abandons the Run, or the demo, for the main menu. Only finished Runs enter the table. */
+  /** Plays the scripted showcase Run, the first stage of the attract loop. */
+  private startAttract(): void {
+    this.attract = { stage: 'showcase', time: 0, pilot: new ShowcasePilot() };
+    this.world = createShowcaseWorld();
+    this.renderer.setWorld(this.world);
+    this.loop.reset();
+    this.hud.setDemoBadge(true);
+    this.phase = 'attract';
+  }
+
+  private advanceAttract(frameTime: number): void {
+    const attract = this.attract!;
+    attract.time += frameTime;
+    const next = (stage: AttractStage) => {
+      attract.stage = stage;
+      attract.time = 0;
+    };
+    switch (attract.stage) {
+      case 'showcase':
+        if (this.world.time < showcaseDuration() && !this.world.over) return;
+        this.hud.setDemoBadge(false);
+        next('roster');
+        return;
+      case 'roster':
+        if (attract.time < ROSTER_SECONDS) return;
+        if (this.scores.length > 0) next('scores');
+        else this.quitToTitle();
+        return;
+      case 'scores':
+        if (attract.time >= ATTRACT_SCORES) this.quitToTitle();
+        return;
+    }
+  }
+
+  /** Abandons the Run, the demo or the attract loop for the main menu. Only finished Runs enter the table. */
   private quitToTitle(): void {
+    this.attract = null;
     this.autopilot = null;
     this.hud.setDemoBadge(false);
     this.run = this.standardRun();
@@ -280,13 +351,13 @@ export class Game {
     const pad = this.gamepad.description;
     switch (this.phase) {
       case 'title':
-        return {
-          kind: 'title',
-          pad,
-          scores: this.scores,
-          menu: this.menu.view(),
-          attract: isAttract(this.titleIdle),
-        };
+        return { kind: 'title', pad, scores: this.scores, menu: this.menu.view(), attract: false };
+      case 'attract': {
+        const stage = this.attract!.stage;
+        if (stage === 'showcase') return { kind: 'none' };
+        if (stage === 'roster') return { kind: 'roster' };
+        return { kind: 'title', pad, scores: this.scores, menu: this.menu.view(), attract: true };
+      }
       case 'paused':
         return { kind: 'paused', pad };
       case 'over':
@@ -330,12 +401,9 @@ function customRun(settings: CustomSettings): RunSettings {
 }
 
 /**
- * After this long without input the title alternates with the high-score table, like an arcade
- * cabinet, so it never covers the menu while someone is using it.
+ * After this many seconds on the main menu without input the attract loop starts, like an arcade
+ * cabinet's, so it never covers the menu while someone is using it. Any button returns to the menu.
  */
 const ATTRACT_IDLE = 12;
+/** Seconds the attract loop shows the high-score table. */
 const ATTRACT_SCORES = 7;
-const ATTRACT_TITLE = 12;
-
-const isAttract = (idle: number): boolean =>
-  idle > ATTRACT_IDLE && (idle - ATTRACT_IDLE) % (ATTRACT_SCORES + ATTRACT_TITLE) < ATTRACT_SCORES;

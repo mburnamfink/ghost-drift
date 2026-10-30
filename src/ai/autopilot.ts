@@ -174,7 +174,7 @@ function anyInSights(world: World): boolean {
 }
 
 /** Bends `desired` away from Blocks ahead, toward whichever side has more room. */
-function avoidBlocks(world: World, desired: number, speed: number): number {
+export function avoidBlocks(world: World, desired: number, speed: number): number {
   const { ship, terrain } = world;
   const look = 8 + speed * 0.6;
   const clearAhead = terrain.castRay(ship.pos, fromAngle(desired), look);

@@ -4,19 +4,19 @@ Supersedes the fixed layout in ADR-0005; its Rise/Sink schedule still applies.
 
 A single fixed layout (Plaza, ring road, eight districts) inside a square wall played the same every Run, and the wall read as an arbitrary barrier. Each Run now picks one of several Layouts at random from the seed (`src/sim/city/`):
 
-- **Grid**: straight Avenues edge to edge around a square central Plaza.
+- **Grid**: a lattice of square blocks of square buildings, with Avenues every few blocks, around a central Plaza.
 - **Circuit**: a wide loop around a dense core, with spurs to side Plazas.
 - **Districts**: several Plazas of different sizes joined by Avenues.
-- **Hub**: a central Plaza with radiating Avenues crossed by ring roads.
+- **Hub**: a central Plaza with uneven spokes out to small Plazas, crossed by broken ring roads.
 - **Raceway**: a walled figure-eight inside a sharp-cornered polygon loop.
-- **Downtown**: a dense permanent core of skyscrapers centered on the outline, with sparse suburbs wrapped around it in a U.
+- **Downtown**: a dense permanent core of skyscrapers, crossed by two streets, standing anywhere from the center to the outline, with sparse suburbs around it.
 - **Towers**: isolated clumps of skyscrapers on open ground.
 
 A recipe may also set `zone` (per-area building height or height range, empty-lot chance, permanence, and a maximum footprint that splits lots into towers) and `buildOnly` (areas outside which nothing is built). The generator moves a spawn that falls outside the city onto the nearest open ground inside it.
 
-A Layout is only a recipe (`LayoutSpec`): open shapes (rectangles, discs, elliptical rings, thick lines), the Plazas, a boundary made of a union of circles, and a spawn point. One generator turns any recipe into Plots:
+A Layout is only a recipe (`LayoutSpec`): open shapes (rectangles, discs, elliptical rings or arcs of them, thick lines), the Plazas, a boundary made of a union of circles, and a spawn point. One generator turns any recipe into Plots:
 
-1. Cut the whole Arena into Plots with Streets and Alleys, as before.
+1. Cut the whole Arena into Plots with Streets and Alleys, as before, unless the recipe supplies its own `lots` (Grid does).
 2. Trim each Plot to the largest rectangle clear of open shapes and inside the boundary.
 3. Turn everything outside the boundary, plus any pocket unreachable from the spawn, into the **Edge**: tall Blocks that stand all Run.
 4. Plots near the Edge Rise sooner and stand taller, so the city visibly thickens into it.

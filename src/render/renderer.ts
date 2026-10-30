@@ -11,7 +11,7 @@ import { type HunterModel, MORTAR_MOUNT, createHunterModel, createShipModel } fr
 import { PALETTE } from './palette';
 import { PulsesView } from './pulsesView';
 import { TerrainView } from './terrainView';
-import { TitleScene } from './titleScene';
+import { RosterScene } from './rosterScene';
 import { ThreatsView } from './threatsView';
 
 const SHOT_CAPACITY = 512;
@@ -32,6 +32,8 @@ const CAMERA = {
   burstFov: 10,
 };
 const SHIP_HOVER_HEIGHT = 0.9;
+/** The hull's glow, other than while it shows the Shotgun reloading. */
+const SHIP_GLOW = 0.35;
 const SHIP_BANK = {
   /** Roll in radians per radian-per-second of turn; full steering banks about 30 degrees. */
   perTurnRate: 0.2,
@@ -79,7 +81,7 @@ export class GameRenderer {
   private readonly dummy = new THREE.Object3D();
   private readonly threats = new ThreatsView();
   private terrain: TerrainView | null = null;
-  private title: TitleScene | null = null;
+  private roster: RosterScene | null = null;
   private sparkBudget = 0;
   private cameraYaw = 0;
   private lastHeading = 0;
@@ -174,6 +176,10 @@ export class GameRenderer {
           break;
         case 'pulseFired':
           this.shake = Math.max(this.shake, 0.2);
+          break;
+        case 'pulseHit':
+          this.debris.burst(e.pos.x, e.pos.y, PALETTE.shipBurst, 16, 22);
+          this.shake = Math.max(this.shake, 0.45);
           break;
         case 'sniperFired':
           this.shake = Math.max(this.shake, 0.5);
@@ -347,6 +353,7 @@ export class GameRenderer {
     const bursting = isBursting(ship);
     this.ship.material.color.setHex(bursting ? PALETTE.shipBurst : PALETTE.ship);
     this.ship.material.emissive.setHex(bursting ? PALETTE.shipBurst : PALETTE.ship);
+    this.ship.material.emissiveIntensity = shipGlow(ship, this.elapsed);
     root.scale.set(bursting ? 1.6 : 1, bursting ? 0.7 : 1, bursting ? 0.7 : 1);
     if (ship.sliding && !world.over) this.emitSparks(world, frameTime);
     const speedFraction = speedOf(ship) / SHIP_TOP_SPEED;
@@ -460,14 +467,15 @@ export class GameRenderer {
     this.camera.updateProjectionMatrix();
   }
 
-  /** Draws the title screen's live backdrop instead of the World. Built on first use. */
-  renderTitle(frameTime: number): void {
-    if (!this.title) {
-      this.title = new TitleScene();
-      this.title.setAspect(this.camera.aspect);
+  /** Draws the attract loop's roll call of Hunters. `restart` starts its entrances over. */
+  renderRoster(frameTime: number, restart = false): void {
+    if (!this.roster) {
+      this.roster = new RosterScene();
+      this.roster.setAspect(this.camera.aspect);
     }
-    this.title.update(frameTime);
-    this.renderer.render(this.title.scene, this.title.camera);
+    if (restart) this.roster.restart();
+    this.roster.update(frameTime);
+    this.renderer.render(this.roster.scene, this.roster.camera);
   }
 
   private resize(): void {
@@ -476,8 +484,18 @@ export class GameRenderer {
     this.renderer.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-    this.title?.setAspect(w / h);
+    this.roster?.setAspect(w / h);
   }
+}
+
+/**
+ * With the Shotgun in hand the hull dims after each shot and brightens as it reloads, then throbs
+ * once ready, so the player can time the next one without looking away from the road.
+ */
+function shipGlow(ship: World['ship'], elapsed: number): number {
+  if (ship.weapon !== 'shotgun') return SHIP_GLOW;
+  const ready = 1 - ship.fireCooldown / CONFIG.shotgun.interval;
+  return ready >= 1 ? 0.85 + 0.15 * Math.sin(elapsed * 14) : 0.1 + 0.35 * ready;
 }
 
 /** `glow` makes the layer additive at that opacity, for halos and trails. */
