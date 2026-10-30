@@ -15,8 +15,6 @@ export const LAYOUT_NAMES = [
   'towers',
 ] as const;
 export type LayoutName = (typeof LAYOUT_NAMES)[number];
-/** Every city that can be generated: the Layouts, plus ones kept only for scripted Runs. */
-export type CityLayoutName = LayoutName | 'showcaseHub';
 
 /** A layout's recipe for a city, in cell units. The generator fills everything else with Plots. */
 export interface LayoutSpec {
@@ -71,7 +69,7 @@ const FOOTPRINTS: Record<LayoutName, FootprintWeights> = {
   towers: { rect: 2, cross: 2, L: 2, T: 2, stepped: 1 },
 };
 
-export const LAYOUTS: Record<CityLayoutName, (rng: Rng, cells: number) => LayoutSpec> = {
+export const LAYOUTS: Record<LayoutName, (rng: Rng, cells: number) => LayoutSpec> = {
   grid,
   circuit,
   districts,
@@ -79,7 +77,6 @@ export const LAYOUTS: Record<CityLayoutName, (rng: Rng, cells: number) => Layout
   raceway,
   downtown,
   towers,
-  showcaseHub,
 };
 
 const TAU = Math.PI * 2;
@@ -431,47 +428,6 @@ function hub(rng: Rng, cells: number): LayoutSpec {
     open: [...spokes, ...open],
     plazas,
     boundary,
-    spawn: { x: mid, y: mid },
-    spawnHeading: -Math.PI / 2,
-  };
-}
-
-/**
- * Hub as it stood when the attract loop's Showcase was scripted on it: a central Plaza, 6–8 evenly
- * spaced walled spokes and two full ring roads. The script depends on every cell of this city, so it
- * stays frozen while Hub itself changes.
- */
-function showcaseHub(rng: Rng, cells: number): LayoutSpec {
-  const mid = cells / 2;
-  const half = cells / 2;
-  const avenue = CONFIG.city.avenue;
-  const plaza: Shape = { kind: 'disc', x: mid, y: mid, r: rng.range(10, 12) };
-  const spokes: Shape[] = [];
-  const count = 6 + rng.int(3);
-  const start = rng.range(0, TAU);
-  for (let i = 0; i < count; i++) {
-    const a = start + (i * TAU) / count + rng.range(-0.15, 0.15);
-    spokes.push({
-      kind: 'capsule',
-      ax: mid,
-      ay: mid,
-      bx: mid + Math.cos(a) * half,
-      by: mid + Math.sin(a) * half,
-      width: avenue + 1,
-    });
-  }
-  const open: Shape[] = [plaza, ...spokes];
-  for (const f of [0.45, 0.75]) {
-    const r = half * f;
-    open.push({ kind: 'ring', x: mid, y: mid, rx: r, ry: r, width: 3 });
-  }
-  return {
-    name: 'hub',
-    footprints: FOOTPRINTS.hub,
-    lined: spokes,
-    open,
-    plazas: [plaza],
-    boundary: arcBoundary(rng, cells),
     spawn: { x: mid, y: mid },
     spawnHeading: -Math.PI / 2,
   };

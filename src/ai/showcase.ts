@@ -1,7 +1,7 @@
 import { CONFIG } from '../config';
 import { type Vec2, clamp, distance, wrapAngle } from '../core/vec2';
 import { type Controls, NO_CONTROLS } from '../sim/controls';
-import type { CityLayoutName } from '../sim/city';
+import type { LayoutName } from '../sim/city';
 import { FlowField } from '../sim/flowfield';
 import type { Hunter, HunterKind } from '../sim/hunters';
 import { speedOf } from '../sim/ship';
@@ -35,7 +35,7 @@ export interface Move {
 
 export interface Showcase {
   seed: number;
-  layout: CityLayoutName;
+  layout: LayoutName;
   wave: number;
   density: EnemyDensity;
   moves: readonly Move[];
@@ -48,39 +48,42 @@ export interface Showcase {
  */
 export const SHOWCASE: Showcase = {
   seed: 4,
-  layout: 'showcaseHub',
+  layout: 'hub',
   wave: 7,
   density: { tanks: 0.5 },
   // Drafted by searching beat sequences against the simulation for kills, Powerslide and Shotgun
   // kills and no hits. Any change to the city, Hunters or Ship handling changes how it plays out: watch it again.
   moves: [
-    { for: 1.6, thrust: 1, aim: 22, fire: true },
+    { for: 1.6, thrust: 1, aim: 18, fire: true },
+    { for: 1.2, thrust: 1, aim: 15, fire: true },
     { for: 1.2, slide: true, aim: 'nearest', fire: true },
-    { for: 1.2, thrust: 1, aim: 'hunt', fire: true },
-    { for: 1.2, thrust: 1, aim: 'hunt', weapon: 'shotgun', fire: true },
-    { for: 1.2, thrust: 1, aim: 'hunt', target: 'juggernaut', fire: true },
-    { for: 1.2, slide: true, aim: 'nearest', fire: true },
-    { for: 2.4, thrust: 1, aim: 'hunt', fire: true },
-    { for: 1.2, slide: true, aim: 'nearest', weapon: 'cannon', fire: true },
     { for: 0.6, thrust: 1, burst: true, aim: 'nearest', fire: true },
     { for: 1.2, thrust: 1, aim: 'hunt', weapon: 'shotgun', fire: true },
-    { for: 1.2, slide: true, aim: 'nearest', fire: true },
+    { for: 1.2, thrust: 1, aim: 165, weapon: 'cannon', fire: true },
+    { for: 1.2, thrust: 1, aim: 'hunt', weapon: 'shotgun', fire: true },
     { for: 1.2, thrust: 1, aim: 'hunt', fire: true },
-    { for: 1.2, slide: true, aim: 'nearest', fire: true },
-    { for: 1.2, slide: true, aim: 'nearest', weapon: 'cannon', fire: true },
     { for: 0.6, thrust: 1, burst: true, aim: 'nearest', fire: true },
     { for: 1.2, slide: true, aim: 'nearest', fire: true },
-    { for: 2.4, thrust: 1, aim: 'hunt', fire: true },
-    { for: 1.2, slide: true, aim: 'nearest', weapon: 'shotgun', fire: true },
-    { for: 1.2, thrust: 1, aim: 300, weapon: 'cannon', fire: true },
-    { for: 1.2, thrust: 1, aim: 'hunt', weapon: 'shotgun', fire: true },
+    { for: 1.2, thrust: 1, aim: 'hunt', fire: true },
     { for: 1.2, thrust: 1, aim: 'hunt', weapon: 'cannon', fire: true },
+    { for: 1.2, thrust: 1, aim: -345, fire: true },
+    { for: 1.2, thrust: 1, aim: 'hunt', fire: true },
+    { for: 1.2, thrust: 1, aim: 'hunt', weapon: 'shotgun', fire: true },
+    { for: 1.2, thrust: 1, aim: 'hunt', fire: true },
+    { for: 1.2, slide: true, aim: 'nearest', fire: true },
+    { for: 1.2, thrust: 1, aim: 'hunt', weapon: 'cannon', fire: true },
+    { for: 1.2, thrust: 1, aim: -75, fire: true },
+    { for: 1.2, thrust: 1, aim: 'hunt', fire: true },
+    { for: 1.2, slide: true, aim: 'nearest', weapon: 'shotgun', fire: true },
+    { for: 0.6, thrust: 1, burst: true, aim: 'nearest', fire: true },
+    { for: 1.2, thrust: 1, aim: 'hunt', weapon: 'cannon', fire: true },
+    { for: 1.2, thrust: 1, aim: 75, fire: true },
+    { for: 1.2, slide: true, aim: 'nearest', fire: true },
+    { for: 1.2, thrust: 1, aim: -135, fire: true },
+    { for: 1.2, thrust: 1, aim: 'hunt', fire: true },
     { for: 1.2, thrust: 1, aim: 'hunt', weapon: 'shotgun', fire: true },
     { for: 1.2, slide: true, aim: 'nearest', weapon: 'cannon', fire: true },
-    { for: 0.6, thrust: 1, burst: true, aim: 'nearest', fire: true },
-    { for: 2.4, slide: true, aim: 'nearest', fire: true },
-    { for: 0.6, thrust: 1, burst: true, aim: 'nearest', fire: true },
-    { for: 1.2, slide: true, aim: 'nearest', weapon: 'shotgun', fire: true },
+    { for: 1.2, thrust: 1, aim: 'hunt', fire: true },
     // Coast while WAVE CLEARED shows.
     { for: 1.6, thrust: 0.6 },
   ],

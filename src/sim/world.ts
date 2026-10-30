@@ -31,8 +31,8 @@ import {
 import { type Ship, canBeHit, createShip, isBursting, stepShip } from './ship';
 import { type Shot, createShot, stepShots } from './shots';
 import {
-  type CityLayoutName,
   type CityPlan,
+  type LayoutName,
   type TerrainChange,
   generateCity,
   planChange,
@@ -124,7 +124,7 @@ export function createWorld(
   seed: number,
   terrain?: Terrain,
   firstWave = 1,
-  layout?: CityLayoutName,
+  layout?: LayoutName,
   density: EnemyDensity = {},
 ): World {
   const rng = new Rng(seed);

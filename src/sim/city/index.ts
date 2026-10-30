@@ -1,10 +1,10 @@
 import { CONFIG } from '../../config';
 import type { Rng } from '../../core/rng';
 import { buildCity } from './generate';
-import { type CityLayoutName, LAYOUTS, LAYOUT_NAMES, type LayoutName } from './layouts';
+import { LAYOUTS, LAYOUT_NAMES, type LayoutName } from './layouts';
 import type { CityPlan } from './plan';
 
-export { type CityLayoutName, LAYOUT_NAMES, type LayoutName } from './layouts';
+export { LAYOUT_NAMES, type LayoutName } from './layouts';
 export * from './plan';
 
 export const isLayoutName = (s: string): s is LayoutName =>
@@ -13,7 +13,7 @@ export const isLayoutName = (s: string): s is LayoutName =>
 /** Generates a Run's city in `layout`, or in one chosen at random from the seed. */
 export function generateCity(
   rng: Rng,
-  layout?: CityLayoutName,
+  layout?: LayoutName,
   cells: number = CONFIG.arena.cells,
 ): CityPlan {
   const name = layout ?? LAYOUT_NAMES[rng.int(LAYOUT_NAMES.length)]!;
