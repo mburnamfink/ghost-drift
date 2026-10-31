@@ -43,7 +43,12 @@ import { type Pulse, homeBolts, pulseReaches, shotgunBlast, stepPulses } from '.
 
 /** Things that happened during a step, for presentation layers to react to. Never read by the sim. */
 export type SimEvent =
-  | { type: 'boltFired'; pos: Vec2 }
+  /** `side` is the barrel, -1 left of the nose or 1 right; `volley` marks the opening Volley. */
+  | { type: 'boltFired'; pos: Vec2; heading: number; side: -1 | 1; volley: boolean }
+  /** A Bolt struck a Block. */
+  | { type: 'boltStruck'; pos: Vec2 }
+  /** A Bolt reached a Hunter. */
+  | { type: 'boltHit'; pos: Vec2 }
   | { type: 'pulseFired'; pos: Vec2 }
   /** A Pulse reached a Hunter; `angle` is the direction from the Ship to it. */
   | { type: 'pulseHit'; pos: Vec2; angle: number }
@@ -177,7 +182,7 @@ export function stepWorld(world: World, controls: Controls, dt: number): void {
   if (shipStep.burstStarted)
     world.events.push({ type: 'burstStarted', pos: { ...world.ship.pos } });
   if (shipStep.bounced) world.events.push({ type: 'burstBounced', pos: { ...world.ship.pos } });
-  if (shipStep.fired !== null) fireWeapon(world, shipStep.fired);
+  if (shipStep.fired !== null) fireWeapon(world, shipStep.fired, shipStep.volley);
   stepMomentum(world.multiplier, world.ship, dt);
   if (world.lull === 0) drainHeat(world.multiplier, dt);
 
@@ -188,8 +193,10 @@ export function stepWorld(world: World, controls: Controls, dt: number): void {
     world.hunters.map((h) => h.pos),
     dt,
   );
-  stepShots(world.bolts, world.terrain, dt);
-  stepPulses(world.pulses, world.ship, dt);
+  stepShots(world.bolts, world.terrain, dt, (b) =>
+    world.events.push({ type: 'boltStruck', pos: { ...b.pos } }),
+  );
+  stepPulses(world.pulses, dt);
   stepShots(world.shells, world.terrain, dt);
   stepImpacts(world, dt);
   resolveBoltHits(world);
@@ -198,20 +205,23 @@ export function stepWorld(world: World, controls: Controls, dt: number): void {
   advanceWaves(world, dt);
 }
 
-function fireWeapon(world: World, angle: number): void {
+function fireWeapon(world: World, angle: number, volley: boolean): void {
   const { ship } = world;
   if (ship.weapon === 'shotgun') {
-    world.pulses.push(...shotgunBlast(ship, shotStyle(ship, world.multiplier)));
+    world.pulses.push(shotgunBlast(ship, shotStyle(ship, world.multiplier)));
     world.events.push({ type: 'pulseFired', pos: { ...ship.pos } });
     return;
   }
+  const side = ship.barrel;
+  ship.barrel = side === 1 ? -1 : 1;
   const muzzle = fromAngle(angle, CONFIG.ship.radius + 0.6);
-  const pos = { x: ship.pos.x + muzzle.x, y: ship.pos.y + muzzle.y };
+  const across = fromAngle(angle + Math.PI / 2, side * CONFIG.cannon.barrelOffset);
+  const pos = { x: ship.pos.x + muzzle.x + across.x, y: ship.pos.y + muzzle.y + across.y };
   world.bolts.push({
     ...createShot(pos, angle, CONFIG.cannon.speed, CONFIG.cannon.life),
     style: shotStyle(ship, world.multiplier),
   });
-  world.events.push({ type: 'boltFired', pos });
+  world.events.push({ type: 'boltFired', pos, heading: angle, side, volley });
 }
 
 function refreshFlowFields(world: World, dt: number): void {
@@ -333,6 +343,7 @@ function resolveBoltHits(world: World): void {
     );
     if (i < 0) continue;
     world.bolts.splice(b, 1);
+    world.events.push({ type: 'boltHit', pos: { ...bolt.pos } });
     damageHunter(world, i, 1, bolt.style ?? null);
   }
 }

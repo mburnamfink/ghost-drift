@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import type { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
+import { LineSegments2 } from 'three/examples/jsm/lines/LineSegments2.js';
 
 /** Afterimages spawned per second while an emitter is active. */
 const RATE = 45;
@@ -7,7 +9,7 @@ const START_OPACITY = 0.45;
 const CAPACITY = 200;
 
 interface Ghost {
-  meshes: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>[];
+  meshes: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial | LineMaterial>[];
   life: number;
   opacity: number;
 }
@@ -32,17 +34,9 @@ export class Afterimages {
     for (; budget >= 1 && this.ghosts.length < CAPACITY; budget--) {
       const meshes: Ghost['meshes'] = [];
       source.traverse((o) => {
-        if (!(o instanceof THREE.Mesh) || !o.visible) return;
-        const ghost = new THREE.Mesh(
-          o.geometry as THREE.BufferGeometry,
-          new THREE.MeshBasicMaterial({
-            color,
-            transparent: true,
-            opacity,
-            depthWrite: false,
-            blending: THREE.AdditiveBlending,
-          }),
-        );
+        if (!(o instanceof THREE.Mesh) || !o.visible || o.userData.noAfterimage) return;
+        const ghost =
+          o instanceof LineSegments2 ? lineGhost(o, color, opacity) : meshGhost(o, color, opacity);
         ghost.matrixAutoUpdate = false;
         ghost.matrix.copy(o.matrixWorld);
         meshes.push(ghost);
@@ -84,4 +78,31 @@ export class Afterimages {
     this.ghosts = [];
     this.budget.clear();
   }
+}
+
+function meshGhost(source: THREE.Mesh, color: number, opacity: number) {
+  return new THREE.Mesh(
+    source.geometry,
+    new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    }),
+  );
+}
+
+/**
+ * Fat lines are meshes of instanced quads that only their own material can draw; under any other
+ * they render as one flat template quad.
+ */
+function lineGhost(source: LineSegments2, color: number, opacity: number) {
+  const material = source.material.clone();
+  material.color.setHex(color);
+  material.transparent = true;
+  material.opacity = opacity;
+  material.depthWrite = false;
+  material.blending = THREE.AdditiveBlending;
+  return new LineSegments2(source.geometry, material);
 }

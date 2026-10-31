@@ -7,9 +7,15 @@ import type { Shot } from '../sim/shots';
 import type { SimEvent, World } from '../sim/world';
 import { Afterimages } from './afterimages';
 import { Debris } from './debris';
-import { type HunterModel, MORTAR_MOUNT, createHunterModel, createShipModel } from './models';
+import { type HunterModel, MORTAR_MOUNT, createHunterModel } from './models';
+import { ShipModel } from './shipModel';
 import { PALETTE } from './palette';
 import { PulsesView } from './pulsesView';
+import { ShipExplosion } from './shipExplosion';
+import { Flashes } from './flashes';
+import { BoltsView } from './boltsView';
+import { BurstVortex } from './burstVortex';
+import { HitPulse } from './hitPulse';
 import { TerrainView } from './terrainView';
 import { RosterScene } from './rosterScene';
 import { ThreatsView } from './threatsView';
@@ -31,9 +37,7 @@ const CAMERA = {
   speedFov: 16,
   burstFov: 10,
 };
-const SHIP_HOVER_HEIGHT = 0.9;
-/** The hull's glow, other than while it shows the Shotgun reloading. */
-const SHIP_GLOW = 0.35;
+export const SHIP_HOVER_HEIGHT = 0.9;
 const SHIP_BANK = {
   /** Roll in radians per radian-per-second of turn; full steering banks about 30 degrees. */
   perTurnRate: 0.2,
@@ -49,7 +53,7 @@ const SHIP_BLUR = { from: 0.5, minStrength: 0.35 };
 const HIT_FLASH_SECONDS = 0.1;
 const HEALTH_BAR_HEIGHT = 7;
 /** How far, and for how long, an Artillery mortar kicks back when it fires. */
-const MORTAR_RECOIL = { distance: 0.8, seconds: 0.35 };
+export const MORTAR_RECOIL = { distance: 0.8, seconds: 0.35 };
 const SPARK = {
   /** Sparks per second at top speed. */
   rate: 140,
@@ -64,11 +68,12 @@ export class GameRenderer {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(CAMERA.baseFov, 1, 0.1, 600);
-  private readonly ship = createShipModel();
+  private readonly ship = new ShipModel();
   private readonly hunters = new Map<number, HunterModel>();
   /** Per Artillery piece: last seen cooldown, to spot firing, and seconds of recoil left. */
   private readonly mortars = new Map<number, { cooldown: number; recoil: number }>();
-  private readonly bolts: THREE.InstancedMesh;
+  private readonly bolts = new BoltsView();
+  private readonly vortex = new BurstVortex();
   /** Tank shells drawn as a solid core inside a faint halo. */
   private readonly shellLayers: THREE.InstancedMesh[];
   /** Juggernaut Spray Shells: the same look, larger. */
@@ -77,6 +82,9 @@ export class GameRenderer {
   private readonly hitFlash = new Map<number, number>();
   private readonly pulses = new PulsesView();
   private readonly debris = new Debris();
+  private readonly explosion = new ShipExplosion(this.debris);
+  private readonly flashes = new Flashes();
+  private readonly hitPulse = new HitPulse();
   private readonly afterimages = new Afterimages();
   private readonly dummy = new THREE.Object3D();
   private readonly threats = new ThreatsView();
@@ -86,6 +94,10 @@ export class GameRenderer {
   private cameraYaw = 0;
   private lastHeading = 0;
   private shake = 0;
+  /** Units the Ship is knocked back by the Cannon's recoil, easing to 0. */
+  private recoil = 0;
+  /** Units the camera is pushed back by the Cannon firing, easing to 0. */
+  private kick = 0;
   private elapsed = 0;
 
   /**
@@ -108,7 +120,6 @@ export class GameRenderer {
     sun.position.set(0.4, 1, 0.25);
     this.scene.add(sun);
 
-    this.bolts = shotMesh(new THREE.BoxGeometry(1.6, 0.25, 0.25), PALETTE.bolt);
     this.shellLayers = [
       shotMesh(new THREE.IcosahedronGeometry(0.45, 0), PALETTE.tankShell),
       shotMesh(new THREE.IcosahedronGeometry(0.8, 1), PALETTE.tankShell, 0.2),
@@ -119,11 +130,15 @@ export class GameRenderer {
     ];
     this.scene.add(
       this.ship.root,
-      this.bolts,
+      this.bolts.group,
+      this.vortex.group,
       ...this.shellLayers,
       ...this.sprayLayers,
       this.pulses.group,
       this.debris.mesh,
+      this.explosion.group,
+      this.flashes.group,
+      this.hitPulse.group,
       this.threats.group,
       this.afterimages.group,
     );
@@ -138,10 +153,22 @@ export class GameRenderer {
       this.scene.remove(this.terrain.group);
       this.terrain.dispose();
     }
-    this.terrain = new TerrainView(world.terrain, this.variedBlocks, world.city?.arch ?? null);
+    this.terrain = new TerrainView(
+      world.terrain,
+      this.variedBlocks,
+      world.city?.arch ?? null,
+      this.hitPulse.uniforms,
+    );
     this.scene.add(this.terrain.group);
     for (const [id, model] of this.hunters) this.removeHunter(id, model);
     this.debris.clear();
+    this.explosion.clear();
+    this.flashes.clear();
+    this.hitPulse.clear();
+    this.bolts.clear();
+    this.vortex.clear();
+    this.recoil = 0;
+    this.kick = 0;
     this.afterimages.clear();
     this.threats.clear();
     this.cameraYaw = world.ship.heading;
@@ -164,21 +191,40 @@ export class GameRenderer {
           break;
         case 'shipHit':
           this.debris.burst(e.pos.x, e.pos.y, PALETTE.ship, 12, 10);
+          this.hitPulse.trigger(e.pos.x, e.pos.y);
+          this.flashes.spawn(e.pos.x, 1, e.pos.y, PALETTE.ship, 4, 0.25);
           this.shake = Math.max(this.shake, 0.8);
           break;
         case 'shipDestroyed':
-          this.debris.burst(e.pos.x, e.pos.y, PALETTE.ship, 60, 26);
-          this.shake = 1.5;
+          this.explosion.trigger(e.pos.x, e.pos.y);
+          this.shake = 2;
           break;
         case 'impact':
           this.debris.burst(e.pos.x, e.pos.y, PALETTE.impactZone, 40, 22);
           this.shake = Math.max(this.shake, this.shakeAtDistance(e.pos, 1.2));
           break;
+        case 'boltFired': {
+          const size = e.volley ? 1.9 : 1.4;
+          this.flashes.spawn(e.pos.x, 1, e.pos.y, PALETTE.shipBurst, size, 0.09);
+          this.flashes.spawn(e.pos.x, 1, e.pos.y, PALETTE.ship, size * 1.8, 0.16);
+          this.muzzleSparks(e.pos, e.heading);
+          this.recoil = Math.min(0.9, this.recoil + (e.volley ? 0.45 : 0.35));
+          this.kick = Math.min(1.6, this.kick + (e.volley ? 0.7 : 0.5));
+          this.shake = Math.max(this.shake, e.volley ? 0.3 : 0.2);
+          break;
+        }
+        case 'boltStruck':
+          this.flashes.spawn(e.pos.x, 1, e.pos.y, PALETTE.ship, 1.8, 0.14);
+          this.debris.burst(e.pos.x, e.pos.y, PALETTE.bolt, 10, 14, 0.6);
+          break;
+        case 'boltHit':
+          this.debris.burst(e.pos.x, e.pos.y, PALETTE.bolt, 8, 15, 0.6);
+          break;
         case 'pulseFired':
           this.shake = Math.max(this.shake, 0.2);
           break;
         case 'pulseHit':
-          this.debris.burst(e.pos.x, e.pos.y, PALETTE.shipBurst, 16, 22);
+          this.debris.burst(e.pos.x, e.pos.y, PALETTE.bolt, 16, 22);
           this.shake = Math.max(this.shake, 0.45);
           break;
         case 'sniperFired':
@@ -207,13 +253,16 @@ export class GameRenderer {
     this.elapsed += frameTime;
     this.syncShip(world, frameTime);
     this.syncHunters(world, frameTime);
-    syncShots(this.bolts, world.bolts, this.dummy, true);
+    this.bolts.update(world.bolts, this.camera.position, frameTime);
     this.pulses.update(world.pulses);
     const shells = world.shells.filter((s) => s.radius === undefined);
     const sprays = world.shells.filter((s) => s.radius !== undefined);
     for (const layer of this.shellLayers) syncShots(layer, shells, this.dummy, true);
     for (const layer of this.sprayLayers) syncShots(layer, sprays, this.dummy, true);
     this.debris.update(frameTime);
+    this.explosion.update(frameTime);
+    this.flashes.update(frameTime);
+    this.hitPulse.update(frameTime);
     this.afterimages.update(frameTime);
     this.threats.update(world, frameTime);
     this.terrain?.update(world.pendingChange, frameTime);
@@ -329,6 +378,25 @@ export class GameRenderer {
     return Math.atan2(ahead, right);
   }
 
+  /** A few hot sparks thrown forward out of the barrel. */
+  private muzzleSparks(pos: { x: number; y: number }, heading: number): void {
+    for (let i = 0; i < 5; i++) {
+      const a = heading + (Math.random() - 0.5) * 0.7;
+      const s = 18 + Math.random() * 22;
+      this.debris.emit({
+        x: pos.x,
+        y: 1,
+        z: pos.y,
+        vx: Math.cos(a) * s,
+        vy: 2 + Math.random() * 5,
+        vz: Math.sin(a) * s,
+        color: PALETTE.spark,
+        life: 0.12 + Math.random() * 0.12,
+        size: 0.15 + Math.random() * 0.15,
+      });
+    }
+  }
+
   private shakeAtDistance(pos: { x: number; y: number }, strength: number): number {
     const d = Math.hypot(pos.x - this.camera.position.x, pos.y - this.camera.position.z);
     return strength * Math.max(0, 1 - d / 60);
@@ -339,10 +407,11 @@ export class GameRenderer {
     const root = this.ship.root;
     root.visible =
       !world.over && (ship.invulnerableTime <= 0 || Math.floor(this.elapsed * 16) % 2 === 0);
+    this.recoil *= Math.exp(-14 * frameTime);
     root.position.set(
-      ship.pos.x,
+      ship.pos.x - Math.cos(ship.heading) * this.recoil,
       SHIP_HOVER_HEIGHT + Math.sin(this.elapsed * 6) * 0.08,
-      ship.pos.y,
+      ship.pos.y - Math.sin(ship.heading) * this.recoil,
     );
     const turnRate = frameTime > 0 ? wrapAngle(ship.heading - this.lastHeading) / frameTime : 0;
     this.lastHeading = ship.heading;
@@ -351,12 +420,14 @@ export class GameRenderer {
     const bank = clamp(turnRate * SHIP_BANK.perTurnRate, -SHIP_BANK.max, SHIP_BANK.max);
     root.rotation.x += (bank - root.rotation.x) * (1 - Math.exp(-SHIP_BANK.response * frameTime));
     const bursting = isBursting(ship);
-    this.ship.material.color.setHex(bursting ? PALETTE.shipBurst : PALETTE.ship);
-    this.ship.material.emissive.setHex(bursting ? PALETTE.shipBurst : PALETTE.ship);
-    this.ship.material.emissiveIntensity = shipGlow(ship, this.elapsed);
+    this.vortex.update(ship.pos, ship.heading, bursting && !world.over, frameTime);
+    const speedFraction = speedOf(ship) / SHIP_TOP_SPEED;
+    this.ship.update(
+      { bursting, glow: shipGlow(ship, this.elapsed), speed: Math.min(1, speedFraction) },
+      frameTime,
+    );
     root.scale.set(bursting ? 1.6 : 1, bursting ? 0.7 : 1, bursting ? 0.7 : 1);
     if (ship.sliding && !world.over) this.emitSparks(world, frameTime);
-    const speedFraction = speedOf(ship) / SHIP_TOP_SPEED;
     if (root.visible && (bursting || speedFraction >= SHIP_BLUR.from)) {
       const ramp = clamp((speedFraction - SHIP_BLUR.from) / (1 - SHIP_BLUR.from), 0, 1);
       const strength = bursting ? 1 : SHIP_BLUR.minStrength + (1 - SHIP_BLUR.minStrength) * ramp;
@@ -444,10 +515,12 @@ export class GameRenderer {
 
     this.shake = Math.max(0, this.shake - frameTime * 2.5);
     const jitter = () => (Math.random() - 0.5) * this.shake;
+    this.kick *= Math.exp(-10 * frameTime);
+    const back = CAMERA.distance + this.kick;
     this.camera.position.set(
-      ship.pos.x - fx * CAMERA.distance + jitter(),
+      ship.pos.x - fx * back + jitter(),
       CAMERA.height + jitter(),
-      ship.pos.y - fz * CAMERA.distance + jitter(),
+      ship.pos.y - fz * back + jitter(),
     );
     this.camera.lookAt(ship.pos.x + fx * CAMERA.lookAhead, 1, ship.pos.y + fz * CAMERA.lookAhead);
     this.terrain?.updateOcclusion(
@@ -482,6 +555,8 @@ export class GameRenderer {
     const w = window.innerWidth;
     const h = window.innerHeight;
     this.renderer.setSize(w, h);
+    this.vortex.setResolution(w, h);
+    this.ship.setResolution(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.roster?.setAspect(w / h);
@@ -489,13 +564,14 @@ export class GameRenderer {
 }
 
 /**
- * With the Shotgun in hand the hull dims after each shot and brightens as it reloads, then throbs
- * once ready, so the player can time the next one without looking away from the road.
+ * Brightness of the Ship's edges and engines, 0 to 1. With the Shotgun in hand they dim after each
+ * shot and brighten as it reloads, then throb once ready, so the player can time the next one
+ * without looking away from the road.
  */
 function shipGlow(ship: World['ship'], elapsed: number): number {
-  if (ship.weapon !== 'shotgun') return SHIP_GLOW;
+  if (ship.weapon !== 'shotgun') return 1;
   const ready = 1 - ship.fireCooldown / CONFIG.shotgun.interval;
-  return ready >= 1 ? 0.85 + 0.15 * Math.sin(elapsed * 14) : 0.1 + 0.35 * ready;
+  return ready >= 1 ? 0.85 + 0.15 * Math.sin(elapsed * 14) : 0.1 + 0.5 * ready;
 }
 
 /** `glow` makes the layer additive at that opacity, for halos and trails. */

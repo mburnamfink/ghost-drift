@@ -41,7 +41,7 @@ export class Debris {
   }
 
   /** Throws `count` fragments outward in all directions from a point on the ground. */
-  burst(x: number, z: number, color: number, count: number, speed: number): void {
+  burst(x: number, z: number, color: number, count: number, speed: number, scale = 1): void {
     for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;
       const s = speed * (0.3 + Math.random() * 0.7);
@@ -54,7 +54,7 @@ export class Debris {
         vz: Math.sin(a) * s,
         color,
         life: 0.5 + Math.random() * 0.6,
-        size: 0.3 + Math.random() * 0.6,
+        size: (0.3 + Math.random() * 0.6) * scale,
       });
     }
   }

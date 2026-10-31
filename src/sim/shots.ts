@@ -29,13 +29,20 @@ export function createShot(
 }
 
 /** Moves shots in place, dropping any that expired or struck terrain. */
-export function stepShots(shots: Shot[], terrain: Terrain, dt: number): void {
+export function stepShots(
+  shots: Shot[],
+  terrain: Terrain,
+  dt: number,
+  onStrike?: (s: Shot) => void,
+): void {
   let kept = 0;
   for (const s of shots) {
     s.pos.x += s.vel.x * dt;
     s.pos.y += s.vel.y * dt;
     s.life -= dt;
-    if (s.life > 0 && !terrain.isSolidAt(s.pos)) shots[kept++] = s;
+    if (s.life <= 0) continue;
+    if (terrain.isSolidAt(s.pos)) onStrike?.(s);
+    else shots[kept++] = s;
   }
   shots.length = kept;
 }

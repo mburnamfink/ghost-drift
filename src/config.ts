@@ -78,28 +78,46 @@ export const CONFIG = {
     burstDuration: 0.45,
     burstSpeed: 85,
   },
-  /** Rapid Bolts that bend slightly toward a Hunter near their line of flight. */
+  /**
+   * Heavy Bolts, slow enough to watch, that bend slightly toward a Hunter near their line of
+   * flight. Fired from alternate barrels either side of the nose.
+   */
   cannon: {
-    interval: 0.11,
-    speed: 130,
-    life: 0.9,
-    radius: 0.35,
+    /** Seconds between Bolts once the opening Volley is spent. */
+    interval: 0.28,
+    /** The opening Volley: this many Bolts follow the first at `volleyInterval` seconds apart. */
+    volleyShots: 2,
+    volleyInterval: 0.11,
+    /**
+     * Seconds with the trigger up to refill the whole Volley. Mashing gains Bolts only if the Volley
+     * refills faster than 1 / (interval - volleyInterval) Bolts a second.
+     */
+    volleyRecharge: 1.5,
+    speed: 85,
+    life: 1.4,
+    radius: 0.7,
+    /** Sideways offset of each barrel from the nose. */
+    barrelOffset: 0.55,
     /** Half-angle either side of a Bolt's flight within which it notices a Hunter. */
     homingCone: (6 * Math.PI) / 180,
     /** Fastest a Bolt turns toward its Hunter, radians per second. */
     homingRate: 2.5,
   },
-  /** Slow Pulses that sweep a short, wide arc and destroy every exposed Hunter in it. */
+  /** Slow Pulses that sweep a U round the nose and destroy every exposed Hunter in it. */
   shotgun: {
     interval: 0.6,
+    /** Reach dead ahead of the nose. */
     range: 18,
-    /** Each shot also sweeps an arc off either side of the line of travel, out to this range. */
+    /** Reach square to the nose. */
     sideRange: 10,
+    /** Reach the U would have dead astern; shorter than `sideRange`, so the arms curl in. */
+    backRange: 7,
+    /** How far round from the nose the U's arms run, radians; well past square. */
+    armAngle: 2.45,
     /** Seconds for a Pulse to reach full range. */
     duration: 0.22,
-    /** Seconds a Pulse then holds at full range, riding with the Ship. */
+    /** Seconds a Pulse then holds at full range, drifting on. */
     hold: 0.3,
-    halfAngle: 0.6,
     /** Speed a Pulse shoves a Hunter it hits but does not destroy. */
     knockback: 18,
   },
@@ -190,9 +208,9 @@ export const CONFIG = {
   juggernaut: {
     radius: 3,
     speed: 11,
-    hp: 20,
-    pulseDamage: 5,
-    blastDamage: 8,
+    hp: 10,
+    pulseDamage: 3,
+    blastDamage: 4,
     standoff: 20,
     standoffBand: 6,
     /** Turret traverse in radians per second; circling faster than this outruns its aim. */

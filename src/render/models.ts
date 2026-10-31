@@ -1,35 +1,9 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { CONFIG } from '../config';
 import type { HunterKind } from '../sim/hunters';
 import { PALETTE } from './palette';
 
 /** All models face local +X, matching Heading 0 in the simulation (ADR-0002). */
-
-export function createShipModel(): { root: THREE.Group; material: THREE.MeshStandardMaterial } {
-  const material = new THREE.MeshStandardMaterial({
-    color: PALETTE.ship,
-    emissive: PALETTE.ship,
-    emissiveIntensity: 0.35,
-    flatShading: true,
-  });
-  const r = CONFIG.ship.radius;
-  // A three-sided cone turned so its tip points along +X with one ridge on top and a flat belly.
-  const hullGeometry = new THREE.ConeGeometry(r * 1.1, r * 3, 3)
-    .rotateZ(-Math.PI / 2)
-    .rotateX(-Math.PI / 2)
-    .scale(1, 0.45, 1);
-  const hull = new THREE.Mesh(hullGeometry, material);
-
-  const engineMaterial = new THREE.MeshBasicMaterial({ color: PALETTE.bolt });
-  const engine = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, r * 1.4), engineMaterial);
-  engine.position.x = -r * 1.4;
-
-  const root = new THREE.Group();
-  root.add(hull, engine);
-  root.rotation.order = 'YXZ';
-  return { root, material };
-}
 
 const hunterBodyMaterial = new THREE.MeshStandardMaterial({
   color: PALETTE.hunter,
@@ -59,11 +33,11 @@ export interface HunterModel {
 
 const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
 const turretMesh = (g: THREE.BufferGeometry) => new THREE.Mesh(g, hunterTurretMaterial);
-const merge = (parts: THREE.BufferGeometry[]) =>
+export const merge = (parts: THREE.BufferGeometry[]) =>
   mergeGeometries(parts.map((g) => (g.index ? g.toNonIndexed() : g)));
 
 /** A three-sided cone lying along +X with a ridge on top and a flat belly, like the Ship's hull. */
-const wedge = (radius: number, length: number, height: number) =>
+export const wedge = (radius: number, length: number, height: number) =>
   new THREE.ConeGeometry(radius, length, 3)
     .rotateZ(-Math.PI / 2)
     .rotateX(-Math.PI / 2)

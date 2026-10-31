@@ -159,7 +159,11 @@ One play-through from the first Wave to the Ship's destruction. Endless; ends on
 _Avoid_: Game, session
 
 **Cannon**:
-The Ship's rapid-fire gun. Fires Bolts.
+The Ship's heavy gun. Fires Bolts from alternate barrels: a quick **Volley** when the trigger goes down, then a slower steady beat.
+
+**Volley**:
+The Cannon's opening three quick Bolts. Refills only while the trigger is up, slowly enough that mashing never beats holding.
+_Avoid_: Burst (the Ship's surge)
 
 **Shotgun**:
 The Ship's short-range gun. Fires Pulses.
@@ -168,7 +172,7 @@ The Ship's short-range gun. Fires Pulses.
 A Cannon shot. Bends slightly toward a Hunter near its line of flight.
 
 **Pulse**:
-An arc that sweeps outward from the Ship, rides along with it for a moment, and destroys every Hunter that enters it. Each Shotgun shot fires a long Pulse along the nose and a short one off each side of the line of travel.
+A Shotgun shot: a U-shaped front round the nose, reaching farther ahead than to the sides, that sweeps outward from where the Ship fired it, drifts on at the Ship's velocity of that moment so the Ship can veer away, and destroys every Hunter that enters it.
 _Avoid_: Blast (Artillery's word), wave (a Wave is a round of Hunters)
 
 **Shell**:

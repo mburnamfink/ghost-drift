@@ -3,7 +3,7 @@ import { type Vec2, dot, fromAngle, length } from '../core/vec2';
 import { resolveCircle, slideAlong } from './collision';
 import type { Controls } from './controls';
 import type { Terrain } from './terrain';
-import { type Weapon, fireInterval, nextWeapon } from './weapons';
+import { type Weapon, nextWeapon } from './weapons';
 
 export interface Ship {
   pos: Vec2;
@@ -16,7 +16,14 @@ export interface Ship {
   /** Seconds of post-hit invulnerability remaining. */
   invulnerableTime: number;
   fireCooldown: number;
+  /**
+   * Cannon Bolts left to fire at the opening Volley's quick cadence. Refills only while the gun is
+   * ready and the trigger up, so letting go between shots buys nothing.
+   */
+  cannonVolley: number;
   weapon: Weapon;
+  /** Side of the nose the next Bolt leaves from: -1 left, 1 right. */
+  barrel: -1 | 1;
   sliding: boolean;
 }
 
@@ -30,7 +37,9 @@ export function createShip(pos: Vec2, heading = 0): Ship {
     burstTime: 0,
     invulnerableTime: 0,
     fireCooldown: 0,
+    cannonVolley: CONFIG.cannon.volleyShots,
     weapon: 'cannon',
+    barrel: 1,
     sliding: false,
   };
 }
@@ -45,6 +54,8 @@ export interface ShipStepResult {
   bounced: boolean;
   /** Heading the current weapon fired along this step, if it fired. */
   fired: number | null;
+  /** True if this step's Bolt was part of the Cannon's opening Volley. */
+  volley: boolean;
 }
 
 /** Advances the Ship one fixed step: handling, Burst, firing cadence and terrain collision. */
@@ -55,7 +66,12 @@ export function stepShip(
   dt: number,
 ): ShipStepResult {
   const cfg = CONFIG.ship;
-  const result: ShipStepResult = { burstStarted: false, bounced: false, fired: null };
+  const result: ShipStepResult = {
+    burstStarted: false,
+    bounced: false,
+    fired: null,
+    volley: false,
+  };
 
   ship.invulnerableTime = Math.max(0, ship.invulnerableTime - dt);
   ship.fireCooldown = Math.max(0, ship.fireCooldown - dt);
@@ -122,12 +138,30 @@ export function stepShip(
     if (ship.burstTime === 0) endBurst(ship, terrain, fromAngle(ship.heading));
   }
 
+  const cannon = CONFIG.cannon;
+  if (!controls.fire && ship.fireCooldown === 0)
+    ship.cannonVolley = Math.min(
+      cannon.volleyShots,
+      ship.cannonVolley + (cannon.volleyShots / cannon.volleyRecharge) * dt,
+    );
   if (controls.fire && !bursting && ship.fireCooldown === 0) {
-    ship.fireCooldown = fireInterval(ship.weapon);
+    result.volley = ship.weapon === 'cannon' && ship.cannonVolley >= 1;
+    ship.fireCooldown = nextShotInterval(ship);
     result.fired = ship.heading;
   }
 
   return result;
+}
+
+/**
+ * The Cannon opens with a quick Volley, then settles to a slower cadence until the trigger is let go.
+ * The Volley refills slowly enough that mashing the trigger never beats holding it.
+ */
+function nextShotInterval(ship: Ship): number {
+  if (ship.weapon === 'shotgun') return CONFIG.shotgun.interval;
+  if (ship.cannonVolley < 1) return CONFIG.cannon.interval;
+  ship.cannonVolley--;
+  return CONFIG.cannon.volleyInterval;
 }
 
 function endBurst(ship: Ship, terrain: Terrain, forward: Vec2): void {

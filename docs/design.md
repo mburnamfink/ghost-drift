@@ -6,7 +6,7 @@ Battlezone meets Wipeout. Terms are defined in [CONTEXT.md](../CONTEXT.md); arch
 
 Arcade tone. You are the Ghost: a lone pilot in an experimental hovertank, the last defender of the city of Arcadia against an invading army. Nobody can confirm the Ghost exists, because nothing can track it. The legend grows with every kill, and a Run ends when the Ghost goes down. Inspired by the folk legend of a lone ace; the city and the army are fictional.
 
-On-screen copy carries the premise, all of it in `src/ui/copy.ts`. The title screen rotates five legends (_"One pilot. One city. No backup."_ and others) over a still from the attract loop's Showcase Run: the Ship's Shotgun breaking a Juggernaut with all three Pulses (`src/assets/splash.jpg`). Game over shows one of six messages (_THE GHOST GOES DOWN_, _TOO SLOW_, _SECTOR LOST_…) in the title's angular lettering. Also: Wave banners (_HOLD ARCADIA_, _THEY'RE STILL COMING_, _HEAVY METAL INBOUND_), the Multiplier shown as _GHOST ×N_, demo mode badged _UNCONFIRMED FOOTAGE_, and a legend rank on game over by score: Rumor (0), Sighting (20k), The Ghost (100k), Legend (300k), Myth (1M).
+On-screen copy carries the premise, all of it in `src/ui/copy.ts`. The title screen rotates five legends (_"One pilot. One city. No backup."_ and others) over a still from the attract loop's Showcase Run: a Shotgun Pulse breaking over a Juggernaut (`src/assets/splash.jpg`). When the Hull runs out the Ship blows apart (a white flash, a cyan fireball and shockwave lighting nearby Blocks, hull fragments thrown wide), and 1.6 s later game over shows one of six messages (_THE GHOST GOES DOWN_, _TOO SLOW_, _SECTOR LOST_…) in the title's angular lettering. Also: Wave banners (_HOLD ARCADIA_, _THEY'RE STILL COMING_, _HEAVY METAL INBOUND_), the Multiplier shown as _GHOST ×N_, demo mode badged _UNCONFIRMED FOOTAGE_, and a legend rank on game over by score: Rumor (0), Sighting (20k), The Ghost (100k), Legend (300k), Myth (1M).
 
 ## Main menu
 
@@ -40,9 +40,10 @@ A top-10 table of initials, score and Wave, kept in the browser (`src/scores/`).
   Drift and Speed are judged when the shot is fired, so tapping Powerslide as a shot lands earns nothing, while a slide that ended before its shots landed still counts. Artillery blasts that destroy Hunters score points but add no Heat and never chain (_FRIENDLY FIRE_). Heat burns off at 0.15 + 0.035 × Heat per second while a Wave is live, so ×20 fades about four times faster than ×2 and ×40 about eight times.
 
 - Once a Wave is down to three or fewer Hunters (and at least one has been destroyed), the HUD counts them and pins an arrow to the screen edge on the side of the nearest.
-- Touching a Hunter or a Shell costs one Hull. A short invulnerability window follows each hit.
-- The Ship carries two guns and switches between them at will. The Cannon fires rapid Bolts that bend up to 2.5 rad/s toward a Hunter within 0.2 rad of their flight. The Shotgun fires every 0.6 s: a 70° Pulse along the nose that sweeps out to 18 units in 0.22 s, plus a 70° Pulse square to the line of travel on each side reaching 10 units. The Pulses ride with the Ship and hold at full range for 0.3 s, destroying every Hunter that enters them where no Block shields it, so a Hunter can be driven into the arc ahead, and a Powerslide aims the nose at one target while the sides rake what the Ship glides past. A Hunter caught by two of one shot's Pulses takes one hit. Each hit freezes the game for 45 ms, flashes white and shoves a surviving Juggernaut back; the hull dims after a shot and throbs once the Shotgun is ready again.
+- Touching a Hunter or a Shell costs one Hull. A short invulnerability window follows each hit. A hit throws a cyan ring out across the ground, gone in under half a second, while every grid line flashes and a circular surge races out along the lines from the Ship, far past the ring, settling within 1.25 s.
+- The Ship carries two guns and switches between them at will. The Cannon fires heavy Bolts, slow enough (85 units/s) to watch and walk onto a target, from alternate barrels either side of the nose, drawn as soft plasma glows trailing tapered, shimmering tails; they bend up to 2.5 rad/s toward a Hunter within 0.1 rad of their flight. A Volley of three Bolts 0.12 s apart leaves when the trigger goes down, then one every 0.28 s, about 10 in 2.2 s. The Volley refills over 1.5 s, but only while the trigger is up and the gun ready, so mashing never beats holding. Each Bolt fires with a soft muzzle flash and sparks, a thump, the Ship kicking back and the camera pushed back; a Bolt that hits a Block flares and throws pale-blue sparks, and one that hits a Hunter throws a small pale-blue shatter. The Shotgun fires every 0.6 s: one Pulse, a U round the nose that sweeps out in 0.22 s to 18 units dead ahead and 10 abeam, its arms running back past the Ship and curling in toward it. It keeps the heading it was fired on and drifts on at the Ship's velocity of that moment, so the Ship can shoot and veer away. It draws as a bright, rippling front fading to clear behind, and holds at full range for 0.3 s, destroying every Hunter that enters it where no Block shields it, so a Hunter can be driven into the U. Each hit freezes the game for 45 ms, throws a pale-blue shatter and shoves a surviving Juggernaut back; the Ship's glowing edges and engines dim after a shot and throb once the Shotgun is ready again.
 - Bolts and Pulses destroy Hunters. Killing Hunters scores points and thins the hunt, buying breathing room.
+- A Burst opens a violet wireframe wormhole where it starts: a swirling, gravity-well-shaped tunnel whose axis follows the Ship's actual path, bending with turns and bounces, and narrows to a throat ahead of the nose. It fades in place once the Burst ends.
 - Clearing a Wave restores all Burst Charges and starts the next, larger Wave after a short lull.
 - During the lull, Plots about to Rise glow amber on the floor and Blocks about to Sink are outlined in cyan. The change happens as the next Wave starts.
 - A Run is endless and ends when Hull reaches zero.
@@ -55,7 +56,7 @@ A top-10 table of initials, score and Wave, kept in the browser (`src/scores/`).
 | Berserker  | 2 (max 6)             | No gun. Runs the Ship down faster than any Tank; within 24 it stops and glows for 0.35 s, then lunges straight at where the Ship was                                                                                                                                                                                                                                       | Hesitation at close range                  | Sidestep during the wind-up                           | 1.5×  |
 | Sniper     | 3 (max 5)             | Holds a long-sightline Perch 60–110 away; a thickening red beam and a scope glint track where the Ship will be 0.6 s ahead; on lock both flash white, then an instant shot                                                                                                                                                                                                 | Straight lines, including long Powerslides | Turn after the lock, break line of sight, Burst       | 2.5×  |
 | Artillery  | 5 (max 4)             | Holds a covered Perch ~85 away and fires only within 115; its mortar's mouth glows brighter while reloading and pulses when loaded; three-shell Salvo along the projected path, each landing as its ground circle fills                                                                                                                                                    | Open ground: the Plaza and Avenues         | Speed, or get under the buildings                     | 3×    |
-| Juggernaut | 4, 7, 10… (2 from 13) | Armored mini-boss: 20 armor (Bolt 1, Pulse 5, Artillery blast 8), health bar overhead, flashes when hit. Slow; circles at about 20. Spawns only where no Block stands within 5 cells, if the city has such ground. Its turret traverses only 1.2 rad/s. With a clear shot within 50 its three barrels glow for 0.7 s, then a Spray: 5 large, slow Shells fanned across 50° | Hovering in front of it                    | Circle faster than the turret turns; Shotgun up close | 8×    |
+| Juggernaut | 4, 7, 10… (2 from 13) | Armored mini-boss: 10 armor (Bolt 1, Pulse 3, Artillery blast 4), health bar overhead, flashes when hit. Slow; circles at about 20. Spawns only where no Block stands within 5 cells, if the city has such ground. Its turret traverses only 1.2 rad/s. With a clear shot within 50 its three barrels glow for 0.7 s, then a Spray: 5 large, slow Shells fanned across 50° | Hovering in front of it                    | Circle faster than the turret turns; Shotgun up close | 8×    |
 
 From Wave 4, Tank numbers are cut by a quarter and special Hunters fill the gap. While a Sniper is aimed at the Ship, a red vignette deepens at the screen edges, and LOCKED flashes once it locks.
 
@@ -89,7 +90,7 @@ Lots at least 4 cells on a side may get a compound footprint instead of a rectan
 | Downtown  | rectangle 3, L 2, T 2, U 1, cross 1       |
 | Towers    | rectangle 2, cross 2, L 2, T 2, stepped 1 |
 
-Circuit's loop (7 cells wide) and Hub's spokes (6 wide) are walled on both sides by permanent buildings 2 cells deep, with a 2-cell gate every 10 cells; Hub's spokes get a 3-cell gate every 8 and Raceway's highways a 3-cell gate every 7, so the Layout's shape reads from Wave 1. A dead-end bay is a hazard by design: Burst through it. Each city has one Arch: a bridge between two towers across a road, high enough to fly under. Its towers stand for the whole Run.
+Circuit's loop (7 cells wide), Hub's spokes (6 wide) and Raceway's highways (7 wide) are walled on both sides by permanent buildings 2 cells deep, so the Layout's shape reads from Wave 1. Circuit's inner and outer walls each get 3–5 gates 6–9 cells wide at random points; Hub's spokes get a 3-cell gate every 8 cells, Raceway's highways one every 7. Circuit's city reaches 16 cells past the loop, so its outer gates open onto streets. A dead-end bay is a hazard by design: Burst through it. Each city has one Arch: a bridge between two towers across a road, high enough to fly under. Its towers stand for the whole Run.
 
 Buildings are drawn in assorted shapes (plain, tapered, slanted roof, stepped tiers, split into slabs) picked per Block. The shapes never leave the Block's square footprint, which is what collision uses.
 
@@ -118,19 +119,19 @@ The browser only exposes a controller after a button is pressed with the page fo
 
 ## Palette
 
-| Element                  | Color                               |
-| ------------------------ | ----------------------------------- |
-| Ground                   | near-black blue                     |
-| Blocks                   | muted slate, lighter with height    |
-| Arena wall               | dark violet                         |
-| Ship, Bolts              | cyan                                |
-| Hunters                  | hot orange-red                      |
-| Ship during Burst        | white                               |
-| Tank Shells              | deep orange                         |
-| Powerslide sparks        | pale yellow-white                   |
-| Ghosted Block edges      | pale blue; faces fade to near-clear |
-| Sniper laser             | red, flashing white when locked     |
-| Artillery target circles | orange                              |
+| Element                  | Color                                                              |
+| ------------------------ | ------------------------------------------------------------------ |
+| Ground                   | near-black blue                                                    |
+| Blocks                   | muted slate, lighter with height                                   |
+| Arena wall               | dark violet                                                        |
+| Ship, Bolts              | cyan; the Ship a dark hull traced in cyan edges, with cyan engines |
+| Hunters                  | hot orange-red                                                     |
+| Ship during Burst        | white, inside a violet wireframe wormhole                          |
+| Tank Shells              | deep orange                                                        |
+| Powerslide sparks        | pale yellow-white                                                  |
+| Ghosted Block edges      | pale blue; faces fade to near-clear                                |
+| Sniper laser             | red, flashing white when locked                                    |
+| Artillery target circles | orange                                                             |
 
 ## MVP scope
 

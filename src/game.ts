@@ -12,6 +12,7 @@ import { Minimap } from './ui/minimap';
 import { Autopilot } from './ai/autopilot';
 import { ShowcasePilot, createShowcaseWorld, showcaseDuration } from './ai/showcase';
 import { ROSTER_SECONDS } from './render/rosterScene';
+import { SHIP_EXPLOSION_SECONDS } from './render/shipExplosion';
 import { GAME_OVER_MESSAGES } from './ui/copy';
 import { insertScore, loadScores, rankFor, saveScores } from './scores/highScores';
 import { InitialsEntry } from './scores/initials';
@@ -41,7 +42,12 @@ export interface GameOptions {
   attract?: boolean;
 }
 
-/** Ignore confirm briefly after death so a held fire/burst button doesn't skip the score screen. */
+/** Seconds of the Ship's explosion shown before the game-over screen covers it. */
+const OVER_SCREEN_DELAY = SHIP_EXPLOSION_SECONDS;
+/**
+ * Seconds the game-over screen ignores input once shown, so a held fire/burst button doesn't skip
+ * the score screen.
+ */
 const OVER_INPUT_DELAY = 1;
 /**
  * With this many Hunters or fewer left, and at least one of the Wave already destroyed, the HUD
@@ -197,9 +203,10 @@ export class Game {
         break;
       case 'over': {
         this.overTime += frameTime;
+        const shown = this.overTime - OVER_SCREEN_DELAY;
         if (this.entry) {
           // The press that finishes the initials must not also restart.
-          if (this.overTime > OVER_INPUT_DELAY) this.updateEntry(input);
+          if (shown > OVER_INPUT_DELAY) this.updateEntry(input);
           break;
         }
         if (this.autopilot && (input.confirm || input.back || input.pause)) {
@@ -207,13 +214,13 @@ export class Game {
           break;
         }
         const restart = this.autopilot
-          ? this.overTime > DEMO_RESTART
-          : input.confirm && this.overTime > OVER_INPUT_DELAY;
+          ? shown > DEMO_RESTART
+          : input.confirm && shown > OVER_INPUT_DELAY;
         if (restart) {
           this.world = this.newWorld();
           this.loop.reset();
           this.phase = 'playing';
-        } else if (input.back && this.overTime > OVER_INPUT_DELAY) {
+        } else if (input.back && shown > OVER_INPUT_DELAY) {
           this.quitToTitle();
         }
         break;
@@ -361,6 +368,7 @@ export class Game {
       case 'paused':
         return { kind: 'paused', pad };
       case 'over':
+        if (this.overTime < OVER_SCREEN_DELAY) return { kind: 'none' };
         return {
           kind: 'over',
           pad,

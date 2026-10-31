@@ -9,7 +9,11 @@ export const PALETTE = {
   /** Edge towers: the city grown too dense to enter. */
   edge: 0x3a2258,
   ship: 0x37e8ff,
+  /** The Ship's dark hull, behind its cyan edges and engines. */
+  shipHull: 0x1c2636,
   shipBurst: 0xffffff,
+  /** The wormhole a Burst dives through. */
+  burstVortex: 0xa860ff,
   bolt: 0x9ff6ff,
   hunter: 0xff4a1c,
   hunterTurret: 0xb8300f,

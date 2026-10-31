@@ -3,6 +3,7 @@ import type { Arch, TerrainChange } from '../sim/city';
 import { type Block, type CellRect, type Terrain, partsOf } from '../sim/terrain';
 import { CONFIG } from '../config';
 import { buildingGeometry, compoundGeometry } from './buildingShapes';
+import { GRID_FRAGMENT, GRID_VERTEX, type HitUniforms } from './hitPulse';
 import { PALETTE } from './palette';
 
 const WALL_HEIGHT = 14;
@@ -62,11 +63,13 @@ export class TerrainView {
   /**
    * @param varied Draw Blocks in assorted shapes instead of plain boxes.
    * @param arch The city's Arch, drawn between its towers and sliding with them.
+   * @param hit Lights the grid when the Ship is hit.
    */
   constructor(
     terrain: Terrain,
     private readonly varied = true,
     arch: Arch | null = null,
+    hit?: HitUniforms,
   ) {
     const size = terrain.worldSize;
     const half = size / 2;
@@ -77,7 +80,24 @@ export class TerrainView {
       new THREE.MeshStandardMaterial({ color: PALETTE.ground, roughness: 1 }),
     );
     ground.position.set(half, 0, half);
-    const grid = new THREE.GridHelper(size, terrain.cells, PALETTE.grid, PALETTE.grid);
+    const helper = new THREE.GridHelper(size, terrain.cells, PALETTE.grid, PALETTE.grid);
+    const grid = hit
+      ? new THREE.LineSegments(
+          helper.geometry,
+          new THREE.ShaderMaterial({
+            vertexShader: GRID_VERTEX,
+            fragmentShader: GRID_FRAGMENT,
+            uniforms: {
+              ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
+              uColor: { value: new THREE.Color(PALETTE.grid) },
+              uPulseColor: { value: new THREE.Color(PALETTE.ship) },
+              ...hit,
+            },
+            fog: true,
+          }),
+        )
+      : helper;
+    if (grid !== helper) helper.material.dispose();
     grid.position.set(half, 0.02, half);
     this.group.add(ground, grid);
 

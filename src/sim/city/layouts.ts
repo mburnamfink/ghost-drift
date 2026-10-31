@@ -1,6 +1,6 @@
 import { CONFIG } from '../../config';
 import type { Rng } from '../../core/rng';
-import type { Vec2 } from '../../core/vec2';
+import { type Vec2, wrapAngle } from '../../core/vec2';
 import type { FootprintWeights } from './footprints';
 import type { Rect } from './plan';
 import { type Circle, type Shape, unionDistance } from './shapes';
@@ -225,7 +225,32 @@ function circuit(rng: Rng, cells: number): LayoutSpec {
   const loop: Shape = { kind: 'ring', x: mid, y: mid, rx, ry, width: avenue + 2 };
   const open: Shape[] = [loop, core];
   const plazas: Shape[] = [core];
-  const boundary: Circle[] = [fit({ x: mid, y: mid, r: Math.max(rx, ry) + 9 }, cells)];
+  const boundary: Circle[] = [fit({ x: mid, y: mid, r: Math.max(rx, ry) + 16 }, cells)];
+
+  // A few wide gates through each of the loop's walls, at random, instead of regular narrow ones.
+  const reach = loop.width / 2 + CONFIG.city.lining.depth + 2;
+  for (const side of [-1, 1]) {
+    const angles: number[] = [];
+    const count = 3 + rng.int(3);
+    for (let attempt = 0; attempt < 200 && angles.length < count; attempt++) {
+      const a = rng.range(0, TAU);
+      if (angles.some((b) => Math.abs(wrapAngle(a - b)) < 0.7)) continue;
+      angles.push(a);
+      const x = mid + Math.cos(a) * rx;
+      const y = mid + Math.sin(a) * ry;
+      const nx = Math.cos(a) / rx;
+      const ny = Math.sin(a) / ry;
+      const n = Math.hypot(nx, ny);
+      open.push({
+        kind: 'capsule',
+        ax: x,
+        ay: y,
+        bx: x + (side * reach * nx) / n,
+        by: y + (side * reach * ny) / n,
+        width: rng.range(6, 9),
+      });
+    }
+  }
 
   // Streets across the core, so it can be cut through as well as lapped.
   const cross = rng.range(0, TAU);
@@ -267,6 +292,8 @@ function circuit(rng: Rng, cells: number): LayoutSpec {
     name: 'circuit',
     footprints: FOOTPRINTS.circuit,
     lined: [loop],
+    // Never gated by spacing: the loop's gates are cut as open ground above.
+    liningGates: { gateSpacing: Infinity, gate: 0 },
     open,
     plazas,
     boundary,

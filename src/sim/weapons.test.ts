@@ -52,7 +52,7 @@ describe('Shotgun', () => {
     for (const h of spared) expect(world.hunters).toContain(h);
   });
 
-  it('also sweeps a shorter arc off each side, hitting each Hunter once', () => {
+  it('sweeps a shorter reach off each side, hitting each Hunter once', () => {
     const world = liveWorld();
     world.ship.weapon = 'shotgun';
     const side = CONFIG.shotgun.sideRange;
@@ -62,6 +62,16 @@ describe('Shotgun', () => {
     run(world, CONFIG.shotgun.duration);
     for (const h of near) expect(world.hunters).not.toContain(h);
     for (const h of far) expect(world.hunters).toContain(h);
+  });
+
+  it('leaves no gap between the front and the sides', () => {
+    const world = liveWorld();
+    world.ship.weapon = 'shotgun';
+    const d = 10 / Math.SQRT2;
+    const diagonal = [placeTank(world, 1, d, d), placeTank(world, 2, d, -d)];
+    stepWorld(world, { ...NO_CONTROLS, fire: true }, DT);
+    run(world, CONFIG.shotgun.duration);
+    for (const h of diagonal) expect(world.hunters).not.toContain(h);
   });
 
   it('holds at full range so a Hunter driven into the arc after the sweep is still caught', () => {
@@ -77,17 +87,35 @@ describe('Shotgun', () => {
     expect(world.hunters).not.toContain(ahead);
   });
 
-  it('aims its side arcs square to the line of travel, not the nose', () => {
+  it('aims along the nose, not the line of travel', () => {
     const world = liveWorld();
     world.ship.weapon = 'shotgun';
-    // Sliding east with the nose turned north: the sides face north and south of the travel line.
+    // Sliding east with the nose turned north.
     world.ship.vel = { x: 35, y: 0 };
     world.ship.heading = -Math.PI / 2;
-    const passed = placeTank(world, 1, 8, CONFIG.shotgun.sideRange * 0.6);
+    const nose = placeTank(world, 1, 0, -CONFIG.shotgun.range * 0.5);
+    const travel = placeTank(world, 2, CONFIG.shotgun.range + 6, 0);
     const slide = { ...NO_CONTROLS, slide: true };
     stepWorld(world, { ...slide, fire: true }, DT);
-    run(world, CONFIG.shotgun.duration + CONFIG.shotgun.hold, slide);
-    expect(world.hunters).not.toContain(passed);
+    run(world, CONFIG.shotgun.duration, slide);
+    expect(world.hunters).not.toContain(nose);
+    expect(world.hunters).toContain(travel);
+  });
+
+  it('keeps the line it was fired on while the Ship veers away', () => {
+    const world = liveWorld();
+    world.ship.weapon = 'shotgun';
+    world.ship.vel = { x: 40, y: 0 };
+    // Out of reach until the arc has drifted on along the line it was fired down.
+    const ahead = placeTank(world, 1, CONFIG.shotgun.range + 10, 0);
+    stepWorld(world, { ...NO_CONTROLS, thrust: 1, fire: true }, DT);
+    const headings = world.pulses.map((p) => p.heading);
+    const veer = { ...NO_CONTROLS, thrust: 1, steer: 1 };
+    run(world, CONFIG.shotgun.duration, veer);
+    expect(world.pulses.map((p) => p.heading)).toEqual(headings);
+    run(world, CONFIG.shotgun.hold, veer);
+    expect(world.hunters).not.toContain(ahead);
+    expect(Math.cos(world.ship.heading)).toBeLessThan(0.5);
   });
 
   it('is stopped by Blocks', () => {

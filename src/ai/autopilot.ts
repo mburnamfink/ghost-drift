@@ -5,7 +5,7 @@ import { type Controls, NO_CONTROLS } from '../sim/controls';
 import { FlowField } from '../sim/flowfield';
 import type { Hunter } from '../sim/hunters';
 import { canBeHit, speedOf } from '../sim/ship';
-import type { Weapon } from '../sim/weapons';
+import { type Weapon, pulseReachAt } from '../sim/weapons';
 import type { World } from '../sim/world';
 
 /** Seconds between rebuilds of the route to the current target. */
@@ -161,12 +161,12 @@ function anyInSights(world: World): boolean {
     const d = distance(h.pos, ship.pos);
     if (d > 110) continue;
     const bearing = Math.atan2(h.pos.y - ship.pos.y, h.pos.x - ship.pos.x);
-    const cone = CONFIG.cannon.homingCone + Math.atan2(CONFIG[h.kind].radius, d);
-    const reach = ship.weapon === 'shotgun' ? CONFIG.shotgun.halfAngle : cone;
-    if (
-      Math.abs(wrapAngle(bearing - ship.heading)) < reach &&
-      terrain.hasLineOfSight(ship.pos, h.pos)
-    ) {
+    const off = wrapAngle(bearing - ship.heading);
+    const inReach =
+      ship.weapon === 'shotgun'
+        ? Math.abs(off) < CONFIG.shotgun.armAngle && d < pulseReachAt(off)
+        : Math.abs(off) < CONFIG.cannon.homingCone + Math.atan2(CONFIG[h.kind].radius, d);
+    if (inReach && terrain.hasLineOfSight(ship.pos, h.pos)) {
       return true;
     }
   }

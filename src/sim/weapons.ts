@@ -12,83 +12,67 @@ export const WEAPONS: readonly Weapon[] = ['cannon', 'shotgun'];
 export const nextWeapon = (w: Weapon): Weapon =>
   WEAPONS[(WEAPONS.indexOf(w) + 1) % WEAPONS.length]!;
 
-export const fireInterval = (w: Weapon): number => CONFIG[w].interval;
-
 /**
- * A Shotgun discharge: an arc that sweeps out from the Ship, rides along with it, and holds at full
- * range for a moment so a Hunter driven into it is still caught.
+ * A Shotgun discharge: one U-shaped front that sweeps out from where the Ship fired it, reaching far
+ * ahead of the nose and shorter to either side. It drifts on at the Ship's velocity of that moment
+ * and keeps its line once fired, so the Ship can shoot and veer away; it holds at full range for a
+ * moment so a Hunter driven into it is still caught.
  */
 export interface Pulse {
   origin: Vec2;
+  /** The Ship's velocity when it fired; the front drifts on at this. */
+  vel: Vec2;
   heading: number;
-  /** 0 fires along the nose; -1 and 1 fire square to the line of travel, left and right. */
-  side: -1 | 0 | 1;
-  /** How far it sweeps once fully grown. */
-  range: number;
   age: number;
-  /**
-   * Hunters already damaged by this shot. The Pulses of one shot share the list, so a Hunter caught
-   * by two of them takes one hit.
-   */
+  /** Hunters already damaged by this Pulse, so each takes one hit. */
   hit: number[];
   /** How the Ship was flying when it fired. */
   style: ShotStyle;
 }
 
-/** Below this speed the Ship has no clear line of travel, so side Pulses square to the nose. */
-const TRAVEL_MIN_SPEED = 2;
+export function shotgunBlast(ship: Ship, style: ShotStyle): Pulse {
+  return {
+    origin: { ...ship.pos },
+    vel: { ...ship.vel },
+    heading: ship.heading,
+    age: 0,
+    hit: [],
+    style,
+  };
+}
 
 /**
- * Where a Pulse points: the nose for the forward one, square to the line of travel for the sides,
- * so a Powerslide aims the front at one target while the sides rake what the Ship glides past.
+ * The U's full reach at `off` radians from the nose: two half-ellipses meeting smoothly abeam at
+ * `sideRange`, through `range` ahead and the shorter `backRange` astern, so the arms curl in.
  */
-function pulseHeading(side: Pulse['side'], ship: Ship): number {
-  if (side === 0) return ship.heading;
-  const speed = Math.hypot(ship.vel.x, ship.vel.y);
-  const travel = speed > TRAVEL_MIN_SPEED ? Math.atan2(ship.vel.y, ship.vel.x) : ship.heading;
-  return travel + (side * Math.PI) / 2;
+export function pulseReachAt(off: number): number {
+  const { range, sideRange, backRange } = CONFIG.shotgun;
+  const along = Math.cos(off) >= 0 ? range : backRange;
+  return (along * sideRange) / Math.hypot(sideRange * Math.cos(off), along * Math.sin(off));
 }
 
-/** One Shotgun shot: a long Pulse ahead and a short one off each side, all from the Ship. */
-export function shotgunBlast(ship: Ship, style: ShotStyle): Pulse[] {
-  const { range, sideRange } = CONFIG.shotgun;
-  const hit: number[] = [];
-  return ([0, -1, 1] as const).map((side) => ({
-    origin: { ...ship.pos },
-    heading: pulseHeading(side, ship),
-    side,
-    range: side === 0 ? range : sideRange,
-    age: 0,
-    hit,
-    style,
-  }));
-}
-
-export const pulseRadius = (p: Pulse): number =>
-  Math.min(1, p.age / CONFIG.shotgun.duration) * p.range;
+/** How far the front has grown, 0 to 1. */
+export const pulseGrowth = (p: Pulse): number => Math.min(1, p.age / CONFIG.shotgun.duration);
 
 export const pulseLifetime = (): number => CONFIG.shotgun.duration + CONFIG.shotgun.hold;
 
-/** Ages Pulses and carries them with the Ship, dropping spent ones. */
-export function stepPulses(pulses: Pulse[], ship: Ship, dt: number): void {
+/** Ages Pulses and carries them on at the velocity they were fired with, dropping spent ones. */
+export function stepPulses(pulses: Pulse[], dt: number): void {
   let kept = 0;
   for (const p of pulses) {
     p.age += dt;
-    p.origin = { ...ship.pos };
-    p.heading = pulseHeading(p.side, ship);
+    p.origin = { x: p.origin.x + p.vel.x * dt, y: p.origin.y + p.vel.y * dt };
     if (p.age <= pulseLifetime()) pulses[kept++] = p;
   }
   pulses.length = kept;
 }
 
-/** True if any part of a circle at `pos` lies inside the Pulse's swept arc and terrain does not shield it. */
+/** True if a circle at `pos` lies inside the Pulse's swept U and terrain does not shield it. */
 export function pulseReaches(p: Pulse, pos: Vec2, radius: number, terrain: Terrain): boolean {
   const d = distance(p.origin, pos);
-  if (d - radius > pulseRadius(p)) return false;
-  if (d > radius) {
-    const off = Math.abs(wrapAngle(Math.atan2(pos.y - p.origin.y, pos.x - p.origin.x) - p.heading));
-    if (off > CONFIG.shotgun.halfAngle + Math.asin(radius / d)) return false;
-  }
+  const off = d > 0 ? wrapAngle(Math.atan2(pos.y - p.origin.y, pos.x - p.origin.x) - p.heading) : 0;
+  if (d - radius > pulseGrowth(p) * pulseReachAt(off)) return false;
+  if (d > radius && Math.abs(off) > CONFIG.shotgun.armAngle + Math.asin(radius / d)) return false;
   return terrain.hasLineOfSight(p.origin, pos);
 }
 

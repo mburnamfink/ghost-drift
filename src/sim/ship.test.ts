@@ -116,12 +116,48 @@ describe('Burst', () => {
 });
 
 describe('Firing', () => {
-  it('fires along the heading at the configured cadence', () => {
+  /** Step times at which the Ship fired, over `seconds` of `trigger(t)`. */
+  function shotTimes(seconds: number, trigger: (t: number) => boolean): number[] {
     const ship = center();
-    let shots = 0;
-    for (let t = 0; t < 1; t += DT)
-      if (stepShip(ship, { ...NO_CONTROLS, fire: true }, open, DT).fired !== null) shots++;
-    expect(shots).toBeGreaterThanOrEqual(Math.floor(1 / CONFIG.cannon.interval));
-    expect(shots).toBeLessThanOrEqual(Math.ceil(1 / CONFIG.cannon.interval) + 1);
+    const times: number[] = [];
+    for (let i = 0; i * DT < seconds; i++) {
+      const fire = trigger(i * DT);
+      if (stepShip(ship, { ...NO_CONTROLS, fire }, open, DT).fired !== null) times.push(i * DT);
+    }
+    return times;
+  }
+
+  it('opens with a quick Volley, then settles to the slower cadence', () => {
+    const { volleyShots, volleyInterval, interval } = CONFIG.cannon;
+    const times = shotTimes(2, () => true);
+    const gaps = times.slice(1).map((t, i) => t - times[i]!);
+    for (const g of gaps.slice(0, volleyShots)) expect(g).toBeCloseTo(volleyInterval, 1);
+    for (const g of gaps.slice(volleyShots)) expect(g).toBeGreaterThanOrEqual(interval);
+  });
+
+  it('fires 10 Bolts in about 2.2 seconds of holding the trigger', () => {
+    const times = shotTimes(3, () => true);
+    expect(times[9]).toBeGreaterThan(2);
+    expect(times[9]).toBeLessThan(2.4);
+  });
+
+  it('never fires more by mashing the trigger than by holding it', () => {
+    const held = shotTimes(4, () => true).length;
+    for (const period of [0.08, 0.15, 0.3, 0.6]) {
+      const mashed = shotTimes(4, (t) => t % period < period / 2).length;
+      expect(mashed).toBeLessThanOrEqual(held);
+    }
+  });
+
+  it('refills the Volley once the trigger has been up long enough', () => {
+    const { volleyRecharge, volleyShots, volleyInterval } = CONFIG.cannon;
+    const release = 2;
+    const times = shotTimes(
+      release + volleyRecharge + 0.5,
+      (t) => t < 1 || t > release + volleyRecharge,
+    );
+    const again = times.filter((t) => t > release + volleyRecharge);
+    const gaps = again.slice(1, volleyShots + 1).map((t, i) => t - again[i]!);
+    for (const g of gaps) expect(g).toBeCloseTo(volleyInterval, 1);
   });
 });
